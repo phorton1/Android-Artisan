@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent">
+
+    <!-- The content_with_image container consists of the image -->
+    <!-- and a subcontainer to the right -->
+
+    <LinearLayout
+        android:id="@+id/content_with_image"
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="170dp">
+
+        <ImageView
+            android:id="@+id/content_image"
+            android:layout_width="150dp"
+            android:layout_height="150dp"
+            android:padding="0dp"
+            android:src="@drawable/artisan"
+            android:layout_margin="5dp" />
+
+
+        <!-- The content container contains the lines of text -->
+        <!-- the slider bar, and it's labels -->
+
+        <LinearLayout
+            android:id="@+id/content"
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginLeft="6dp">
+
+            <TextView
+                android:id="@+id/content_songtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop='6dp'
+                android:textSize="22dp"
+                android:textColor="#ffffff"
+                android:textStyle="bold"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:text="Some Really Cool Song" />
+
+            <TextView
+                android:id="@+id/content_artistname"
+                android:textColor="#ffffff"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:textSize="16dp"
+                android:text="Bob and The Bitchens" />
+
+            <TextView
+                android:id="@+id/content_albumname"
+                android:textColor="#ffffff"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop='10dp'
+                android:textStyle="bold"
+                android:textSize="18dp"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:text="A Night With Bob Bitchen" />
+
+            <TextView
+                android:id="@+id/content_trackinfo"
+                android:textColor="#ffffff"
+                android:layout_width="match_parent"
+                android:layout_marginBottom='14dp'
+                android:layout_height="16dp"
+                android:textSize="14dp"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:text="Track 01    JAZZ | ROCK       1996" />
+
+            <SeekBar
+                android:id="@+id/track_position_slider"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <!-- the little labels under the slider -->
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="20dp"
+                android:layout_marginTop="-6dp"
+                android:layout_marginLeft="10dp">
+
+                <TextView
+                    android:id="@+id/track_elapsed"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="left"
+                    android:textColor="#ffffff"
+                    android:textSize="12dp"
+                    android:text="1:23" />
+                <TextView
+                    android:id="@+id/track_type"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:textAlignment="center"
+                    android:textSize="12dp"
+                    android:layout_centerInParent="true"
+                    android:textColor="#ffffff"
+                    android:text="MP3" />
+                <TextView
+                    android:id="@+id/track_duration"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="right"
+                    android:layout_marginRight="16dp"
+                    android:layout_alignParentRight="true"
+                    android:textSize="12dp"
+                    android:textColor="#ffffff"
+                    android:text="4:23" />
+
+            </RelativeLayout>  <!-- end of the little slider labels -->
+
+        </LinearLayout>     <!-- end of the content container -->
+
+    </LinearLayout>     <!-- end of the content_with_image container -->
+
+    <!-- BEGIN CONTROLS -->
+    <!-- There are two rows of controls -->
+
+    <LinearLayout
+        android:id="@+id/controls"
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!-- First Row of Controls -->
+
+        <LinearLayout
+            android:id="@+id/first_row_controls"
+            android:orientation="horizontal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center">
+
+            <Button
+                android:id="@+id/button_vol"
+                android:layout_width="70dp"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="14dp"
+                android:text="Vol" />
+
+            <ImageButton
+                android:id="@+id/button_prev"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="14dp"
+                android:enabled="false"
+                android:src="@android:drawable/ic_media_rew" />
+
+            <ImageButton
+                android:id="@+id/button_play_pause"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="14dp"
+                android:src="@android:drawable/ic_media_play" />
+
+            <ImageButton
+                android:id="@+id/button_stop"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="14dp"
+                android:src="@drawable/my_ic_media_stop" />
+
+            <ImageButton
+                android:id="@+id/button_next"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="14dp"
+                android:src="@android:drawable/ic_media_ff" />
+
+        </LinearLayout>
+
+        <!-- Second Row of Controls -->
+        <HorizontalScrollView
+            android:layout_width="440dp"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:id="@+id/title_horizontalScrollView"
+            android:layout_margin="1dp"
+            android:layout_marginLeft="60dp"
+            android:layout_marginRight="60dp"
+            android:layout_gravity="center"
+            android:fillViewport="false">
+
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                >
+
+                <GridView
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/horizontal_gridView"
+                    android:layout_gravity="center"
+                    />
+            </LinearLayout>
+        </HorizontalScrollView>
+
+    </LinearLayout>
+
+</LinearLayout>
