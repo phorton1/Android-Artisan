@@ -13,27 +13,43 @@ import prh.artisan.Artisan;
 import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.server.HTTPServer;
+import prh.server.httpRequestHandler;
 import prh.utils.DlnaUtils;
 
 
-public class OpenTime implements OpenEventHandler
+public class OpenTime extends httpRequestHandler implements UpnpEventHandler
 {
     private Artisan artisan;
     private HTTPServer http_server;
+    private String urn;
 
-    public OpenTime(Artisan ma, HTTPServer http)
+    public OpenTime(Artisan ma, HTTPServer http, String the_urn)
     {
         artisan = ma;
         http_server = http;
+        urn = the_urn;
     }
 
 
-    public NanoHTTPD.Response timeAction(
+    public void start()
+    {
+        http_server.getEventManager().RegisterHandler(this);
+    }
+
+    public void stop()
+    {
+        http_server.getEventManager().UnRegisterHandler(this);
+    }
+
+
+
+    public NanoHTTPD.Response response(
+        NanoHTTPD.IHTTPSession session,
         NanoHTTPD.Response response,
-        Document doc,
-        String urn,
+        String unused_uri,
         String service,
-        String action)
+        String action,
+        Document doc)
     {
         if (action.equals("Time"))
         {
@@ -58,7 +74,7 @@ public class OpenTime implements OpenEventHandler
     UpdateCounter update_counter = new UpdateCounter();
     public int getUpdateCount()  { return update_counter.get_update_count(); }
     public int incUpdateCount()  { return update_counter.inc_update_count(); }
-    public String eventHandlerName() { return "Time"; };
+    public String getName() { return "Time"; };
 
     public String getEventContent()
     {

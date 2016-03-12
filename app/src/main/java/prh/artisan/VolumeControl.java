@@ -141,7 +141,7 @@ public class VolumeControl extends Dialog implements
     // renderer Event Handling
     //---------------------------------------------------
 
-    public void handleEvent(String action, Object data)
+    public void handleArtisanEvent(String action,Object data)
     {
         if (action.equals(EventHandler.EVENT_VOLUME_CONFIG_CHANGED))
         {

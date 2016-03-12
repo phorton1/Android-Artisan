@@ -25,13 +25,18 @@ public class AVTransport extends httpRequestHandler
 
     private Artisan artisan;
     private HTTPServer http_server;
+    private String urn;
 
-    public AVTransport(HTTPServer http, Artisan ma)
+    public AVTransport(Artisan ma,HTTPServer http,String the_urn )
     {
         artisan = ma;
         http_server = http;
+        urn = the_urn;
     }
 
+
+    // not a UpnpEventHandler (yet)
+    // so there are no start() or stop() methods
 
     //-----------------------------------------------------------
     // control_response (Actions)
@@ -41,8 +46,7 @@ public class AVTransport extends httpRequestHandler
     public NanoHTTPD.Response response(
             NanoHTTPD.IHTTPSession session,
             NanoHTTPD.Response response,
-            String uri,
-            String urn,
+            String unused_uri,
             String service,
             String action,
             Document doc )
@@ -50,10 +54,7 @@ public class AVTransport extends httpRequestHandler
         // Only handles actions, expects doc != null, and never looks at uri
         // All actions get, and ignore, an InstanceID parameter
 
-        if (!uri.equals("control"))
-            return response;
-
-        HashMap<String,String> hash = new HashMap<String,String>();
+       HashMap<String,String> hash = new HashMap<String,String>();
         Renderer renderer = artisan.getRenderer();
 
         if (action.equals("GetDeviceCapabilities"))

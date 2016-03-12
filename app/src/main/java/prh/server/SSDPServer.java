@@ -651,8 +651,8 @@ public class SSDPServer implements Runnable
                 "<serviceType>urn:av-openhome-org:service:" + service + ":1</serviceType>\r\n" +
                 "<serviceId>urn:av-openhome-org:service:" + service + "</serviceId>\r\n" +
                 "<SCPDURL>/service/OpenHome_" + service + "1.xml</SCPDURL>\r\n" +
-                "<controlURL>/Open" + service + "/control</controlURL>\r\n" +
-                "<eventSubURL>/Open" + service + "/event</eventSubURL>\r\n" +
+                "<controlURL>/" + service + "/control</controlURL>\r\n" +
+                "<eventSubURL>/" + service + "/event</eventSubURL>\r\n" +
                 "</service>\r\n";
         }
 

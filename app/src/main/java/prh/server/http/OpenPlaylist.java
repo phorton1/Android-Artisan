@@ -4,8 +4,6 @@
 
 package prh.server.http;
 
-import android.app.usage.UsageEvents;
-
 import org.w3c.dom.Document;
 
 import java.util.HashMap;
@@ -20,11 +18,12 @@ import prh.artisan.PlaylistSource;
 import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.server.HTTPServer;
+import prh.server.httpRequestHandler;
 import prh.utils.DlnaUtils;
 import prh.utils.Utils;
 
 
-public class OpenPlaylist implements OpenEventHandler
+public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandler
 {
     private static int dbg_playlist = 0;
 
@@ -38,68 +37,35 @@ public class OpenPlaylist implements OpenEventHandler
 
     private Artisan artisan;
     private HTTPServer http_server;
-    private OpenHomeServer open_home;
+    private String urn;
 
-    public OpenPlaylist(Artisan ma, HTTPServer http, OpenHomeServer oh)
+    public OpenPlaylist(Artisan ma, HTTPServer http, String the_urn)
     {
         artisan = ma;
         http_server = http;
-        open_home = oh;
+        urn = the_urn;
     }
 
-    public Playlist getRendererPlaylist()
-        // set a point to the open home object
-        // into the playlist for open home management.
-        // It will be cleared upon playlist stop()
+
+    public void start()
     {
-        Renderer renderer = artisan.getRenderer();
-        Playlist playlist = renderer==null ? null : renderer.getPlaylist();
-        if (playlist == null)
-        {
-            Utils.error("unexpected Renderer without a playlist");
-        }
-        else
-        {
-            playlist.setOpenHome(open_home);
-        }
-        return playlist;
+        http_server.getEventManager().RegisterHandler(this);
     }
 
-
-    // Utilities
-
-    public NanoHTTPD.Response error_response(HTTPServer server, int error, int data)
+    public void stop()
     {
-        String msg = "ERROR " + error;
-        NanoHTTPD.Response.IStatus status = NanoHTTPD.Response.Status.BAD_REQUEST;
-
-        if (error == 800)
-        {
-            msg += " - item(" + data + ") not found";
-            status = NanoHTTPD.Response.Status.BAD_PARAMETER;
-        }
-        if (error == 801)
-        {
-            msg += " - Playlist Full";
-            status = NanoHTTPD.Response.Status.RESOURCES_EXHAUSTED;
-       }
-        Utils.error(msg);
-        NanoHTTPD.Response response = server.newFixedLengthResponse(
-            status,NanoHTTPD.MIME_PLAINTEXT,msg);
-        return response;
+        http_server.getEventManager().UnRegisterHandler(this);
     }
 
 
-    //--------------------------------------------------------
-    // actions
-    //--------------------------------------------------------
 
-    public NanoHTTPD.Response playlistAction(
+    public NanoHTTPD.Response response(
+        NanoHTTPD.IHTTPSession session,
         NanoHTTPD.Response response,
-        Document doc,
-        String urn,
+        String unused_uri,
         String service,
-        String action)
+        String action,
+        Document doc)
     {
         boolean ok = true;
         boolean changed = false;
@@ -172,9 +138,9 @@ public class OpenPlaylist implements OpenEventHandler
 
         else if (action.equals("DeleteAll"))
         {
-            Playlist pl = new LocalPlaylist(null,"");
-            pl.setOpenHome(open_home);
-            renderer.setPlaylist(pl);
+            Playlist playlist = new LocalPlaylist();
+            playlist.setUpnpEventManager(http_server.getEventManager());
+            renderer.setPlaylist(playlist);
             changed = true;
         }
         else if (action.equals("DeleteId"))
@@ -191,38 +157,40 @@ public class OpenPlaylist implements OpenEventHandler
             // Reports a 800 fault code if AfterId is not 0 and doesn’t appear in the playlist.
             // Reports a 801 fault code if the playlist is full (i.e. already contains TracksMax tracks).
             int after_id = DlnaUtils.getXMLInt(doc,"AfterId",true);
-            String uri = DlnaUtils.getXMLString(doc,"Uri",true);
-            String data = DlnaUtils.getXMLString(doc,"Metadata",true);
+            String content_uri = DlnaUtils.getXMLString(doc,"Uri",true);
+            String content_data = DlnaUtils.getXMLString(doc,"Metadata",true);
             Utils.log(0,0,"after_id=" + after_id);
-            Utils.log(0,0,"uri=" + uri);
-            Utils.log(0,0,"data=" + data);
+            Utils.log(0,0,"uri=" + content_uri);
+            Utils.log(0,0,"data=" + content_data);
 
             // an attempt to "insert" a playlist will result from it being selected
             // from the "select_playlist" virtual folder, so we jam the playlist
             // into the renderer here, and let the return value be what it is
 
             String pattern = Utils.server_uri + "/dlna_server/select_playlist/";
-            if (uri.startsWith(pattern))
+            if (content_uri.startsWith(pattern))
             {
-                String name = uri.replace(pattern,"");
+                String name = content_uri.replace(pattern,"");
                 name = name.replace(".mp3","");
                 Utils.log(0,0,"SELECTING PLAYLIST via Playlist Insert action");
                 PlaylistSource source = renderer.getPlaylistSource();
                 Playlist playlist = source.getPlaylist(name);
-                playlist.setOpenHome(open_home);
+
+                playlist.setUpnpEventManager(http_server.getEventManager());
+
                 renderer.setPlaylist(playlist);
                 hash.put("NewId","0");
             }
             else    // real playlist insert
             {
                 int save_index = list.getCurrentIndex();
-                Track track = list.insertTrack(after_id,uri,data);
+                Track track = list.insertTrack(after_id,content_uri,content_data);
                 if (track == null)
                     return error_response(http_server,800,after_id);
                 if (save_index != list.getCurrentIndex() ||
                     save_index == track.getPosition())
                 {
-                    artisan.handleEvent(EventHandler.EVENT_TRACK_CHANGED,track);
+                    artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
                 }
                 hash.put("NewId",Integer.toString(track.getOpenId()));
             }
@@ -259,7 +227,7 @@ public class OpenPlaylist implements OpenEventHandler
             {
                 Track track = list.seekByOpenId(open_id);
                 Utils.log(0,0,"after list.seekByOpenId() track_index=" + list.getCurrentIndex());
-                artisan.handleEvent(EventHandler.EVENT_TRACK_CHANGED,track);
+                artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
                 if (track == null)
                     return error_response(http_server,800,open_id);
                 renderer.play();
@@ -273,7 +241,7 @@ public class OpenPlaylist implements OpenEventHandler
             {
                 Track track = list.seekByIndex(index);
                 Utils.log(0,0,"after list.seekByIndex() track_index=" + list.getCurrentIndex());
-                artisan.handleEvent(EventHandler.EVENT_TRACK_CHANGED,track);
+                artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
                 if (track == null)
                     return error_response(http_server,800,index);
                 renderer.play();
@@ -350,8 +318,9 @@ public class OpenPlaylist implements OpenEventHandler
     }
 
 
+
     //---------------------------------------
-    // common to actions and events
+    // utilities
     //---------------------------------------
 
     private static String getProtocolInfo()
@@ -369,6 +338,49 @@ public class OpenPlaylist implements OpenEventHandler
     };
 
 
+    public Playlist getRendererPlaylist()
+    // set a point to the open home object
+    // into the playlist for open home management.
+    // It will be cleared upon playlist stop()
+    {
+        Renderer renderer = artisan.getRenderer();
+        Playlist playlist = renderer==null ? null : renderer.getPlaylist();
+        if (playlist == null)
+        {
+            Utils.error("unexpected Renderer without a playlist");
+        }
+        else
+        {
+            playlist.setUpnpEventManager(http_server.getEventManager());
+        }
+        return playlist;
+    }
+
+
+
+    private NanoHTTPD.Response error_response(HTTPServer server, int error, int data)
+    {
+        String msg = "ERROR " + error;
+        NanoHTTPD.Response.IStatus status = NanoHTTPD.Response.Status.BAD_REQUEST;
+
+        if (error == 800)
+        {
+            msg += " - item(" + data + ") not found";
+            status = NanoHTTPD.Response.Status.BAD_PARAMETER;
+        }
+        if (error == 801)
+        {
+            msg += " - Playlist Full";
+            status = NanoHTTPD.Response.Status.RESOURCES_EXHAUSTED;
+        }
+        Utils.error(msg);
+        NanoHTTPD.Response response = server.newFixedLengthResponse(
+            status,NanoHTTPD.MIME_PLAINTEXT,msg);
+        return response;
+    }
+
+
+
 
     //----------------------------------------
     // Event Dispatching
@@ -377,7 +389,7 @@ public class OpenPlaylist implements OpenEventHandler
     UpdateCounter update_counter = new UpdateCounter();
     public int getUpdateCount()  { return update_counter.get_update_count(); }
     public int incUpdateCount()  { return update_counter.inc_update_count(); }
-    public String eventHandlerName() { return "Playlist"; };
+    public String getName() { return "Playlist"; };
 
     String DLNAStateToOpenHomeState(String dlna_state)
     {

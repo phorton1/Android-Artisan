@@ -7,9 +7,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.provider.Settings;
 
-import prh.artisan.Artisan;
-import prh.artisan.Renderer;
-import prh.artisan.Volume;
 import prh.server.LocalVolumeFixer;
 import prh.utils.Utils;
 
@@ -214,7 +211,7 @@ public class LocalVolume extends Volume
             last_values = old_values;
             last_values[idx] = new_value;
 
-            artisan.handleEvent(EventHandler.EVENT_VOLUME_CHANGED,this);
+            artisan.handleArtisanEvent(EventHandler.EVENT_VOLUME_CHANGED,this);
         }
     }
 
@@ -248,7 +245,7 @@ public class LocalVolume extends Volume
             if (changed)
             {
                 last_values = values;
-                artisan.handleEvent(EventHandler.EVENT_VOLUME_CHANGED,m_this);
+                artisan.handleArtisanEvent(EventHandler.EVENT_VOLUME_CHANGED,m_this);
             }
 
             refresh_handler.postDelayed(this,REFRESH_TIME);

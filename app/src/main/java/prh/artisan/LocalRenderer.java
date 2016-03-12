@@ -28,10 +28,6 @@ import android.net.Uri;
 import android.os.Handler;
 import android.widget.Toast;
 
-import prh.artisan.Artisan;
-import prh.artisan.Playlist;
-import prh.artisan.Renderer;
-import prh.artisan.Track;
 import prh.device.Device;
 import prh.utils.Utils;
 
@@ -103,7 +99,7 @@ public class LocalRenderer extends Renderer implements
         // on transitions, and updated in updateState()
 
     private Track current_track = null;
-    private Playlist current_playlist = new LocalPlaylist(null,"");
+    private Playlist current_playlist = new LocalPlaylist();
     private PlaylistSource current_playlist_source = null;
         // what's playing, or playable
 
@@ -139,7 +135,7 @@ public class LocalRenderer extends Renderer implements
 
         local_volume = new LocalVolume(artisan);
         local_volume.start();
-        artisan.handleEvent(EventHandler.EVENT_VOLUME_CONFIG_CHANGED,local_volume);
+        artisan.handleArtisanEvent(EventHandler.EVENT_VOLUME_CONFIG_CHANGED,local_volume);
 
         media_player = new MediaPlayer();
         media_player.setAudioStreamType(AudioManager.STREAM_MUSIC);
@@ -196,7 +192,7 @@ public class LocalRenderer extends Renderer implements
         // We are responsible for sending out the
         // null VOLUME_CONFIG_CHANGED message
 
-        artisan.handleEvent(EventHandler.EVENT_VOLUME_CONFIG_CHANGED,local_volume);
+        artisan.handleArtisanEvent(EventHandler.EVENT_VOLUME_CONFIG_CHANGED,local_volume);
 
         Utils.log(0,0,"LocalRenderer stopped");
     }
@@ -248,9 +244,9 @@ public class LocalRenderer extends Renderer implements
             Utils.log(dbg_ren,0,"setTrack(" + track.getTitle() + ") interrupt=" + interrupt_playlist);
             // stop();
             if (interrupt_playlist)
-                current_playlist = new LocalPlaylist(null,"");
+                current_playlist = new LocalPlaylist();
             current_track = track;
-            artisan.handleEvent(EventHandler.EVENT_TRACK_CHANGED,track);
+            artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
             play();
         }
     }
@@ -268,11 +264,11 @@ public class LocalRenderer extends Renderer implements
         stop();
         current_track = null;
         current_playlist = playlist != null ? playlist :
-            new LocalPlaylist(null,"");
+            new LocalPlaylist();
 
         // if (current_playlist != null)
             current_playlist.start();
-        artisan.handleEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
+        artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
         // if (current_playlist != null)
         {
             Utils.log(1,1,"setPlaylist() calling incAndPlay(0)");
@@ -312,7 +308,7 @@ public class LocalRenderer extends Renderer implements
         if (track == null)
             stop();
 
-        artisan.handleEvent(EventHandler.EVENT_TRACK_CHANGED,track);
+        artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
     }
 
 
@@ -323,7 +319,7 @@ public class LocalRenderer extends Renderer implements
             mp_state != MP_STATE_STOPPED &&
             mp_state != MP_STATE_INITIALIZED)
         {
-            artisan.handleEvent(EventHandler.EVENT_POSITION_CHANGED,new Integer(position));
+            artisan.handleArtisanEvent(EventHandler.EVENT_POSITION_CHANGED,new Integer(position));
             media_player.seekTo(position);
         }
     }
@@ -421,7 +417,7 @@ public class LocalRenderer extends Renderer implements
     {
         renderer_state = to_state;
         Utils.log(0,0,renderer_state);
-        artisan.handleEvent(EventHandler.EVENT_STATE_CHANGED,renderer_state);
+        artisan.handleArtisanEvent(EventHandler.EVENT_STATE_CHANGED,renderer_state);
     }
 
 
@@ -573,13 +569,13 @@ public class LocalRenderer extends Renderer implements
             if (last_position != song_position / 100)
             {
                 last_position = song_position / 100;
-                artisan.handleEvent(EventHandler.EVENT_POSITION_CHANGED,new Integer(song_position));
+                artisan.handleArtisanEvent(EventHandler.EVENT_POSITION_CHANGED,new Integer(song_position));
             }
 
             // dispatch any open home events
             // and re-call ourselves ourselves
 
-            artisan.handleEvent(EventHandler.EVENT_IDLE,null);
+            artisan.handleArtisanEvent(EventHandler.EVENT_IDLE,null);
             refresh_handler.postDelayed(this,REFRESH_INTERVAL);
 
         }   // updateState.run()

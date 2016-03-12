@@ -1,22 +1,9 @@
 package prh.device;
 
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
-
-import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.MulticastSocket;
-import java.net.SocketTimeoutException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 
 import prh.artisan.Artisan;
 import prh.artisan.EventHandler;
-import prh.server.SSDPServer;
 import prh.utils.Utils;
 
 
@@ -32,7 +19,7 @@ public class DeviceManager
     // Pointers to devices and services are invalid after stop()
     //
     // When Devices and Services are loaded, or found during the scan,
-    // Artisan is notified about each one via handleEvent(EVENT_NEW_DEVICE,Device).
+    // Artisan is notified about each one via handleArtisanEvent(EVENT_NEW_DEVICE,Device).
     // They are not automatically started().
     //
     // It is up to Artisan to maintain the notion of a currently
@@ -152,7 +139,7 @@ public class DeviceManager
 
             // Notify Artisan of the new device
 
-            artisan.handleEvent(EventHandler.EVENT_NEW_DEVICE,device);
+            artisan.handleArtisanEvent(EventHandler.EVENT_NEW_DEVICE,device);
 
         }
     }

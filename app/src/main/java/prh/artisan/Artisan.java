@@ -1,13 +1,10 @@
 package prh.artisan;
 
-import android.app.Activity;
-import android.app.usage.UsageEvents;
 import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
@@ -29,6 +26,7 @@ import prh.server.HTTPServer;
 import prh.server.LocalVolumeFixer;
 import prh.server.SSDPServer;
 import prh.utils.Utils;
+
 
 
 public class Artisan extends FragmentActivity implements
@@ -178,7 +176,7 @@ public class Artisan extends FragmentActivity implements
         if (library != null)
         {
             Utils.log(0,0,"Local Library created ");
-            handleEvent(EventHandler.EVENT_LIBRARY_CHANGED,library);
+            handleArtisanEvent(EventHandler.EVENT_LIBRARY_CHANGED,library);
         }
         else
             Utils.warning(0,0,"Local Library not created");
@@ -187,7 +185,7 @@ public class Artisan extends FragmentActivity implements
         {
             Utils.log(0,0,"Local Renderer created ");
             renderer.startRenderer();
-            handleEvent(EventHandler.EVENT_RENDERER_CHANGED,renderer);
+            handleArtisanEvent(EventHandler.EVENT_RENDERER_CHANGED,renderer);
         }
         else
             Utils.warning(0,0,"Local Renderer not created");
@@ -211,13 +209,14 @@ public class Artisan extends FragmentActivity implements
                 try
                 {
                     http_server = new HTTPServer(this);
-                    http_server.start();
                 }
                 catch (Exception e)
                 {
                     Utils.error("Error starting http_server:" + e.toString());
                     http_server = null;
                 }
+
+                http_server.start();
 
                 // The ssdp server can be owned by, and started from the http server to make
                 // sure that the http server is properly setup before allowing any requests
@@ -235,7 +234,7 @@ public class Artisan extends FragmentActivity implements
 
 
         // 5 = finally, construct the DeviceManager and do an SSDP Search
-        // we will be called back via handleEvent() for any Devices
+        // we will be called back via handleArtisanEvent() for any Devices
         // in the cache, or found in the SSDP Search.
 
         device_manager = new DeviceManager(this);
@@ -479,74 +478,9 @@ public class Artisan extends FragmentActivity implements
             if (renderer != null)
                 renderer.setPlaylist(playlist);
             else
-                aPlaying.handleEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
+                aPlaying.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
         }
    }
-
-
-
-    public void handleEvent(final String action,final Object data)
-        // run on UI async task to pass events to UI clients
-    {
-        if (!action.equals(EventHandler.EVENT_POSITION_CHANGED))
-            Utils.log(1,0,"artisan.handleRendererEvent(" + action + ")");
-
-        runOnUiThread(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-
-                if (!action.equals(EventHandler.EVENT_POSITION_CHANGED) &&
-                    !action.equals(EventHandler.EVENT_IDLE))
-                    Utils.log(0,0,"----> " + action);
-
-                if (volume_control != null &&
-                    volume_control.isShowing() &&
-                    (action.equals(EventHandler.EVENT_VOLUME_CHANGED) ||
-                     action.equals(EventHandler.EVENT_VOLUME_CONFIG_CHANGED)))
-                {
-                    volume_control.handleEvent(action,data);
-                }
-
-                // dispatch open home events if IDL
-
-                if (action.equals(EventHandler.EVENT_IDLE))
-                {
-                    if (http_server != null)
-                        http_server.sendOpenHomeEvents();
-                }
-
-                // send all non-IDLE events to the aPlaying window
-
-                else if (aPlaying != null && aPlaying.getView() != null)
-                {
-                    // most EVENTS have associcated possible
-                    // openHome event senders that need to be bumped
-
-                    if (http_server != null)
-                    {
-                        if (action.equals(EventHandler.EVENT_STATE_CHANGED) ||
-                            action.equals(EventHandler.EVENT_PLAYLIST_CHANGED))
-                            http_server.incUpdateCount("Playlist");
-
-                        if (action.equals(EventHandler.EVENT_TRACK_CHANGED))
-                            http_server.incUpdateCount("Info");
-
-                        if (action.equals(EventHandler.EVENT_POSITION_CHANGED))
-                            http_server.incUpdateCount("Time");
-
-                        if (action.equals(EventHandler.EVENT_VOLUME_CHANGED))
-                            http_server.incUpdateCount("Volume");
-
-                    }
-
-                    aPlaying.handleEvent(action,data);
-                }
-
-            }
-        });
-    }
 
 
     public void doVolumeControl()
@@ -596,6 +530,57 @@ public class Artisan extends FragmentActivity implements
                 break;
         }
     }
+
+
+    //---------------------------------------------------------------------
+    // EVENT HANDLING
+    //---------------------------------------------------------------------
+
+
+
+    public void handleArtisanEvent(final String action,final Object data)
+    // run on UI async task to pass events to UI clients
+    {
+        if (!action.equals(EventHandler.EVENT_POSITION_CHANGED))
+            Utils.log(1,0,"artisan.handleRendererEvent(" + action + ")");
+
+        runOnUiThread(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+
+                if (!action.equals(EventHandler.EVENT_POSITION_CHANGED) &&
+                    !action.equals(EventHandler.EVENT_IDLE))
+                    Utils.log(0,0,"----> " + action);
+
+
+                // selective dispatch to the volumeControl only if it's showing
+
+                if (volume_control != null &&
+                    volume_control.isShowing() &&
+                    (action.equals(EventHandler.EVENT_VOLUME_CHANGED) ||
+                        action.equals(EventHandler.EVENT_VOLUME_CONFIG_CHANGED)))
+                {
+                    volume_control.handleArtisanEvent(action,data);
+                }
+
+                // send all events to all known event handlers
+
+                else
+                {
+
+                    if (aPlaying != null && aPlaying.getView() != null)
+                        aPlaying.handleArtisanEvent(action,data);
+
+                    if (http_server != null)
+                        http_server.handleArtisanEvent(action,data);
+                }
+
+            }   // run()
+        }); // runOnUiThread()
+    }   // handleArtisanEvent()
+
 
 
 }   // class Artisan

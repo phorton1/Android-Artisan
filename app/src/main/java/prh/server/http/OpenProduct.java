@@ -12,11 +12,12 @@ import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 import prh.artisan.Prefs;
 import prh.server.HTTPServer;
+import prh.server.httpRequestHandler;
 import prh.utils.DlnaUtils;
 import prh.utils.Utils;
 
 
-public class OpenProduct implements OpenEventHandler
+public class OpenProduct extends httpRequestHandler implements UpnpEventHandler
 {
     private static int dbg_product = 0;
     private static String source_name = "Playlist";
@@ -24,21 +25,35 @@ public class OpenProduct implements OpenEventHandler
 
     Artisan artisan;
     HTTPServer http_server;
+    String urn;
 
-    public OpenProduct(Artisan ma, HTTPServer http)
+    public OpenProduct(Artisan ma, HTTPServer http, String the_urn)
     {
         artisan = ma;
         http_server = http;
+        urn = the_urn;
+    }
+
+
+    public void start()
+    {
+        http_server.getEventManager().RegisterHandler(this);
+    }
+
+    public void stop()
+    {
+        http_server.getEventManager().UnRegisterHandler(this);
     }
 
 
 
-    public NanoHTTPD.Response productAction(
+    public NanoHTTPD.Response response(
+        NanoHTTPD.IHTTPSession session,
         NanoHTTPD.Response response,
-        Document doc,
-        String urn,
+        String unused_uri,
         String service,
-        String action)
+        String action,
+        Document doc)
     {
         HashMap<String,String> hash = new HashMap<String,String>();
 
@@ -142,7 +157,7 @@ public class OpenProduct implements OpenEventHandler
     UpdateCounter update_counter = new UpdateCounter();
     public int getUpdateCount()  { return update_counter.get_update_count(); }
     public int incUpdateCount()  { return update_counter.inc_update_count(); }
-    public String eventHandlerName() { return "Product"; };
+    public String getName() { return "Product"; };
 
 
     public String getEventContent()

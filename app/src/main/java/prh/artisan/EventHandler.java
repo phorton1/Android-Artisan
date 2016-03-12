@@ -20,7 +20,7 @@ public interface EventHandler
 
     // public static String ACTION_PLAYLIST_SOURCE_CHANGED = "PLAYLIST_SOURCE_CHANGED";
 
-    void handleEvent(
+    void handleArtisanEvent(
         String action,
         Object data
     );

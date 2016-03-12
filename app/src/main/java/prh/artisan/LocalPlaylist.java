@@ -20,8 +20,8 @@ import prh.utils.Utils;
 
 public class LocalPlaylist extends Playlist
 {
-    private int dbg_pl = 0;
-    private int dbg_open_pl = -1;
+    private int dbg_pl = 1;
+    private int dbg_open_pl = 0;
 
     public static int MAX_TRACKS = 1000;
 
@@ -65,6 +65,11 @@ public class LocalPlaylist extends Playlist
     // Constructor
     //----------------------------------------------------------------
 
+    public LocalPlaylist() {}
+        // default constructor creates an un-named playlist ""
+        // with no associated playlist_db or tracklist_db handles
+
+
     public LocalPlaylist(SQLiteDatabase list_db,String name)
     {
         this.name = name;
@@ -76,8 +81,9 @@ public class LocalPlaylist extends Playlist
 
         if (playlist_db == null || name.equals(""))
         {
-            this.name = "";
+            Utils.warning(dbg_pl,0,"Should use default contructor");
             playlist_db = null;
+            name = "";
         }
 
         // get the record (cursor) for this guy
@@ -145,7 +151,7 @@ public class LocalPlaylist extends Playlist
 
     public void stop()
     {
-        if (open_home_server != null)
+        if (upnp_event_manager != null)
         {
             for (int i = 0; i < num_tracks; i++)
             {
@@ -154,7 +160,7 @@ public class LocalPlaylist extends Playlist
                     track.setExposed(false);
             }
             num_exposed = 0;
-            open_home_server = null;
+            upnp_event_manager = null;
         }
 
         if (track_db != null)
@@ -469,7 +475,7 @@ public class LocalPlaylist extends Playlist
             Track track = tracks_by_position.get(index-1);
                 // not exposed if null
 
-            if (open_home_server == null || track != null && track.getExposed())
+            if (upnp_event_manager == null || track != null && track.getExposed())
             {
                 int id = track.getOpenId();
                 data[num_exp * 4 + 0] = (byte) ((id >> 24) & 0xFF);

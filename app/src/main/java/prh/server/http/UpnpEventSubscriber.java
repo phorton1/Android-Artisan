@@ -1,16 +1,14 @@
 //--------------------------------------------------------------
-// OpenEventSubscriber - member of list on OpenEventManager
+// UpnpEventSubscriber - member of list on UpnpEventManager
 //--------------------------------------------------------------
 
 package prh.server.http;
 
 
-import java.util.Date;
-
 import prh.server.SSDPServer;
 import prh.utils.Utils;
 
-public class OpenEventSubscriber
+public class UpnpEventSubscriber
 {
     private static int next_id = 0;
     private static int EXPIRE_DURATION = 1800;
@@ -20,7 +18,7 @@ public class OpenEventSubscriber
     private String ua;
     private String sid;
     private int expires;
-    private OpenEventHandler handler;
+    private UpnpEventHandler handler;
 
     private int event_count = 0;
         // the post-increment SEQ "event key" for individual subscribers
@@ -31,7 +29,7 @@ public class OpenEventSubscriber
     private String open_urn = "urn:av-openhome-org:service";
 
 
-    public OpenEventSubscriber(OpenEventHandler the_handler, String notification_url, String user_agent)
+    public UpnpEventSubscriber(UpnpEventHandler the_handler,String notification_url,String user_agent)
     {
         handler = the_handler;
         url = notification_url;
@@ -44,7 +42,7 @@ public class OpenEventSubscriber
     public String getUrl()                  { return url; }
     public String getUserAgent()            { return ua; }
     public String getSid()                  { return sid; }
-    public OpenEventHandler getHandler()    { return handler; }
+    public UpnpEventHandler getHandler()    { return handler; }
     public int getDuration()                { return EXPIRE_DURATION; }
 
     public void refresh()                   { expires = Utils.now_seconds() + EXPIRE_DURATION; }
@@ -65,4 +63,4 @@ public class OpenEventSubscriber
     }
 
 
-}   // class OpenEventSubscriber
+}   // class UpnpEventSubscriber

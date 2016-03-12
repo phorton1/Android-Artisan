@@ -376,7 +376,7 @@ public class aPlaying extends Fragment implements EventHandler, View.OnClickList
     // Event Handling
     //-----------------------------------------------------------
 
-    public void handleEvent(String action,Object data)
+    public void handleArtisanEvent(String action,Object data)
         // handle changes ...
         // in order of most minor, to most major changes
         // where major changes require more updating.

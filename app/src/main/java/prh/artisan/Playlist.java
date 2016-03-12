@@ -1,9 +1,10 @@
 package prh.artisan;
 
 
-import prh.server.http.OpenHomeServer;
+import prh.server.http.UpnpEventManager;
 import prh.utils.Utils;
 import prh.utils.DlnaUtils;
+
 
 public abstract class Playlist
     // base class of playlists
@@ -27,7 +28,7 @@ public abstract class Playlist
     private static int NUM_TO_EXPOSE = 10;
         // number that BuP asks for in a request
 
-    protected OpenHomeServer open_home_server = null;
+    protected UpnpEventManager upnp_event_manager = null;
     protected int num_exposed = 0;
 
 
@@ -39,9 +40,9 @@ public abstract class Playlist
     public abstract Track seekByIndex(int index);
     public abstract void save(boolean release);
 
-    public void setOpenHome(OpenHomeServer open_home)
+    public void setUpnpEventManager(UpnpEventManager mgr)
     {
-        open_home_server = open_home;
+        upnp_event_manager = mgr;
     }
 
     public Track insertTrack(int after_id, String uri, String metadata)
@@ -140,6 +141,9 @@ public abstract class Playlist
     //---------------------------------------------------------------
     // exposure scheme
     //---------------------------------------------------------------
+    // prh - this should only be done for BubbleUp, and generally
+    // turned off by a null upnp_event_manager in THIS class.
+    //
     // For bubbleUP, we incrementally expose the playlist,
     // about 20 records at a time, so that it doesn't hang
     // on large playlists.
@@ -157,7 +161,8 @@ public abstract class Playlist
     // The exposed bits need to be cleared on stop() when
     // playlists change, so next time, Bup will start over.
     //
-    // The call to expose_more goes in the OpenPlalylist ReadList action.
+    // The call to looping call to expose_more is in the
+    // OpenPlalylist ReadList action.
 
     protected boolean expose(int index)
     {
@@ -229,7 +234,8 @@ public abstract class Playlist
             if (expose_more())
             {
                 Utils.log(dbg_expose,1,"expose_more sending event");
-                open_home_server.incUpdateCount("Playlist");
+                if (upnp_event_manager != null)
+                    upnp_event_manager.incUpdateCount("Playlist");
             }
         }
     }

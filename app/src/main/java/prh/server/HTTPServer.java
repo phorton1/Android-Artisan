@@ -1,5 +1,10 @@
 // HTTP Server
 
+// PRH BIG NOTE:  Bubble Caches the playlist for the OpenHomeRenderer
+// which means that upon startup, it thinks it has a list which doesn't exist.
+// IT *SHOULD* HAVE GOTTEN THE EMPTY PLAYLIST FROM THE SERVER
+
+
 package prh.server;
 
 import android.content.res.Resources;
@@ -10,19 +15,26 @@ import org.w3c.dom.Document;
 import java.io.InputStream;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Map;
+
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
+import prh.artisan.EventHandler;
 import prh.artisan.Prefs;
 import prh.server.http.AVTransport;
 import prh.server.http.ContentDirectory;
-import prh.server.http.OpenHomeServer;
+import prh.server.http.OpenInfo;
+import prh.server.http.OpenPlaylist;
+import prh.server.http.OpenProduct;
+import prh.server.http.OpenTime;
+import prh.server.http.OpenVolume;
 import prh.server.http.RenderingControl;
+import prh.server.http.UpnpEventHandler;
+import prh.server.http.UpnpEventManager;
 import prh.utils.DlnaUtils;
 import prh.utils.Utils;
 
 
-public class HTTPServer extends fi.iki.elonen.NanoHTTPD
+public class HTTPServer extends fi.iki.elonen.NanoHTTPD implements EventHandler
     // http server that dispatches requests to various
     // other "server" (handlers) including the DLNAServer.
     // It "just happens" to be created to listen on the
@@ -50,10 +62,11 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
         // the instance keeps a Context
         // for getting resources
 
-    private ContentDirectory content_directory;
-    private AVTransport av_transport;
-    private RenderingControl rendering_control;
-    private OpenHomeServer open_home;
+    private UpnpEventManager event_manager = null;
+    public UpnpEventManager getEventManager() { return event_manager; }
+
+    private HashMap<String,httpRequestHandler> handlers = null;
+
 
 
     //-----------------------------------------------
@@ -128,62 +141,27 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
     // the actual server (instance methods)
     //-----------------------------------------------
 
-    private HashMap<String,httpRequestHandler> handlers = new HashMap<String,httpRequestHandler>();
-
 
     public HTTPServer(Artisan ma) throws IOException
-    // Constructed with a Context for resources
+        // Constructed with a Context for resources
+        // The HTTP Server creates the handlers, so it
+        // must be stopped and restarted if Prefs change.
     {
         super(Utils.server_port);
         artisan = ma;
-
-        Utils.log(dbg_http,1,"creating HTTPServer ...");
-
-        if (Prefs.getBoolean(Prefs.id.START_HTTP_MEDIA_SERVER) &&
-            artisan.getLocalLibrary() != null)
-        {
-            Utils.log(dbg_http,1,"starting MediaServer http listener ...");
-            content_directory = new ContentDirectory(this,artisan);
-            handlers.put("ContentDirectory",content_directory);
-        }
-
-        if ((Prefs.getBoolean(Prefs.id.START_HTTP_MEDIA_RENDERER) ||
-            Prefs.getBoolean(Prefs.id.START_HTTP_OPEN_HOME_SERVER))&&
-            artisan.getLocalRenderer() != null)
-        {
-            Utils.log(dbg_http,1,"starting MediaRenderer http listeners ...");
-
-            av_transport = new AVTransport(this,artisan);
-            handlers.put("AVTransport",av_transport);
-
-            rendering_control = new RenderingControl(this,artisan);
-            handlers.put("RenderingControl",rendering_control);
-        }
-
-        if (Prefs.getBoolean(Prefs.id.START_HTTP_OPEN_HOME_SERVER) &&
-            artisan.getLocalRenderer() != null)
-        {
-            Utils.log(dbg_http,1,"starting OpenHomeRenderer http listener ...");
-            open_home = new OpenHomeServer(this,artisan);
-            handlers.put("OpenHome",open_home);
-        }
-
-        Utils.log(dbg_http,0,"HTTPServer() created");
+        Utils.log(dbg_http,1,"created HTTPServer");
     }
 
 
     private boolean checkService(String service)
     {
-        if (service.equals("AVTransport") && av_transport != null)
-            return true;
-        else if (service.equals("RenderingControl") && rendering_control != null)
-            return true;
-        else if (service.equals("ContentDirectory") && content_directory != null)
-            return true;
-        else if (service.startsWith("Open") && open_home != null)
-            return true;
-        Utils.warning(0,0,"checkService("+service+") returning false");
-        return false;
+        httpRequestHandler handler = handlers.get(service);
+        if (handler == null)
+        {
+            Utils.warning(0,0,"Request for non-existent service: " + service);
+            return false;
+        }
+        return true;
     }
 
 
@@ -195,28 +173,79 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
         boolean started = true;
         Utils.log(dbg_http,1,"HTTPServer.start() called  ...");
 
+        handlers = new HashMap<String,httpRequestHandler>();
+        event_manager = new UpnpEventManager(artisan,this);
+
+        // start the httpHandlers
+
+        if (Prefs.getBoolean(Prefs.id.START_HTTP_MEDIA_SERVER) &&
+            artisan.getLocalLibrary() != null)
+        {
+            Utils.log(dbg_http,1,"starting MediaServer http listener ...");
+            handlers.put("ContentDirectory",new ContentDirectory(artisan,this,DlnaUtils.upnp_urn));
+        }
+
+        if ((Prefs.getBoolean(Prefs.id.START_HTTP_MEDIA_RENDERER) ||
+            Prefs.getBoolean(Prefs.id.START_HTTP_OPEN_HOME_SERVER))&&
+            artisan.getLocalRenderer() != null)
+        {
+            Utils.log(dbg_http,1,"starting MediaRenderer http listeners ...");
+            handlers.put("AVTransport",new AVTransport(artisan,this,DlnaUtils.upnp_urn));
+            handlers.put("RenderingControl",new RenderingControl(artisan,this,DlnaUtils.upnp_urn));
+        }
+
+        if (Prefs.getBoolean(Prefs.id.START_HTTP_OPEN_HOME_SERVER) &&
+            artisan.getLocalRenderer() != null)
+        {
+            Utils.log(dbg_http,1,"starting OpenHomeRenderer http listeners ...");
+
+            OpenProduct  product  = new OpenProduct(artisan,this,DlnaUtils.open_urn);
+            OpenVolume   volume   = new OpenVolume(artisan,this,DlnaUtils.open_urn);
+            OpenPlaylist playlist = new OpenPlaylist(artisan,this,DlnaUtils.open_urn);
+            OpenInfo     info     = new OpenInfo(artisan,this,DlnaUtils.open_urn);
+            OpenTime     time     = new OpenTime(artisan,this,DlnaUtils.open_urn);
+
+            Utils.log(dbg_http,2,"OpenHomeRenderer http listeners created");
+
+            handlers.put("Product",product);
+            handlers.put("Volume",volume);
+            handlers.put("Playlist",playlist);
+            handlers.put("Info",info);
+            handlers.put("Time",time);
+
+            Utils.log(dbg_http,2,"OpenHomeRenderer http listeners registered");
+
+            // currently only the open home objects are also upnpEventHandlers
+            // so these two lists of handlers are separate, but it seems they
+            // should be the same, factored perhaps out of UpnpEventMangaer
+
+            product.start();
+            volume.start();
+            playlist.start();
+            info.start();
+            time.start();
+
+            Utils.log(dbg_http,2,"Finished starting OpenHomeRenderer http listeners");
+
+        }
+
+
+        // now start the superclass
+
+
         try
         {
             super.start();
         }
-        catch (Exception e)
+        catch (IOException e)
         {
             Utils.error("Could not start http server: " + e.toString());
             started = false;
         }
 
-        // start the ssdp server
-
-        if (Artisan.START_SSDP_IN_HTTP && started)
-        {
-            Utils.log(0,0,"starting ssdp_server ...");
-            artisan.ssdp_server = new SSDPServer(artisan);
-            Thread ssdp_thread = new Thread(artisan.ssdp_server);
-            ssdp_thread.start();
-            Utils.log(0,0,"ssdp_server started");
-        }
         Utils.log(dbg_http,1,"HTTPServer.start() finished");
     }
+
 
 
     @Override
@@ -226,12 +255,19 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
         Utils.log(dbg_http,1,"HTTPServer.stop() called  ...");
         super.stop();
 
-        if (Artisan.START_SSDP_IN_HTTP)
+        // stop the handlers
+        if (handlers != null)
         {
-            if (artisan.ssdp_server != null)
-                artisan.ssdp_server.shutdown();
-            artisan.ssdp_server = null;
+            for (httpRequestHandler handler : handlers.values())
+            {
+                if (handler instanceof UpnpEventHandler)
+                    ((UpnpEventHandler) handler).stop();
+            }
+            handlers.clear();
+            handlers = null;
         }
+
+        event_manager = null;
         Utils.log(dbg_http,1,"HTTPServer.stop() finished");
     }
 
@@ -287,17 +323,17 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
                     Utils.log(dbg_device_requests,1,dbg_from + "device request(" + uri + ")");
 
                     String xml = null;
-                    if (content_directory != null &&
+                    if (handlers.get("ContentDirectory") != null &&
                         uri.equals("MediaServer.xml"))
                     {
                         xml = SSDPServer.MediaServer_description();
                     }
-                    else if (av_transport != null &&
+                    else if (handlers.get("AVTransport") != null &&
                         uri.equals("MediaRenderer.xml"))
                     {
                         xml = SSDPServer.MediaRenderer_description();
                     }
-                    else if (open_home != null &&
+                    else if (handlers.get("Product") != null &&
                         uri.equals("OpenHome.xml"))
                     {
                         xml = SSDPServer.OpenHome_description();
@@ -312,7 +348,12 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
                 {
                     uri = uri.replace("/service/","");
                     Utils.log(dbg_service_requests,1,dbg_from + "service request(" + uri + ")");
-                    String service = uri.replace("1.xml","");
+
+                    // the xml file has a slightly different name
+                    // for open home services
+
+                    String xml_service = uri.replace("1.xml","");
+                    String service = xml_service.replace("OpenHome_","");
                     if (checkService(service))
                     {
                         response = asset_file_response(response,"ssdp/" + uri);
@@ -333,69 +374,82 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
                     if (checkService(service))
                     {
                         uri = uri.replace(service + "/","");
-                        String urn = service.startsWith("Open") ?
-                            DlnaUtils.open_urn :
-                            DlnaUtils.upnp_urn;
 
-                        String action = "";
-                        Document doc = null;
+                        //----------------------------------------------------------------------
+                        // event_subscription_requests are handed off to the event manager
+                        //----------------------------------------------------------------------
 
-                        // parse some extra stuff for /control requests
-                        // common to all services
-
-                        if (uri.equals("control"))
-                        {
-                            // get the action
-
-                            action = session.getHeaders().get("soapaction");
-                            if (action == null)
-                            {
-                                Utils.error("Null action in " + service + "/control request");
-                                return response;
-                            }
-                            action = action.replaceAll("^.*#","");
-                            action = action.replaceAll("\"","");
-
-                            boolean is_loop_action =
-                                action.equals("GetTransportInfo") ||
-                                    action.equals("GetPositionInfo") ||
-                                    action.equals("Time");
-                            int use_dbg = is_loop_action ?
-                                dbg_looping_control_requests :
-                                dbg_control_requests;
-                            Utils.log(use_dbg,1,dbg_from + "control request " + service + "(" + action + ")");
-
-                            // get the xml document
-
-                            doc = DlnaUtils.get_xml_from_post(session);
-                            if (doc == null)
-                            {
-                                Utils.error("Null document in " + service + " " + action + "request");
-                                return response;
-                            }
-                        }
-                        else if (uri.equals("event"))
+                        if (uri.equals("event"))
                         {
                             Utils.log(dbg_event_requests,1,dbg_from + "event request " + session.getMethod() + " " + service);
-                        }
-                        else
-                        {
-                            Utils.log(dbg_other_requests,1,dbg_from + "other request " + " " + service + "(" + uri + ")");
+                            response = event_manager.subscription_request_response(session,response,service);
                         }
 
-                        // dispatch the request to a service handler
-                        // shorten the name of OpenHome services to just Product, Volume, etc
+                        // all other /control and uri requests are passed off to services
 
-                        String use_service = service.startsWith("Open") ? "OpenHome" : service;
-                        if (service.startsWith("Open"))
-                            service = service.replace("Open","");
-
-                        httpRequestHandler handler = handlers.get(use_service);
-                        if (handler == null)
-                            Utils.error("No handler found for service(" + service + ")");
                         else
                         {
-                            response = handler.response(session,response,uri,urn,service,action,doc);
+                            String action = "";
+                            Document doc = null;
+
+                            // parse some extra stuff for /control requests
+                            // common to all services
+
+                            if (uri.equals("control"))
+                            {
+                                // get the action
+
+                                action = session.getHeaders().get("soapaction");
+                                if (action == null)
+                                {
+                                    Utils.error("Null action in " + service + "/control request");
+                                    return response;
+                                }
+                                action = action.replaceAll("^.*#","");
+                                action = action.replaceAll("\"","");
+
+                                boolean is_loop_action =
+                                    action.equals("GetTransportInfo") ||
+                                        action.equals("GetPositionInfo") ||
+                                        action.equals("Time");
+                                int use_dbg = is_loop_action ?
+                                    dbg_looping_control_requests :
+                                    dbg_control_requests;
+                                Utils.log(use_dbg,1,dbg_from + "control request " + service + "(" + action + ")");
+
+                                // get the xml document
+
+                                doc = DlnaUtils.get_xml_from_post(session);
+                                if (doc == null)
+                                {
+                                    Utils.error("Null document in " + service + " " + action + "request");
+                                    return response;
+                                }
+                            }
+                            else
+                            {
+                                Utils.log(dbg_other_requests,1,dbg_from + "other request " + " " + service + "(" + uri + ")");
+                            }
+
+                            // dispatch the request to a service handler
+                            // shorten the name of OpenHome services to just Product, Volume, etc
+
+                            String use_service = service.startsWith("Open") ? "OpenHome" : service;
+                            if (service.startsWith("Open"))
+                                service = service.replace("Open","");
+
+                            httpRequestHandler handler = handlers.get(use_service);
+                            if (handler == null)
+                                Utils.error("No handler found for service(" + service + ")");
+
+                            // HANDLER REQUEST
+                            // The httpHandlers are synchronized with their potential
+                            // upnEventHandlers so that actions and events are atomic
+
+                            else synchronized (handler)
+                            {
+                                response = handler.response(session,response,uri,service,action,doc);
+                            }
                         }
                     }   // checkServices
                 }   // starts with /
@@ -419,8 +473,9 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
     }   // HTTPServer::serve()
 
 
+
     //----------------------------------------------
-    // Response Methods
+    // Utility Response Methods
     //----------------------------------------------
 
     public static String getAnyUserAgent(IHTTPSession session)
@@ -438,7 +493,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
 
 
 
-public Response asset_file_response (Response response, String uri)
+    public Response asset_file_response (Response response, String uri)
     {
         Resources res = artisan.getResources();
 
@@ -468,22 +523,37 @@ public Response asset_file_response (Response response, String uri)
         return response;
     }
 
-    //--------------------------------------
-    // dispatch openHomeEvents
-    //--------------------------------------
 
-    public void sendOpenHomeEvents()
+    //----------------------------------------------
+    // Artisan Event Handling
+    //----------------------------------------------
+
+    public void handleArtisanEvent(final String action,final Object data)
+        // immediatly bump the usage counts
     {
-        if (open_home != null)
-            open_home.sendEvents();
-    }
+        if (action.equals(EventHandler.EVENT_STATE_CHANGED) ||
+            action.equals(EventHandler.EVENT_PLAYLIST_CHANGED))
+            event_manager.incUpdateCount("Playlist");
 
+        if (action.equals(EventHandler.EVENT_TRACK_CHANGED))
+            event_manager.incUpdateCount("Info");
 
-    public void incUpdateCount(String service)
-    {
-        if (open_home != null)
-            open_home.incUpdateCount(service);
-    }
+        if (action.equals(EventHandler.EVENT_POSITION_CHANGED))
+            event_manager.incUpdateCount("Time");
+
+        if (action.equals(EventHandler.EVENT_VOLUME_CHANGED))
+            event_manager.incUpdateCount("Volume");
+
+        // at the end of Renderer.update_UI() this is called
+        // so we actually send upnp events to clients.
+        // I am debating just moving this to the end of
+        // event.incUpdateCount(), since we are in the
+        // UI thread
+
+        if (action.equals(EventHandler.EVENT_IDLE))
+            event_manager.send_events();
+
+    }   // handleArtisanEvent();
 
 
 }   // class HTTPServer

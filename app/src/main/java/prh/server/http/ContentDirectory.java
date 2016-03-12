@@ -40,12 +40,17 @@ public class ContentDirectory extends httpRequestHandler
 
     private Artisan artisan;
     private HTTPServer http_server;
+    private String urn;
 
-    public ContentDirectory(HTTPServer http, Artisan ma)
+    public ContentDirectory(Artisan ma, HTTPServer http, String the_urn)
     {
         artisan = ma;
         http_server = http;
+        urn = the_urn;
     }
+
+    // not a UpnpEventHandler (yet)
+    // so there are no start() or stop() methods
 
 
     //----------------------------------------------
@@ -57,7 +62,6 @@ public class ContentDirectory extends httpRequestHandler
         NanoHTTPD.IHTTPSession session,
         NanoHTTPD.Response response,
         String uri,
-        String urn,
         String service,
         String action,
         Document doc)

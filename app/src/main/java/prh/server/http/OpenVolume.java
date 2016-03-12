@@ -13,29 +13,44 @@ import prh.artisan.Artisan;
 import prh.artisan.Renderer;
 import prh.artisan.Volume;
 import prh.server.HTTPServer;
+import prh.server.httpRequestHandler;
 import prh.utils.DlnaUtils;
 
 
-public class OpenVolume implements OpenEventHandler
+public class OpenVolume extends httpRequestHandler implements UpnpEventHandler
 {
     static private int dbg_volume = 0;
 
     private Artisan artisan;
     private HTTPServer http_server;
+    String urn;
 
-    public OpenVolume(Artisan ma, HTTPServer http)
+    public OpenVolume(Artisan ma, HTTPServer http, String the_urn)
     {
         artisan = ma;
         http_server = http;
+        urn = the_urn;
     }
 
 
-    public NanoHTTPD.Response volumeAction(
+    public void start()
+    {
+        http_server.getEventManager().RegisterHandler(this);
+    }
+
+    public void stop()
+    {
+        http_server.getEventManager().UnRegisterHandler(this);
+    }
+
+
+    public NanoHTTPD.Response response(
+        NanoHTTPD.IHTTPSession session,
         NanoHTTPD.Response response,
-        Document doc,
-        String urn,
+        String unused_uri,
         String service,
-        String action)
+        String action,
+        Document doc)
     {
         HashMap<String,String> hash = new HashMap<String,String>();
         Renderer renderer = artisan.getRenderer();
@@ -133,7 +148,7 @@ public class OpenVolume implements OpenEventHandler
     UpdateCounter update_counter = new UpdateCounter();
     public int getUpdateCount()  { return update_counter.get_update_count(); }
     public int incUpdateCount()  { return update_counter.inc_update_count(); }
-    public String eventHandlerName() { return "Volume"; };
+    public String getName() { return "Volume"; };
 
     public String getEventContent()
         // maybe would be better called "getStateXML"

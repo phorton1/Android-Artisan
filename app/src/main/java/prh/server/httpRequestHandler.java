@@ -10,7 +10,6 @@ public abstract class httpRequestHandler
         NanoHTTPD.IHTTPSession session,
         NanoHTTPD.Response response,
         String uri,
-        String urn,
         String service,
         String action,
         Document doc);

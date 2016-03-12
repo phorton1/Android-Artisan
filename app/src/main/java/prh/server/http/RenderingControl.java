@@ -26,11 +26,13 @@ public class RenderingControl extends httpRequestHandler
 
     private Artisan artisan;
     private HTTPServer http_server;
+    String urn;
 
-    public RenderingControl(HTTPServer http, Artisan ma)
+    public RenderingControl(Artisan ma, HTTPServer http, String the_urn)
     {
         artisan = ma;
         http_server = http;
+        urn = the_urn;
     }
 
     //-----------------------------------------------------------
@@ -39,10 +41,9 @@ public class RenderingControl extends httpRequestHandler
 
     @Override
     public NanoHTTPD.Response response(
-        NanoHTTPD.IHTTPSession session,
+        NanoHTTPD.IHTTPSession unused_session,
         NanoHTTPD.Response response,
         String uri,
-        String urn,
         String service,
         String action,
         Document doc )
