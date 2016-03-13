@@ -20,30 +20,33 @@ import prh.artisan.Prefs;
 import prh.server.HTTPServer;
 
 
-public class DlnaUtils
+public class httpUtils
     // Utilities common the DLNA Renderer and Server for
     // XML / Soap / Didl
 {
     private static int dbg_dlna_utils = 1;
 
-   public static String upnp_urn = "urn:schemas-upnp-org:service";
-   // for AVTransport, RenderingControl, and ContentDirectory
-   public static String open_urn = "urn:av-openhome-org:service";
-   // for Open Home
+    // I'm not sure if these are really urns,
+    // I think they're schema names ...
+
+    public static String upnp_urn = "schema-upnp-org";
+        // for AVTransport, RenderingControl, and ContentDirectory
+    public static String open_urn = "av-openhome-org";
+        // for Open Home
 
 
     public static String commonDeviceDescription(String extra)
     {
         return
             "<presentationURL>" + Utils.deviceWebUrl + "</presentationURL>\r\n" +
-                "<friendlyName>" +  Prefs.friendlyName() + extra + "</friendlyName>\r\n" +
-                "<manufacturer>" + Utils.manufacturerName + "</manufacturer>\r\n" +
-                "<manufacturerURL>" + Utils.manufacturerUrl + "</manufacturerURL>\r\n" +
-                "<modelDescription>" + Utils.modelInfo + "</modelDescription>\r\n" +
-                "<modelName>" +  Utils.programName + "</modelName>\r\n" +
-                "<modelURL>" + Utils.modelUrl + "</modelURL>\r\n" +
-                "<modelNumber>" + Utils.modelNumber + "</modelNumber>\r\n" +
-                "<serialNumber>" + Utils.serial_number + "</serialNumber>\r\n";
+            "<friendlyName>" +  Prefs.friendlyName() + extra + "</friendlyName>\r\n" +
+            "<manufacturer>" + Utils.manufacturerName + "</manufacturer>\r\n" +
+            "<manufacturerURL>" + Utils.manufacturerUrl + "</manufacturerURL>\r\n" +
+            "<modelDescription>" + Utils.modelInfo + "</modelDescription>\r\n" +
+            "<modelName>" +  Utils.programName + "</modelName>\r\n" +
+            "<modelURL>" + Utils.modelUrl + "</modelURL>\r\n" +
+            "<modelNumber>" + Utils.modelNumber + "</modelNumber>\r\n" +
+            "<serialNumber>" + Utils.serial_number + "</serialNumber>\r\n";
     }
 
 
@@ -99,9 +102,8 @@ public class DlnaUtils
 
 
     public static String decode_value(String value)
-    // url encodes a single value in the didl
+        // url encodes a single value in the didl
     {
-
         // $string =~ s/([^\x20-\x7f])/"&#" + "$1" ord($1).";"/eg;
         // out = out.replaceAll("[^\\x20-\\x7f]","&#" + ((int) "$1".charAt(0)) );
 
@@ -134,8 +136,8 @@ public class DlnaUtils
         String action)
         // The default OK response is just an empty SSDP response (with soap body)
     {
-        String xml = DlnaUtils.action_response_header(urn,service,action);
-        xml = xml + DlnaUtils.action_response_footer(urn,action,"");
+        String xml = httpUtils.action_response_header(urn,service,action);
+        xml = xml + httpUtils.action_response_footer(urn,action,"");
         return server.newFixedLengthResponse(NanoHTTPD.Response.Status.OK,"text/xml", xml);
     }
 
@@ -145,14 +147,14 @@ public class DlnaUtils
         HTTPServer server,
         NanoHTTPD.Response response,
         String full_path)
-    // only used for folder_jpg_response at this time.
+        // return a file from the file system
     {
         Utils.log(dbg_dlna_utils,0,"raw_file_response(" + full_path + ")");
         String mime_type =
             full_path.matches(".*\\.jpg$") ? "image/jpeg" :
-                full_path.matches(".*\\.m3u$") ? "text/plain" : // doesn't work:  "application/vnd.apple.mpegurl" :
-                    full_path.matches(".*\\.xspf$") ? "text/plain":  // works: application/xspf+xml" :
-                        "";
+            full_path.matches(".*\\.m3u$") ? "text/plain" : // doesn't work:  "application/vnd.apple.mpegurl" :
+            full_path.matches(".*\\.xspf$") ? "text/plain":  // works: application/xspf+xml" :
+            "";
 
         if (mime_type.equals(""))
         {
@@ -203,13 +205,13 @@ public class DlnaUtils
             "xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" " +
             "s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\n" +
             "<s:Body>\n" +
-            "<u:" + action + "Response xmlns:u=\"" + urn + ":" + service + ":1\">\n";
+            "<u:" + action + "Response xmlns:u=\"urn:" + urn + ":service:" + service + ":1\">\n";
 
         // open home does not have a wrapper tag
         // each command is different
         // dlna wraps it in <Result>
 
-        if (!urn.contains(open_urn))
+        if (!urn.equals(open_urn))
             xml += "<Result>\n";
 
         return xml;
@@ -219,7 +221,7 @@ public class DlnaUtils
     public static String action_response_footer(String urn, String action, String extra)
     {
         String xml = "";
-        if (!urn.contains(open_urn))
+        if (!urn.equals(open_urn))
             xml += "</Result>\n";
         xml += extra +
             "</u:" + action + "Response>\n"+
@@ -386,4 +388,4 @@ public class DlnaUtils
 
 
 
-}   // class DlnaUtils
+}   // class httpUtils

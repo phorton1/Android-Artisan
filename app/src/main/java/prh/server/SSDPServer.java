@@ -16,14 +16,12 @@ import java.util.Enumeration;
 import java.util.Collections;
 
 
-import android.app.Activity;
 import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 
-import prh.artisan.Artisan;
-import prh.utils.DlnaUtils;
+import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
@@ -522,7 +520,7 @@ public class SSDPServer implements Runnable
                 "</specVersion>\r\n" +
                 "<device>\r\n" +
                     "<deviceType>urn:schemas-upnp-org:device:MediaRenderer:1</deviceType>\r\n" +
-                    DlnaUtils.commonDeviceDescription("") +
+                    httpUtils.commonDeviceDescription("") +
                     "<UDN>uuid:" + dlna_uuid[IDX_DLNA_RENDERER] + "</UDN>\r\n" +
                     "<iconList>\r\n" +
                         "<icon>\r\n" +
@@ -578,7 +576,7 @@ public class SSDPServer implements Runnable
                 "</specVersion>\r\n" +
                 "<device>\r\n" +
                     "<deviceType>urn:schemas-upnp-org:device:MediaServer:1</deviceType>\r\n" +
-                    DlnaUtils.commonDeviceDescription("") +
+                    httpUtils.commonDeviceDescription("") +
                     "<UDN>uuid:" + dlna_uuid[IDX_DLNA_SERVER] + "</UDN>\r\n" +
                     "<iconList>\r\n" +
                         "<icon>\r\n" +
@@ -627,7 +625,7 @@ public class SSDPServer implements Runnable
             "</specVersion>\r\n" +
             "<device>\r\n" +
                 "<deviceType>urn:linn-co-uk:device:Source:1</deviceType>\r\n" +
-                DlnaUtils.commonDeviceDescription(" (OpenHome)") +
+                httpUtils.commonDeviceDescription(" (OpenHome)") +
                 "<UDN>uuid:" + dlna_uuid[IDX_OPEN_HOME] + "</UDN>\r\n" +
                 "<iconList>\r\n" +
                     "<icon>\r\n" +

@@ -10,10 +10,12 @@ import android.view.ViewGroup;
 import prh.utils.Utils;
 
 
-public class aPlaylist extends Fragment
+public class aPlaylist extends Fragment implements ArtisanPage
 {
     static int dbg_aplay = 0;
     private Artisan artisan = null;
+
+    public String getName()  { return "Playlist"; }
 
     //----------------------------------------------
     // life cycle

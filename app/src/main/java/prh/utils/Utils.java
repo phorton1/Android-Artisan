@@ -8,6 +8,7 @@ import android.os.Build;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
+import android.widget.Toast;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -197,6 +198,13 @@ public class Utils {
     }
 
 
+    public static void noSongsMsg(String playlist_name)
+    {
+        String msg = "No supported songs types found in playlist '" + playlist_name + "'";
+        Utils.error(msg);
+        Toast.makeText(artisan.getApplicationContext(),msg,Toast.LENGTH_LONG).show();
+    }
+
 
     //-------------------------------------
     // Utility Routines
@@ -348,7 +356,13 @@ public class Utils {
     // Duration Routines
     //-------------------------------------
 
-    public static String durationToString(int millis, boolean precise)
+    public enum how_precise {
+        FOR_DISPLAY,
+        FOR_SEEK,
+        FOR_DIDL
+    }
+
+    public static String durationToString(int millis,  how_precise precise)
     // if precise, returns hours:minutes:seconds.millis
     // if not, it's for display, and returns as little as m:ss
     // precise times are used in dlna content, etc
@@ -364,12 +378,25 @@ public class Utils {
         secs = secs % 60;
         millis = millis % 1000;
 
-        if (precise)
+        // That only took half a day ...
+        // BubbleUp is very fussy with regards to what it accepts
+        // as the reltime. It must be HH::MM:SS with no decimal millis.
+        // I guess that's the DLNA standard for seek, but I also want
+        // to communicate milli's by didle ... so there are three
+        // possibilities.
+
+        if (precise == how_precise.FOR_DIDL)
             return String.format("%02d:%02d:%02d.%03d",hours,mins,secs,millis);
-        if (hours > 0)
-            return String.format("%d:%02d:%02d",hours,mins,secs);
-        return String.format("%d:%02d",mins,secs);
+        else if (precise == how_precise.FOR_SEEK)
+            return String.format("%02d:%02d:%02d",hours,mins,secs);
+        else    // FOR_DISPLAY
+        {
+            if (hours > 0)
+                return String.format("%d:%02d:%02d",hours,mins,secs);
+            return String.format("%d:%02d",mins,secs);
+        }
     }
+
 
     public static int stringToDuration(String text)
     {

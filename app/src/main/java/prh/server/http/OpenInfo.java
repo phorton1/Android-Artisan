@@ -14,7 +14,7 @@ import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.server.HTTPServer;
 import prh.server.httpRequestHandler;
-import prh.utils.DlnaUtils;
+import prh.utils.httpUtils;
 
 
 public class OpenInfo extends httpRequestHandler implements UpnpEventHandler
@@ -86,7 +86,7 @@ public class OpenInfo extends httpRequestHandler implements UpnpEventHandler
         }
 
         if (ok)
-            response = DlnaUtils.hash_response(http_server,urn,service,action,hash);
+            response = httpUtils.hash_response(http_server,urn,service,action,hash);
         return response;
     }
 
@@ -126,7 +126,7 @@ public class OpenInfo extends httpRequestHandler implements UpnpEventHandler
         hash.put("Lossless","0");
         hash.put("Metatext","");
 
-        return DlnaUtils.hashToXMLString(hash,true);
+        return httpUtils.hashToXMLString(hash,true);
     }
 
 

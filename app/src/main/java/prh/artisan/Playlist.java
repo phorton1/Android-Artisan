@@ -3,7 +3,7 @@ package prh.artisan;
 
 import prh.server.http.UpnpEventManager;
 import prh.utils.Utils;
-import prh.utils.DlnaUtils;
+import prh.utils.httpUtils;
 
 
 public abstract class Playlist
@@ -98,7 +98,7 @@ public abstract class Playlist
 
         String rslt = "\n";
         if (READLIST_DIDL)
-            rslt +=  DlnaUtils.start_didl() + "\n";
+            rslt +=  httpUtils.start_didl() + "\n";
         if (READLIST_INNER_TRACKLIST)
             rslt += "<TrackList>\n";
 
@@ -130,9 +130,9 @@ public abstract class Playlist
         if (READLIST_INNER_TRACKLIST)
             rslt += "</TrackList>\n";
         if (READLIST_DIDL)
-            rslt = DlnaUtils.end_didl() + "\n";
+            rslt = httpUtils.end_didl() + "\n";
         if (READLIST_ENCODE)
-            rslt = DlnaUtils.encode_xml(rslt);
+            rslt = httpUtils.encode_xml(rslt);
         return rslt;
     }
 

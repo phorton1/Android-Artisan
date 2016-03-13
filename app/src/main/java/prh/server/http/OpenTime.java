@@ -14,7 +14,7 @@ import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.server.HTTPServer;
 import prh.server.httpRequestHandler;
-import prh.utils.DlnaUtils;
+import prh.utils.httpUtils;
 
 
 public class OpenTime extends httpRequestHandler implements UpnpEventHandler
@@ -60,7 +60,7 @@ public class OpenTime extends httpRequestHandler implements UpnpEventHandler
             hash.put("TrackCount",Integer.toString(renderer.getTotalTracksPlayed()));
             hash.put("Duration",Integer.toString(track==null?0:track.getDuration()/1000));
             hash.put("Seconds",Integer.toString(renderer.getPosition()/1000));
-            response = DlnaUtils.hash_response(http_server,urn,service,action,hash);
+            response = httpUtils.hash_response(http_server,urn,service,action,hash);
         }
 
         return response;
@@ -85,7 +85,7 @@ public class OpenTime extends httpRequestHandler implements UpnpEventHandler
         hash.put("TrackCount",Integer.toString(renderer.getTotalTracksPlayed()));
         hash.put("Duration",Integer.toString(track==null?0:track.getDuration()/1000));
         hash.put("Seconds",Integer.toString(renderer.getPosition()/1000));
-        return DlnaUtils.hashToXMLString(hash,true);
+        return httpUtils.hashToXMLString(hash,true);
     }
 
 

@@ -10,10 +10,13 @@ import android.view.ViewGroup;
 import prh.utils.Utils;
 
 
-public class aExplorer extends Fragment
+public class aExplorer extends Fragment implements ArtisanPage
 {
     private static int dbg_exp = 0;
     private Artisan artisan = null;
+
+    public String getName()  { return "Explorer"; }
+
 
     //----------------------------------------------
     // life cycle

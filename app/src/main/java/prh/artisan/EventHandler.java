@@ -17,11 +17,8 @@ public interface EventHandler
     public static String EVENT_RENDERER_CHANGED        = "RENDERER_CHANGED";           // data = New Renderer
     public static String EVENT_NEW_DEVICE              = "NEW_DEVICE";                 // data = New Device found in SSDP Search
 
-
-    // public static String ACTION_PLAYLIST_SOURCE_CHANGED = "PLAYLIST_SOURCE_CHANGED";
-
     void handleArtisanEvent(
-        String action,
+        String event_id,
         Object data
     );
 }

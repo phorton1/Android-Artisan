@@ -11,7 +11,7 @@ import prh.server.LocalVolumeFixer;
 import prh.utils.Utils;
 
 
-public class LocalVolume extends Volume
+public class LocalVolume implements Volume
     // Sends an VOLUME_CHANGED event on an explicit volume change
     // and has a monitor loop to check for changes outside of Artisan
     // which can also send the VOLUME_CHANGED event.
@@ -31,6 +31,7 @@ public class LocalVolume extends Volume
     private Handler refresh_handler;
     private VolumeMonitor volume_monitor;
     private int last_values[] = {0,0,0,0,0,0,0,0};
+    private int max_values[];
 
 
     public LocalVolume(Artisan a)
@@ -74,9 +75,22 @@ public class LocalVolume extends Volume
     }
 
 
+    public void incDecValue(int idx, int inc)
+        // re-impelmented in each derived Volume class
+    {
+        int values[] = getValues();
+        int value = values[idx];
+        value += inc;
+        setValue(idx,value);
+    }
+
+
     //---------------------------------
     // GET
     //---------------------------------
+
+
+    public int[] getMaxValues()  { return max_values; }
 
     public int[] getValues()
         // They are gotten as a group
@@ -85,11 +99,13 @@ public class LocalVolume extends Volume
     {
         Utils.log(dbg_vol+2,0,"getValues()");
         int values[] = new int[]{0,0,0,0,0,0,0,0};
+
         if (am != null)
         {
             // volume
 
-            values[CTRL_VOL] = valid(CTRL_VOL,am.getStreamVolume(AudioManager.STREAM_MUSIC));
+            values[CTRL_VOL] = VolumeControl.valid(max_values,CTRL_VOL,
+                am.getStreamVolume(AudioManager.STREAM_MUSIC));
             Utils.log(dbg_vol + 1,1,"vol=" + values[CTRL_VOL]);
 
             // car stereo gets/sets other value
@@ -102,7 +118,8 @@ public class LocalVolume extends Volume
 
                 try
                 {
-                    values[CTRL_LOUD] = valid(CTRL_LOUD,Settings.System.getInt(cr,"av_lud"));
+                    values[CTRL_LOUD] = VolumeControl.valid(max_values,CTRL_LOUD,
+                        Settings.System.getInt(cr,"av_lud"));
                 }
                 catch (Exception e)
                 {
@@ -115,8 +132,10 @@ public class LocalVolume extends Volume
                 if (balance_str != null)
                 {
                     String parts[] = balance_str.split(",");
-                    values[CTRL_BAL] = valid(CTRL_BAL,Utils.parseInt(parts[0]));
-                    values[CTRL_FADE] = valid(CTRL_FADE,Utils.parseInt(parts[1]));
+                    values[CTRL_BAL] = VolumeControl.valid(max_values,CTRL_BAL,
+                        Utils.parseInt(parts[0]));
+                    values[CTRL_FADE] = VolumeControl.valid(max_values,CTRL_FADE,
+                        Utils.parseInt(parts[1]));
                     Utils.log(dbg_vol + 2,1,"bal=" + values[CTRL_BAL]);
                     Utils.log(dbg_vol + 2,1,"fade=" + values[CTRL_FADE]);
                 }
@@ -126,9 +145,9 @@ public class LocalVolume extends Volume
                 if (eq_str != null)
                 {
                     String parts[] = eq_str.split(",");
-                    values[CTRL_BASS] = valid(CTRL_BASS,Utils.parseInt(parts[0]));
-                    values[CTRL_MID] = valid(CTRL_MID,Utils.parseInt(parts[1]));
-                    values[CTRL_HIGH] = valid(CTRL_HIGH,Utils.parseInt(parts[2]));
+                    values[CTRL_BASS] = VolumeControl.valid(max_values,CTRL_BASS,Utils.parseInt(parts[0]));
+                    values[CTRL_MID] = VolumeControl.valid(max_values,CTRL_MID,Utils.parseInt(parts[1]));
+                    values[CTRL_HIGH] = VolumeControl.valid(max_values,CTRL_HIGH,Utils.parseInt(parts[2]));
                     Utils.log(dbg_vol + 2,1,"bass=" + values[CTRL_BASS]);
                     Utils.log(dbg_vol + 2,1,"mid=" + values[CTRL_MID]);
                     Utils.log(dbg_vol + 2,1,"high=" + values[CTRL_HIGH]);
@@ -151,7 +170,7 @@ public class LocalVolume extends Volume
         // They are always compared to the actual volume controls.
         // Resets last_values if they changed.
     {
-        int new_value = valid(idx,val);
+        int new_value = VolumeControl.valid(max_values,idx,val);
         int old_values[] = getValues();
         Utils.log(dbg_vol,0,"setValue(" + idx + "," + val + ")   old=" + old_values[idx] + "  new=" + new_value);
 

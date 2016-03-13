@@ -31,7 +31,8 @@ import android.widget.Toast;
 import prh.device.Device;
 import prh.utils.Utils;
 
-public class LocalRenderer extends Renderer implements
+public class LocalRenderer implements
+    Renderer,
     MediaPlayer.OnErrorListener,
     MediaPlayer.OnCompletionListener
 {
@@ -69,20 +70,6 @@ public class LocalRenderer extends Renderer implements
     private static int MP_STATE_STOPPED = 6;
     private static int MP_STATE_COMPLETED = 7;
 
-    // RENDERER STATES map to DLNA states
-    // These states correspond to the allowable DLNA states,
-    // as well as those being used for the local control UI.
-    //
-    // Clients use the string versions of these.
-    //
-    // The UI only cares about certain things, like
-    // if there is a station selected, and whether to
-    // enable the slider and various transport controls.
-    // It has higher level expectations, for example,
-    // STOP should turn off the current station, as
-    // well as stopping the playback, if appropriate.
-
-
     //------------------------------------------
     // VARIABLES
     //------------------------------------------
@@ -114,8 +101,10 @@ public class LocalRenderer extends Renderer implements
 
     // Refresh Loop
 
-    private Handler refresh_handler = new Handler();
-    private updateState updater = new updateState();
+    private Handler refresh_handler = null;
+    private updateState updater = null;
+    private boolean in_refresh = false;
+    int last_position = 0;
 
 
     //--------------------------------------------
@@ -129,13 +118,12 @@ public class LocalRenderer extends Renderer implements
     }
 
 
-    public void startRenderer()
+    public boolean startRenderer()
     {
         Utils.log(dbg_ren,0,"LocalRenderer.startRenderer()");
 
         local_volume = new LocalVolume(artisan);
         local_volume.start();
-        artisan.handleArtisanEvent(EventHandler.EVENT_VOLUME_CONFIG_CHANGED,local_volume);
 
         media_player = new MediaPlayer();
         media_player.setAudioStreamType(AudioManager.STREAM_MUSIC);
@@ -146,11 +134,13 @@ public class LocalRenderer extends Renderer implements
         current_playlist_source = new LocalPlaylistSource();
         current_playlist_source.start();
 
+        refresh_handler = new Handler();
+        updater = new updateState();
         setRendererState(RENDERER_STATE_STOPPED);
-
         refresh_handler.postDelayed(updater,REFRESH_INTERVAL);
-        Utils.log(dbg_ren,0,"LocalRenderer started");
 
+        Utils.log(dbg_ren,0,"LocalRenderer started");
+        return true;
     }
 
 
@@ -167,9 +157,13 @@ public class LocalRenderer extends Renderer implements
             refresh_handler = null;
         }
         updater = null;
+        while (in_refresh)
+        {
+            Utils.log(0,0,"waiting for LocalRenderer to stop()");
+            Utils.sleep(100);
+        }
 
-        // get rid of any references to
-        // extranal objects
+        // get rid of any references to external objects
 
         if (current_playlist_source != null)
             current_playlist_source.stop();
@@ -189,12 +183,7 @@ public class LocalRenderer extends Renderer implements
             local_volume.stop();
         local_volume = null;
 
-        // We are responsible for sending out the
-        // null VOLUME_CONFIG_CHANGED message
-
-        artisan.handleArtisanEvent(EventHandler.EVENT_VOLUME_CONFIG_CHANGED,local_volume);
-
-        Utils.log(0,0,"LocalRenderer stopped");
+        Utils.log(dbg_ren,0,"LocalRenderer stopped");
     }
 
 
@@ -216,9 +205,11 @@ public class LocalRenderer extends Renderer implements
     public void setShuffle(boolean value)     { shuffle = value; };
     public Playlist getPlaylist()             { return current_playlist; }
     public PlaylistSource getPlaylistSource() { return current_playlist_source; }
-    public void setPlaylistSource(PlaylistSource source) { current_playlist_source = source; }
-        // hmmm .. can set a remote playlist source into the local renderer?
-        // otherwise, this method probably used only in the far flung future
+
+    // hmmm .. can set a remote playlist source into the local renderer?
+    // otherwise, this method probably used only in the far flung future
+    //
+    // public void setPlaylistSource(PlaylistSource source) { current_playlist_source = source; }
 
 
     public Track getTrack()
@@ -228,9 +219,7 @@ public class LocalRenderer extends Renderer implements
     {
         if (current_track != null)
             return current_track;
-        //if (current_playlist != null)
-            return current_playlist.getCurrentTrack();
-        //return null;
+        return current_playlist.getCurrentTrack();
     }
 
 
@@ -265,15 +254,10 @@ public class LocalRenderer extends Renderer implements
         current_track = null;
         current_playlist = playlist != null ? playlist :
             new LocalPlaylist();
-
-        // if (current_playlist != null)
-            current_playlist.start();
+        current_playlist.start();
         artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
-        // if (current_playlist != null)
-        {
-            Utils.log(1,1,"setPlaylist() calling incAndPlay(0)");
-            incAndPlay(0);
-        }
+        Utils.log(1,1,"setPlaylist() calling incAndPlay(0)");
+        incAndPlay(0);
     }
 
 
@@ -410,6 +394,14 @@ public class LocalRenderer extends Renderer implements
     // Implementation
     //-----------------------------------------------
 
+    public void noSongsMsg()
+    {
+        String msg = "No supported songs types found in playlist '" + current_playlist.getName() + "'";
+        Utils.error(msg);
+        Toast.makeText(artisan.getApplicationContext(),msg,Toast.LENGTH_LONG).show();
+    }
+
+
     private void setRendererState(String to_state)
     // any time the renderer state changes
     // the OpenPlayList and other clients
@@ -419,11 +411,6 @@ public class LocalRenderer extends Renderer implements
         Utils.log(0,0,renderer_state);
         artisan.handleArtisanEvent(EventHandler.EVENT_STATE_CHANGED,renderer_state);
     }
-
-
-    //------------------------------------------
-    // local renderer
-    //------------------------------------------
 
 
     private String getMediaPlayerState()
@@ -444,11 +431,7 @@ public class LocalRenderer extends Renderer implements
     }
 
 
-
-
-    //----------------------------------------------------
     // mediaPlayer handlers
-    //----------------------------------------------------
     // have to be public, but they're not called by me
 
     @Override
@@ -518,40 +501,25 @@ public class LocalRenderer extends Renderer implements
     }
 
 
-    //--------------------------------------------------
-    // API Routines
-    //--------------------------------------------------
-
-
-    public void noSongsMsg()
-    {
-        String msg = "No supported songs types found in playlist '" + current_playlist.getName() + "'";
-        Utils.error(msg);
-        Toast.makeText(artisan.getApplicationContext(),msg,Toast.LENGTH_LONG).show();
-    }
-
-
-
-
-
     //----------------------------------------------------------
-    // refresh thread
+    // updateState
     //----------------------------------------------------------
     // updates and events the song position
     // prh - stalled renderer detection
 
-    int last_position = 0;
 
     private class updateState implements Runnable
     {
         public void run()
         {
+            in_refresh = true;
             if (mp_state != MP_STATE_NONE)
             {
                 if (mp_state != MP_STATE_ERROR)
                 {
                     song_position = media_player.getCurrentPosition();
-                    if (song_position < 0) song_position = 0;
+                    if (song_position < 0)
+                        song_position = 0;
 
                     // set the duration from media player into the track
                     // if (false)
@@ -574,9 +542,15 @@ public class LocalRenderer extends Renderer implements
 
             // dispatch any open home events
             // and re-call ourselves ourselves
+            // these are nulled at top of stopRenderer();
 
-            artisan.handleArtisanEvent(EventHandler.EVENT_IDLE,null);
-            refresh_handler.postDelayed(this,REFRESH_INTERVAL);
+            if (updater != null && refresh_handler != null)
+            {
+                artisan.handleArtisanEvent(EventHandler.EVENT_IDLE,null);
+                refresh_handler.postDelayed(this,REFRESH_INTERVAL);
+            }
+
+            in_refresh = false;
 
         }   // updateState.run()
     }   // class updateState

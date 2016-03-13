@@ -18,7 +18,6 @@ import java.util.HashMap;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
-import prh.artisan.EventHandler;
 import prh.artisan.Prefs;
 import prh.server.http.AVTransport;
 import prh.server.http.ContentDirectory;
@@ -30,11 +29,11 @@ import prh.server.http.OpenVolume;
 import prh.server.http.RenderingControl;
 import prh.server.http.UpnpEventHandler;
 import prh.server.http.UpnpEventManager;
-import prh.utils.DlnaUtils;
+import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
-public class HTTPServer extends fi.iki.elonen.NanoHTTPD implements EventHandler
+public class HTTPServer extends fi.iki.elonen.NanoHTTPD
     // http server that dispatches requests to various
     // other "server" (handlers) including the DLNAServer.
     // It "just happens" to be created to listen on the
@@ -64,9 +63,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD implements EventHandler
 
     private UpnpEventManager event_manager = null;
     public UpnpEventManager getEventManager() { return event_manager; }
-
     private HashMap<String,httpRequestHandler> handlers = null;
-
 
 
     //-----------------------------------------------
@@ -182,7 +179,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD implements EventHandler
             artisan.getLocalLibrary() != null)
         {
             Utils.log(dbg_http,1,"starting MediaServer http listener ...");
-            handlers.put("ContentDirectory",new ContentDirectory(artisan,this,DlnaUtils.upnp_urn));
+            handlers.put("ContentDirectory",new ContentDirectory(artisan,this,httpUtils.upnp_urn));
         }
 
         if ((Prefs.getBoolean(Prefs.id.START_HTTP_MEDIA_RENDERER) ||
@@ -190,8 +187,8 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD implements EventHandler
             artisan.getLocalRenderer() != null)
         {
             Utils.log(dbg_http,1,"starting MediaRenderer http listeners ...");
-            handlers.put("AVTransport",new AVTransport(artisan,this,DlnaUtils.upnp_urn));
-            handlers.put("RenderingControl",new RenderingControl(artisan,this,DlnaUtils.upnp_urn));
+            handlers.put("AVTransport",new AVTransport(artisan,this,httpUtils.upnp_urn));
+            handlers.put("RenderingControl",new RenderingControl(artisan,this,httpUtils.upnp_urn));
         }
 
         if (Prefs.getBoolean(Prefs.id.START_HTTP_OPEN_HOME_SERVER) &&
@@ -199,11 +196,11 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD implements EventHandler
         {
             Utils.log(dbg_http,1,"starting OpenHomeRenderer http listeners ...");
 
-            OpenProduct  product  = new OpenProduct(artisan,this,DlnaUtils.open_urn);
-            OpenVolume   volume   = new OpenVolume(artisan,this,DlnaUtils.open_urn);
-            OpenPlaylist playlist = new OpenPlaylist(artisan,this,DlnaUtils.open_urn);
-            OpenInfo     info     = new OpenInfo(artisan,this,DlnaUtils.open_urn);
-            OpenTime     time     = new OpenTime(artisan,this,DlnaUtils.open_urn);
+            OpenProduct  product  = new OpenProduct(artisan,this,httpUtils.open_urn);
+            OpenVolume   volume   = new OpenVolume(artisan,this,httpUtils.open_urn);
+            OpenPlaylist playlist = new OpenPlaylist(artisan,this,httpUtils.open_urn);
+            OpenInfo     info     = new OpenInfo(artisan,this,httpUtils.open_urn);
+            OpenTime     time     = new OpenTime(artisan,this,httpUtils.open_urn);
 
             Utils.log(dbg_http,2,"OpenHomeRenderer http listeners created");
 
@@ -419,7 +416,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD implements EventHandler
 
                                 // get the xml document
 
-                                doc = DlnaUtils.get_xml_from_post(session);
+                                doc = httpUtils.get_xml_from_post(session);
                                 if (doc == null)
                                 {
                                     Utils.error("Null document in " + service + " " + action + "request");
@@ -523,37 +520,6 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD implements EventHandler
         return response;
     }
 
-
-    //----------------------------------------------
-    // Artisan Event Handling
-    //----------------------------------------------
-
-    public void handleArtisanEvent(final String action,final Object data)
-        // immediatly bump the usage counts
-    {
-        if (action.equals(EventHandler.EVENT_STATE_CHANGED) ||
-            action.equals(EventHandler.EVENT_PLAYLIST_CHANGED))
-            event_manager.incUpdateCount("Playlist");
-
-        if (action.equals(EventHandler.EVENT_TRACK_CHANGED))
-            event_manager.incUpdateCount("Info");
-
-        if (action.equals(EventHandler.EVENT_POSITION_CHANGED))
-            event_manager.incUpdateCount("Time");
-
-        if (action.equals(EventHandler.EVENT_VOLUME_CHANGED))
-            event_manager.incUpdateCount("Volume");
-
-        // at the end of Renderer.update_UI() this is called
-        // so we actually send upnp events to clients.
-        // I am debating just moving this to the end of
-        // event.incUpdateCount(), since we are in the
-        // UI thread
-
-        if (action.equals(EventHandler.EVENT_IDLE))
-            event_manager.send_events();
-
-    }   // handleArtisanEvent();
 
 
 }   // class HTTPServer

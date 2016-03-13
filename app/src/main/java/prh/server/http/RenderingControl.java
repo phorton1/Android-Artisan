@@ -10,12 +10,10 @@ import java.util.HashMap;
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 import prh.artisan.Renderer;
-import prh.artisan.Track;
 import prh.artisan.Volume;
 import prh.server.HTTPServer;
-import prh.server.SSDPServer;
 import prh.server.httpRequestHandler;
-import prh.utils.DlnaUtils;
+import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
@@ -156,8 +154,8 @@ public class RenderingControl extends httpRequestHandler
             String action)
             // The default OK response is just an empty SSDP response (with soap body)
     {
-        String xml = DlnaUtils.action_response_header(urn,service,action);
-        xml = xml + DlnaUtils.action_response_footer(urn,action,"");
+        String xml = httpUtils.action_response_header(urn,service,action);
+        xml = xml + httpUtils.action_response_footer(urn,action,"");
         return server.newFixedLengthResponse(NanoHTTPD.Response.Status.OK,"text/xml", xml);
     }
 
@@ -172,7 +170,7 @@ public class RenderingControl extends httpRequestHandler
         String field,
         int ctrl_idx)
     {
-        int val = DlnaUtils.getXMLInt(doc,field,true);
+        int val = httpUtils.getXMLInt(doc,field,true);
         Utils.log(dbg_rc,0,"SetRendererResponse(" + field + ")=" + val);
 
         Renderer renderer = artisan.getRenderer();
@@ -206,7 +204,7 @@ public class RenderingControl extends httpRequestHandler
         HashMap<String,String> hash = new HashMap<String,String>();
         hash.put(field,Integer.toString(val));
         hash.put("Channel","MASTER");
-        return DlnaUtils.hash_response(server,urn,service,action,hash);
+        return httpUtils.hash_response(server,urn,service,action,hash);
     }
 
 

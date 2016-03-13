@@ -13,11 +13,12 @@ public class RenderingControl extends Service
     public RenderingControl(
         Artisan artisan,
         Device device,
+        String urn,
         String service_type,
         String control_url,
         String event_url,
         Document service_description )
     {
-        super(artisan,device,service_type,control_url,event_url);
+        super(artisan,device,urn,service_type,control_url,event_url);
     }
 }

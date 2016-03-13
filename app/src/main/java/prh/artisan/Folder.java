@@ -5,11 +5,10 @@ package prh.artisan;
 
 
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 
 import java.util.HashMap;
 
-import prh.utils.DlnaUtils;
+import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 public class Folder extends Record
@@ -154,9 +153,9 @@ public class Folder extends Record
     // of this item (which always uses public artURI)
     {
         return
-            DlnaUtils.start_didl() +
-                DlnaUtils.encode_xml(getMetadata()) +
-                DlnaUtils.end_didl();
+            httpUtils.start_didl() +
+                httpUtils.encode_xml(getMetadata()) +
+                httpUtils.end_didl();
     }
 
     public String getMetadata()
@@ -168,13 +167,13 @@ public class Folder extends Record
             "searchable=\"1\" " +
             "restricted=\"1\" " +
             "childCount=\"" + getNumElements() + "\">" +
-            "<dc:title>" +  DlnaUtils.encode_value(getTitle()) + "</dc:title>" +
+            "<dc:title>" +  httpUtils.encode_value(getTitle()) + "</dc:title>" +
             "<upnp:class>object.container</upnp:class>" +
-            "<upnp:artist>" +  DlnaUtils.encode_value(getArtist()) + "</upnp:artist>" +
-            "<upnp:albumArtist>" +  DlnaUtils.encode_value(getArtist()) + "</upnp:albumArtist>" +
-            "<upnp:genre>" +  DlnaUtils.encode_value(getGenre()) + "</upnp:genre>" +
-            "<dc:date>" +  DlnaUtils.encode_value(getYearString()) + "</dc:date>" +
-            "<upnp:albumArtURI>" +  DlnaUtils.encode_value(getPublicArtUri()) + "</upnp:albumArtURI>" +
+            "<upnp:artist>" +  httpUtils.encode_value(getArtist()) + "</upnp:artist>" +
+            "<upnp:albumArtist>" +  httpUtils.encode_value(getArtist()) + "</upnp:albumArtist>" +
+            "<upnp:genre>" +  httpUtils.encode_value(getGenre()) + "</upnp:genre>" +
+            "<dc:date>" +  httpUtils.encode_value(getYearString()) + "</dc:date>" +
+            "<upnp:albumArtURI>" +  httpUtils.encode_value(getPublicArtUri()) + "</upnp:albumArtURI>" +
             "</container>";
     }
 

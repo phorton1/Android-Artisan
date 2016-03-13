@@ -19,7 +19,7 @@ import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.server.HTTPServer;
 import prh.server.httpRequestHandler;
-import prh.utils.DlnaUtils;
+import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
@@ -111,14 +111,14 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
         }
         else if (action.equals("IdArrayChanged"))
         {
-            int token = DlnaUtils.getXMLInt(doc,"Token",true);
+            int token = httpUtils.getXMLInt(doc,"Token",true);
             Utils.log(0,0,"token=" + token);
             hash.put("Value",token == getUpdateCount() ? "0" : "1");
 
         }
         else if (action.equals("Read"))
         {
-            int open_id = DlnaUtils.getXMLInt(doc,"Id",true);
+            int open_id = httpUtils.getXMLInt(doc,"Id",true);
             Utils.log(0,0,"open_id=" + open_id);
             Track track = list.getByOpenId(open_id);
             if (track == null)
@@ -128,7 +128,7 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
         }
         else if (action.equals("ReadList"))
         {
-            int id_array[] = list.string_to_id_array(DlnaUtils.getXMLString(doc,"IdList",true));
+            int id_array[] = list.string_to_id_array(httpUtils.getXMLString(doc,"IdList",true));
             hash.put("TrackList",list.id_array_to_tracklist(id_array));
             list.start_expose_more_thread();
         }
@@ -146,7 +146,7 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
         else if (action.equals("DeleteId"))
         {
             // 800 if not in list
-            int open_id = DlnaUtils.getXMLInt(doc,"Value",true);
+            int open_id = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"open_id=" + open_id);
             if (!list.removeTrack(open_id))
                 return error_response(http_server,800,open_id);
@@ -156,9 +156,9 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
         {
             // Reports a 800 fault code if AfterId is not 0 and doesn’t appear in the playlist.
             // Reports a 801 fault code if the playlist is full (i.e. already contains TracksMax tracks).
-            int after_id = DlnaUtils.getXMLInt(doc,"AfterId",true);
-            String content_uri = DlnaUtils.getXMLString(doc,"Uri",true);
-            String content_data = DlnaUtils.getXMLString(doc,"Metadata",true);
+            int after_id = httpUtils.getXMLInt(doc,"AfterId",true);
+            String content_uri = httpUtils.getXMLString(doc,"Uri",true);
+            String content_data = httpUtils.getXMLString(doc,"Metadata",true);
             Utils.log(0,0,"after_id=" + after_id);
             Utils.log(0,0,"uri=" + content_uri);
             Utils.log(0,0,"data=" + content_data);
@@ -203,14 +203,14 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
 
         else if (action.equals("SetRepeat"))
         {
-            int value = DlnaUtils.getXMLInt(doc,"Value",true);
+            int value = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"value=" + value);
             renderer.setRepeat(value > 0);
             changed = true;
         }
         else if (action.equals("SetShuffle"))
         {
-            int value = DlnaUtils.getXMLInt(doc,"Value",true);
+            int value = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"value=" + value);
             renderer.setShuffle(value > 0);
             changed = true;
@@ -221,7 +221,7 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
 
         else if (action.equals("SeekId"))
         {
-            int open_id = DlnaUtils.getXMLInt(doc,"Value",true);
+            int open_id = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"open_id=" + open_id);
             if (open_id > 0)
             {
@@ -235,7 +235,7 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
         }
         else if (action.equals("SeekIndex"))
         {
-            int index = DlnaUtils.getXMLInt(doc,"Value",true);
+            int index = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"index=" + index);
             if (index > 0)
             {
@@ -252,13 +252,13 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
 
         else if (action.equals("SeekSecondAbsolute"))
         {
-            int seconds = DlnaUtils.getXMLInt(doc,"Value",true);
+            int seconds = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"seconds=" + seconds);
             renderer.seekTo(seconds * 1000);
         }
         else if (action.equals("SeekSecondRelative"))
         {
-            int seconds = DlnaUtils.getXMLInt(doc,"Value",true);
+            int seconds = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"seconds=" + seconds);
             int position = renderer.getPosition();
             position += seconds * 1000;
@@ -307,9 +307,9 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
         if (ok)
         {
             if (action.equals(DEBUG_ACTION))
-                DlnaUtils.dbg_hash_response = true;
-            response = DlnaUtils.hash_response(http_server,urn,service,action,hash);
-            DlnaUtils.dbg_hash_response = false;
+                httpUtils.dbg_hash_response = true;
+            response = httpUtils.hash_response(http_server,urn,service,action,hash);
+            httpUtils.dbg_hash_response = false;
         }
         if (changed)
             incUpdateCount();
@@ -434,7 +434,7 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
         // IdArrayChanged
         // TrackList
 
-        return DlnaUtils.hashToXMLString(hash,true);
+        return httpUtils.hashToXMLString(hash,true);
     }
 
 

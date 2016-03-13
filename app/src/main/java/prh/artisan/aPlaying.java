@@ -27,18 +27,28 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 
+import prh.device.Device;
 import prh.utils.Utils;
 
 
-public class aPlaying extends Fragment implements EventHandler, View.OnClickListener
+public class aPlaying extends Fragment implements
+    ArtisanPage,
+    EventHandler,
+    View.OnClickListener
 {
     private static int dbg_anp = 0;
+    public String getName()  { return "Now Playing"; }
+
+    // only good while attached
+
+    private Artisan artisan = null;
 
     // valid for the life of the object
     // between onCreate and onDestroy
 
     private View my_view = null;
     private PlayListButtonAdapter buttonAdapter = null;
+    private Renderer renderer;
 
     // state
 
@@ -47,16 +57,16 @@ public class aPlaying extends Fragment implements EventHandler, View.OnClickList
     private Track current_track = null;
     private Playlist current_playlist = null;
 
-    // only good while attached
-
-    private Artisan artisan = null;
-
     // working vars
 
     private boolean in_slider = false;
 
 
-   //----------------------------------------------
+
+
+
+
+    //----------------------------------------------
     // life cycle
     //----------------------------------------------
 
@@ -376,70 +386,11 @@ public class aPlaying extends Fragment implements EventHandler, View.OnClickList
     // Event Handling
     //-----------------------------------------------------------
 
-    public void handleArtisanEvent(String action,Object data)
-        // handle changes ...
-        // in order of most minor, to most major changes
-        // where major changes require more updating.
-    {
-        if (action.equals(EventHandler.EVENT_POSITION_CHANGED))
-        {
-            update_position((Integer) data);
-        }
-        else if (action.equals(EventHandler.EVENT_STATE_CHANGED))
-        {
-            update_state((String) data);
-            update_whats_playing_message();
-        }
-        else if (action.equals(EventHandler.EVENT_TRACK_CHANGED))
-        {
-            update_track((Track) data);
-            update_position(current_position);
-            update_state(current_state);
-            update_whats_playing_message();
-        }
-        else if (action.equals(EventHandler.EVENT_PLAYLIST_CHANGED))
-        {
-            update_playlist((Playlist) data);
-            update_track(current_track);
-            update_position(current_position);
-            update_state(current_state);
-            update_whats_playing_message();
-        }
-
-        // else if (action.equals(EventHandler.EVENT_PLAYLIST_SOURCE_CHANGED))
-        // {
-        //     update_playlist_source();
-        //     update_playlist(current_playlist);
-        //     update_track(current_track);
-        //     update_position(current_position);
-        //     update_state(current_state);
-        //     update_whats_playing_message();
-        // }
-
-        // oddball, no data member, not used yet
-        // check back with artisan to see if there's a playlist source
-
-        else if (action.equals(EventHandler.EVENT_RENDERER_CHANGED))
-        {
-            current_state = "";
-            current_position = 0;
-            current_track = null;
-            current_playlist = null;
-
-            setPlayListNames();
-            update_playlist(current_playlist);
-            update_track(current_track);
-            update_position(current_position);
-            update_state(current_state);
-            update_whats_playing_message();
-        }
-    }
-
 
     // event handlers in order of minor to major changes
 
 
-    private void update_whats_playing_message()
+    public void update_whats_playing_message()
     {
         if (my_view != null)
         {
@@ -452,8 +403,8 @@ public class aPlaying extends Fragment implements EventHandler, View.OnClickList
                     current_playlist.getCurrentIndex() + "/" +
                     current_playlist.getNumTracks() + ") ";
             msg += current_state;
-            TextView title = (TextView) artisan.findViewById(R.id.main_menu_text);
-            title.setText(msg);
+
+            artisan.SetMainMenuText(getName(),msg);
         }
     }
 
@@ -470,7 +421,7 @@ public class aPlaying extends Fragment implements EventHandler, View.OnClickList
 
             if (current_track != null)
             {
-                position_text.setText(Utils.durationToString(position,false));
+                position_text.setText(Utils.durationToString(position,Utils.how_precise.FOR_DISPLAY));
                 track_slider.setEnabled(true);
                 track_slider.setMax(current_track.getDuration());
                 track_slider.setProgress(current_position);
@@ -503,7 +454,7 @@ public class aPlaying extends Fragment implements EventHandler, View.OnClickList
     }
 
 
-    void update_track(Track track)
+    private void update_track(Track track)
     {
         current_state = "";
         current_position = 0;
@@ -534,7 +485,7 @@ public class aPlaying extends Fragment implements EventHandler, View.OnClickList
                 genre = track.getGenre();
                 year = track.getYearString();
                 type = track.getType();
-                duration_str = track.getDurationString(false);
+                duration_str = track.getDurationString(Utils.how_precise.FOR_DISPLAY);
                 art_uri = track.getLocalArtUri();
             }
 
@@ -583,7 +534,7 @@ public class aPlaying extends Fragment implements EventHandler, View.OnClickList
     }
 
 
-    void update_playlist(Playlist new_playlist)
+    private void update_playlist(Playlist new_playlist)
     {
         current_state = "";
         current_position = 0;
@@ -608,6 +559,72 @@ public class aPlaying extends Fragment implements EventHandler, View.OnClickList
         }
 
         current_playlist = new_playlist;
+    }
+
+
+
+    public void handleArtisanEvent(String event_id,Object data)
+    // handle changes ...
+    // in order of most minor, to most major changes
+    // where major changes require more updating.
+    {
+        if (event_id.equals(EVENT_POSITION_CHANGED))
+        {
+            update_position((Integer) data);
+        }
+        else if (event_id.equals(EVENT_STATE_CHANGED))
+        {
+            update_state((String) data);
+            update_whats_playing_message();
+        }
+        else if (event_id.equals(EVENT_TRACK_CHANGED))
+        {
+            update_track((Track) data);
+            update_position(current_position);
+            update_state(current_state);
+            update_whats_playing_message();
+        }
+        else if (event_id.equals(EVENT_PLAYLIST_CHANGED))
+        {
+            update_playlist((Playlist) data);
+            update_track(current_track);
+            update_position(current_position);
+            update_state(current_state);
+            update_whats_playing_message();
+        }
+
+        // oddball, no data member, not used yet
+        // check back with artisan to see if there's a playlist source
+        // else if (event_id.equals(EVENT_PLAYLIST_SOURCE_CHANGED))
+        // {
+        //     update_playlist_source();
+        //     update_playlist(current_playlist);
+        //     update_track(current_track);
+        //     update_position(current_position);
+        //     update_state(current_state);
+        //     update_whats_playing_message();
+        // }
+
+
+        // if the renderer changed, we move the playing track
+        // over to the new renderer. This is complicated enough
+        // but really complicated for openHome renderers.
+        // FOR NOW JUST SWITCHES TO THE CORRECT RENDERER
+
+        else if (event_id.equals(EVENT_RENDERER_CHANGED))
+        {
+            current_state = "";
+            current_position = 0;
+            current_track = null;
+            current_playlist = null;
+
+            setPlayListNames();
+            update_playlist(current_playlist);
+            update_track(current_track);
+            update_position(current_position);
+            update_state(current_state);
+            update_whats_playing_message();
+        }
     }
 
 

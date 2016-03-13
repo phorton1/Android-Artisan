@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import prh.utils.DlnaUtils;
+import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
@@ -63,7 +63,7 @@ public class Track extends Record
     {
         boolean isLocal = false;
         this.put("dirty",1);
-        didl = DlnaUtils.decode_xml(didl);
+        didl = httpUtils.decode_xml(didl);
         String id = extract_value("\\sid=\"(.+?)\"",didl);
 
         // convert to local
@@ -139,7 +139,7 @@ public class Track extends Record
     private static String extract_value(String re, String didl)
     {
         String rslt = Utils.extract_re(re,didl);
-        rslt = DlnaUtils.decode_value(rslt);
+        rslt = httpUtils.decode_value(rslt);
         return rslt;
     }
 
@@ -270,7 +270,7 @@ public class Track extends Record
         return Utils.parseInt(getYearString());
     }
 
-    public String getDurationString(boolean precise)
+    public String getDurationString(Utils.how_precise precise)
     {
         return Utils.durationToString(getDuration(),precise);
     }
@@ -292,29 +292,29 @@ public class Track extends Record
     // of this item (which always uses public artURI)
     {
         return
-            DlnaUtils.start_didl() +
-            DlnaUtils.encode_xml(getMetadata()) +
-            DlnaUtils.end_didl();
+            httpUtils.start_didl() +
+            httpUtils.encode_xml(getMetadata()) +
+            httpUtils.end_didl();
     }
 
     public String getMetadata()
     // returns the metadata chunk without <didl> wrapper
     {
         return "<item id=\"" + getId() + "\" parentID=\"" + getParentId() + "\" restricted=\"1\">" +
-            "<dc:title>" +  DlnaUtils.encode_value(getTitle()) + "</dc:title>" +
+            "<dc:title>" +  httpUtils.encode_value(getTitle()) + "</dc:title>" +
             "<upnp:class>object.item.audioItem</upnp:class>" +
-            "<upnp:genre>" +  DlnaUtils.encode_value(getGenre()) + "</upnp:genre>" +
-            "<upnp:artist>" +  DlnaUtils.encode_value(getArtist()) + "</upnp:artist>" +
-            "<upnp:album>" +  DlnaUtils.encode_value(getAlbumTitle()) + "</upnp:album>" +
-            "<upnp:originalTrackNumber>" +  DlnaUtils.encode_value(getTrackNum()) + "</upnp:originalTrackNumber>" +
-            "<dc:date>" +  DlnaUtils.encode_value(getYearString()) + "</dc:date>" +
-            "<upnp:albumArtURI>" +  DlnaUtils.encode_value(getPublicArtUri()) + "</upnp:albumArtURI>" +
-            "<upnp:albumArtist>" +  DlnaUtils.encode_value(getAlbumArtist()) + "</upnp:albumArtist>" +
+            "<upnp:genre>" +  httpUtils.encode_value(getGenre()) + "</upnp:genre>" +
+            "<upnp:artist>" +  httpUtils.encode_value(getArtist()) + "</upnp:artist>" +
+            "<upnp:album>" +  httpUtils.encode_value(getAlbumTitle()) + "</upnp:album>" +
+            "<upnp:originalTrackNumber>" +  httpUtils.encode_value(getTrackNum()) + "</upnp:originalTrackNumber>" +
+            "<dc:date>" +  httpUtils.encode_value(getYearString()) + "</dc:date>" +
+            "<upnp:albumArtURI>" +  httpUtils.encode_value(getPublicArtUri()) + "</upnp:albumArtURI>" +
+            "<upnp:albumArtist>" +  httpUtils.encode_value(getAlbumArtist()) + "</upnp:albumArtist>" +
             "<res " +
             "size=\"" + getSize() + "\" " +
-            "duration=\"" + getDurationString(true) + "\" " +
+            "duration=\"" + getDurationString(Utils.how_precise.FOR_DIDL) + "\" " +
             "protocolInfo=\"http-get:*:" + getMimeType() + ":" +
-            DlnaUtils.get_dlna_stuff(getType()) + "\">" +
+            httpUtils.get_dlna_stuff(getType()) + "\">" +
             getPublicUri() +
             "</res>" +
             "</item>";

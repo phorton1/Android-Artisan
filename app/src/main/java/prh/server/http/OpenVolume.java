@@ -14,7 +14,7 @@ import prh.artisan.Renderer;
 import prh.artisan.Volume;
 import prh.server.HTTPServer;
 import prh.server.httpRequestHandler;
-import prh.utils.DlnaUtils;
+import prh.utils.httpUtils;
 
 
 public class OpenVolume extends httpRequestHandler implements UpnpEventHandler
@@ -42,6 +42,7 @@ public class OpenVolume extends httpRequestHandler implements UpnpEventHandler
     {
         http_server.getEventManager().UnRegisterHandler(this);
     }
+
 
 
     public NanoHTTPD.Response response(
@@ -82,51 +83,51 @@ public class OpenVolume extends httpRequestHandler implements UpnpEventHandler
 
         else if (action.equals("SetVolume"))
         {
-            int value = DlnaUtils.getXMLInt(doc,"Value",true);
+            int value = httpUtils.getXMLInt(doc,"Value",true);
             volume.setValue(Volume.CTRL_VOL,value);
             changed = true;
         }
         else if (action.equals("SetBalance"))
         {
-            int value = DlnaUtils.getXMLInt(doc,"Value",true);
+            int value = httpUtils.getXMLInt(doc,"Value",true);
             volume.setValue(Volume.CTRL_BAL,value);
             changed = true;
         }
         else if (action.equals("SetFade"))
         {
-            int value = DlnaUtils.getXMLInt(doc,"Value",true);
+            int value = httpUtils.getXMLInt(doc,"Value",true);
             volume.setValue(Volume.CTRL_FADE,value);
             changed = true;
         }
 
         else if (action.equals("VolumeDec"))
         {
-            volume.incDec(Volume.CTRL_VOL,-1);
+            volume.incDecValue(Volume.CTRL_VOL,-1);
             changed = true;
         }
         else if (action.equals("BalanceDec"))
         {
-            volume.incDec(Volume.CTRL_BAL,-1);
+            volume.incDecValue(Volume.CTRL_BAL,-1);
             changed = true;
         }
         else if (action.equals("FadeDec"))
         {
-            volume.incDec(Volume.CTRL_FADE,-1);
+            volume.incDecValue(Volume.CTRL_FADE,-1);
             changed = true;
         }
         else if (action.equals("VolumeInc"))
         {
-            volume.incDec(Volume.CTRL_VOL,1);
+            volume.incDecValue(Volume.CTRL_VOL,1);
             changed = true;
         }
         else if (action.equals("BalanceInc"))
         {
-            volume.incDec(Volume.CTRL_BAL,1);
+            volume.incDecValue(Volume.CTRL_BAL,1);
             changed = true;
         }
         else if (action.equals("FadeInc"))
         {
-            volume.incDec(Volume.CTRL_FADE,1);
+            volume.incDecValue(Volume.CTRL_FADE,1);
             changed = true;
         }
         else
@@ -135,7 +136,7 @@ public class OpenVolume extends httpRequestHandler implements UpnpEventHandler
         }
 
         if (ok)
-            response = DlnaUtils.hash_response(http_server,urn,service,action,hash);
+            response = httpUtils.hash_response(http_server,urn,service,action,hash);
         if (changed)
             incUpdateCount();
         return response;
@@ -176,7 +177,7 @@ public class OpenVolume extends httpRequestHandler implements UpnpEventHandler
         hash.put("BalanceMax",Integer.toString(max_bal));
         hash.put("FadeMax",Integer.toString(max_fade));
 
-        return DlnaUtils.hashToXMLString(hash,true);
+        return httpUtils.hashToXMLString(hash,true);
     }
 
 

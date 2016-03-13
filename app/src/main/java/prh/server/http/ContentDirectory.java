@@ -20,9 +20,8 @@ import prh.artisan.Record;
 import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.server.HTTPServer;
-import prh.server.SSDPServer;
 import prh.server.httpRequestHandler;
-import prh.utils.DlnaUtils;
+import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
@@ -251,7 +250,7 @@ public class ContentDirectory extends httpRequestHandler
 
         response.addHeader("Accept-Ranges", "bytes");
         response.addHeader("contentFeatures.dlna.org",
-            DlnaUtils.get_dlna_stuff(track.getType()));
+            httpUtils.get_dlna_stuff(track.getType()));
         response.addHeader("transferMode.dlna.org","Streaming");
 
         // had to add public getHeaders() method to NanoHTTPD for this
@@ -300,7 +299,7 @@ public class ContentDirectory extends httpRequestHandler
 
         String path = local_uri.replace("file://","");
         Utils.log(dbg_dlna+1,1,"opening art full_path=" + path);
-        response = DlnaUtils.raw_file_response(server,response,path);
+        response = httpUtils.raw_file_response(server,response,path);
         if (response.getStatus() == NanoHTTPD.Response.Status.NOT_FOUND)
         {
             response = server.asset_file_response(response,"icons/no_image.png");
@@ -316,10 +315,10 @@ public class ContentDirectory extends httpRequestHandler
         Document doc,
         String urn)
     {
-        String id = DlnaUtils.getXMLString(doc,"ObjectID",true);
-        int start = DlnaUtils.getXMLInt(doc,"StartingIndex",true);
-        int count = DlnaUtils.getXMLInt(doc,"RequestedCount",true);
-        String flag = DlnaUtils.getXMLString(doc,"BrowseFlag",true);
+        String id = httpUtils.getXMLString(doc,"ObjectID",true);
+        int start = httpUtils.getXMLInt(doc,"StartingIndex",true);
+        int count = httpUtils.getXMLInt(doc,"RequestedCount",true);
+        String flag = httpUtils.getXMLString(doc,"BrowseFlag",true);
         Utils.log(dbg_dlna,0,"browse_response(" + id + "," + start + "," + count + "," + flag + ")");
 
         // error checking and parameter munging
@@ -363,15 +362,15 @@ public class ContentDirectory extends httpRequestHandler
         int num_items = subitems.size();
         Utils.log(dbg_dlna,1,"building http response for " + num_items + " " + table + "s");
 
-        String response_text = DlnaUtils.action_response_header(urn,"ContentDirectory","Browse");
-        response_text += DlnaUtils.start_didl();
+        String response_text = httpUtils.action_response_header(urn,"ContentDirectory","Browse");
+        response_text += httpUtils.start_didl();
         for (Record rec: subitems)
         {
-            response_text += DlnaUtils.encode_xml(is_album ?
+            response_text += httpUtils.encode_xml(is_album ?
                 getTrackMetadata((Track) rec) :
                 ((Folder) rec).getMetadata());
         }
-        response_text += DlnaUtils.end_didl();
+        response_text += httpUtils.end_didl();
         response_text += content_response_footer(
             urn,
             "Browse",
@@ -396,7 +395,7 @@ public class ContentDirectory extends httpRequestHandler
 
     private static String content_response_footer(String urn, String action, int num_actual, int num_total)
     {
-        return DlnaUtils.action_response_footer(
+        return httpUtils.action_response_footer(
             urn,
             action,
             "<UpdateID>12345</UpdateID>\n" +
@@ -417,8 +416,8 @@ public class ContentDirectory extends httpRequestHandler
         {
             String name = id.replace("select_playlist_","");
             String text =
-                // DlnaUtils.encode_xml(
-                //DlnaUtils.start_didl() +
+                // httpUtils.encode_xml(
+                //httpUtils.start_didl() +
                     "<item id=\"" + id + "\" parentID=\"" + track.getParentId() + "\" restricted=\"1\">" +
                     "<dc:title>" + track.getTitle() + "</dc:title>" +
                     "<upnp:class>object.item.audioItem</upnp:class>" +
@@ -427,7 +426,7 @@ public class ContentDirectory extends httpRequestHandler
                     Utils.server_uri + "/dlna_server/select_playlist/" + name + ".mp3" +
                     "</res>" +
                     "</item>";
-                    // +  DlnaUtils.end_didl());
+                    // +  httpUtils.end_didl());
             Utils.log(dbg_dlna + 1,0,"VIRTUAL xml_item(" + name + ")\n" + text);
             return text;
         }

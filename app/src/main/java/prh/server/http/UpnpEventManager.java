@@ -356,7 +356,7 @@ public class UpnpEventManager
                 }
             }
 
-        }   // AsyncHTTPRequest::run()
+        }   // networkRequest::run()
 
 
 

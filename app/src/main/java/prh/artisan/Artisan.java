@@ -1,5 +1,98 @@
 package prh.artisan;
 
+// ARCHITCTURAL NOTES
+//
+// Loops and Events
+//
+//      We studiously try to not introduce Timer Loops into the program.
+//      There are currently five timer loops, three minor, one well behaved,
+//      and simple, and one important and hard to manage.
+//
+//      LocalVolumeFixer has a timer loop once per second to reconcile MTC and
+//      Android volumes only on the Car Stereo. The SSDPServer has a long timer,
+//      like once every 30 seconds, to broadcast a Keep-Alive message.
+//      The LocalVolume object currently has a timer loop of it's own to
+//      see if the local android volume has changed and to update it's state.
+//      The SSDP Search, which itself is a Thread Runnable, and called as such,
+//      essentially has a blocking timer loop for the duration of the call to run(),
+//      which entirely notifies Artisan of EVENT_NEW_DEVICE as it proceeds.
+//
+//      These are all low level "faceless" objects that do not make any direct
+//      UI calls. There are NO TIMER LOOPS IN THE UI.  All low level objects that
+//      may cause UI changes do so by dispatching ArtisanEvents to Artisan, who in
+//      turn dispatches them to the appropriate UI activities. The above four cases
+//      are relatively simple, and either don't need to dispatch events, or dispatch
+//      a small set of well understood Artisan Events.
+//
+//      The main, and complex case of a Timer loop is in Renderers.
+//
+//      Otherwise, THE ENTIRE UI IS EVENT DRIVEN.
+//
+// Renderer Timer Loop, EVENT_IDLE, and UPnP Event Subscribers
+//
+//      Each Derived Renderer has a polling timer loop (to poll the state of the local
+//      media_player or remote DLNA MediaServer) and dispatches a variety of Artisan
+//      events as it notices changes.
+//
+//      This timer loop does what it needs to do, but also dispatches EVENT_IDLE
+//      on each go-round.  The occurrence of the EVENT_IDLE artisan event is crucial
+//      in the implementation, because it triggers the dispatching of UPnP Events
+//      to subscribed clients.  Without a Renderer, no subscribed SSDP devices will
+//      receive any SSDP Events. Yet not all subscribers are to a Renderer .. they
+//      can also subscribe to the ContentServer which is logically independent
+//      of the Renderer.  Yet, there MUST BE A RENDERER PRESENT for them to
+//      get notfied.  This is just a fact of the implementation that should be known.
+//
+//      Although, logically, the dispatching of UPnP Events has nothing to do with
+//      the UI thread, it is implemented in the Artisan.handleArtisanEvent() method,
+//      as there is a significant correspondence between Artisan Events and UPnP
+//      Events.  We use the Artisan Event to bump a count of changes on the UPnP
+//      services (UpnpEventHandlers owned by the HTTPServer and registered with
+//      the UpnpEventManager), and then call UpnpEventManager.send_events() on
+//      each IDLE_EVENT.
+
+// UI Thread and Network Requests
+//
+//      The UI Objects, like aPlaying, aPreferences, aPlaylist, etc, are free to
+//      access each other and make directly method calls, as they all "live" in the
+//      main UI thread.
+//
+//      The devices, services, servers, etc - all low level faceless objects - call
+//      Artisan.handleArtisanEvent() to notify the UI of changes. The main dispatcher,
+//      Artisan.handleArtisanEvent() uses the built in Android runOnUiThread() method
+//      to block and wait for the UI thread to become available.   It should be the
+//      only call to runOnUiThread() in the system.
+//
+//      The Android OS does not allow us to make network requests on the main UI Thread.
+//
+//      This results in the need to fire off threads, and have handlers, for anything that
+//      hits the network ... like getting html or xml pages ... which in turn means for doing
+//      anything interesting, particularly from the faceless objects, like issuing UPnP actions,
+//      doing SSDP Searches and getting device descriptions, etc.
+//
+//      Therefore we generically implement a set Network Routines that can be used either
+//      Asynchronously, by passing in a handler for the results, or emulating Synchronous
+//      Network requests, by waiting for the reply ourselves, possibly on the UI thread.
+//      This results in a lot of additional complexity.
+//
+//      This complexity resulting from the use of Asynchronous network requests should be
+//      avoided in UI code.  It is nice if the UI code not only can be called safely from
+//      anywhere in the main UI thread, but it is also nice if it does not set up it's own
+//      asyncrhonous handlers.  If you find the need to setup an asynchronous handler in the
+//      UI code, it probably means there should be a low level object and Event created.
+//
+//      Factoid: the image in Now Playing is loaded via an asynchronous network request
+//      that is also RunOnUiThread().  This I think of as a local implementation of a
+//      synchronous Network Request.
+//
+// Truly Asynchronous Network Events
+//
+//      Otherwise, Aynchronous Network requests are hidden from the system, and limited
+//      to private usage in a single low level faceless object. That object then responds
+//      to the completion and does what it needs to do, and usually sends out Artisan Events
+//      as a result.
+
+
 import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.WifiManager;
@@ -18,13 +111,16 @@ import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
+import android.widget.TextView;
 import android.widget.Toast;
 
 
+import prh.device.Device;
 import prh.device.DeviceManager;
 import prh.server.HTTPServer;
 import prh.server.LocalVolumeFixer;
 import prh.server.SSDPServer;
+import prh.server.http.UpnpEventManager;
 import prh.utils.Utils;
 
 
@@ -32,11 +128,6 @@ import prh.utils.Utils;
 public class Artisan extends FragmentActivity implements
     EventHandler
 {
-    public static boolean START_SSDP_IN_HTTP = false;
-        // if true, the ssdp_server member of Artisan will be ignored,
-        // and the ssdp_server will be created, and started, in the
-        // http server.  Otherwise it is created here.
-
     private static int NUM_PAGER_ACTIVITIES = 5;
 
     // system working variables
@@ -88,6 +179,7 @@ public class Artisan extends FragmentActivity implements
     // and finally, the device manager
 
     private DeviceManager device_manager = null;
+    public DeviceManager getDeviceManager() { return device_manager; }
 
 
     //--------------------------------------------------------
@@ -145,11 +237,11 @@ public class Artisan extends FragmentActivity implements
         view_pager = (ViewPager) findViewById(R.id.artisan_content);
         view_pager.setAdapter(my_pager_adapter);
         view_pager.addOnPageChangeListener(page_change_listener);
-        view_pager.setCurrentItem(1);
-            // startup page == Now Playing
+
+        // set the starging page
+        // startup page == Now Playing
 
         volume_control = new VolumeControl(this);
-
         showFullScreen(true);
             // start off in full screen mode
             // with the menu showing
@@ -171,6 +263,9 @@ public class Artisan extends FragmentActivity implements
         library = local_library;
         renderer = local_renderer;
 
+        view_pager.setCurrentItem(current_page = 0);
+        setCurrentPageTitle();
+
         // send the initial messages
 
         if (library != null)
@@ -186,6 +281,7 @@ public class Artisan extends FragmentActivity implements
             Utils.log(0,0,"Local Renderer created ");
             renderer.startRenderer();
             handleArtisanEvent(EventHandler.EVENT_RENDERER_CHANGED,renderer);
+            handleArtisanEvent(EVENT_VOLUME_CONFIG_CHANGED,renderer.getVolume());
         }
         else
             Utils.warning(0,0,"Local Renderer not created");
@@ -206,6 +302,8 @@ public class Artisan extends FragmentActivity implements
                 Prefs.getBoolean(Prefs.id.START_HTTP_MEDIA_RENDERER) ||
                 Prefs.getBoolean(Prefs.id.START_HTTP_OPEN_HOME_SERVER))
             {
+                // http_server
+
                 try
                 {
                     http_server = new HTTPServer(this);
@@ -216,13 +314,12 @@ public class Artisan extends FragmentActivity implements
                     http_server = null;
                 }
 
-                http_server.start();
+                // ssdp_server
 
-                // The ssdp server can be owned by, and started from the http server to make
-                // sure that the http server is properly setup before allowing any requests
-
-                if (!START_SSDP_IN_HTTP && http_server != null)
+                if (http_server != null)
                 {
+                    http_server.start();
+
                     Utils.log(0,0,"starting ssdp_server ...");
                     SSDPServer ssdp_server = new SSDPServer(this);
                     Thread ssdp_thread = new Thread(ssdp_server);
@@ -274,12 +371,9 @@ public class Artisan extends FragmentActivity implements
 
         // 4 = stop servers
 
-        if (!START_SSDP_IN_HTTP)
-        {
-            if (ssdp_server != null)
-                ssdp_server.shutdown();
-            ssdp_server = null;
-        }
+        if (ssdp_server != null)
+            ssdp_server.shutdown();
+        ssdp_server = null;
 
         if (http_server != null)
             http_server.stop();
@@ -342,11 +436,8 @@ public class Artisan extends FragmentActivity implements
     }
 
 
-
-
-
     //-------------------------------------------------------
-    // Utilities
+    // Paging
     //-------------------------------------------------------
 
     public class myPagerAdapter extends FragmentPagerAdapter
@@ -362,6 +453,38 @@ public class Artisan extends FragmentActivity implements
             if (position==4) return aExplorer;
             return null;
         }
+    }
+
+
+    public class pageChangeListener extends ViewPager.SimpleOnPageChangeListener
+    {
+        private Artisan artisan;
+        public pageChangeListener(Artisan a) {artisan = a;}
+
+        @Override
+        public void onPageSelected(int index)
+        {
+            if (!is_full_screen && current_page >= 0)
+                setCurrentPageFullscreenClickHandler(false);
+            current_page = index;
+            if (!is_full_screen && current_page >= 0)
+                setCurrentPageFullscreenClickHandler(true);
+
+            if (current_page >= 0)
+                setCurrentPageTitle();
+
+        }
+    }
+
+
+    private void setCurrentPageTitle()
+    {
+        myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
+        ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
+        if (page.getName().equals("Now Playing"))
+            aPlaying.update_whats_playing_message();
+        else
+            SetMainMenuText(page.getName(),page.getName());
     }
 
 
@@ -382,23 +505,9 @@ public class Artisan extends FragmentActivity implements
     }
 
 
-    public class pageChangeListener extends ViewPager.SimpleOnPageChangeListener
-    {
-        private Artisan artisan;
-        public pageChangeListener(Artisan a) {artisan = a;}
-
-        @Override
-        public void onPageSelected(int index)
-        {
-            if (!is_full_screen && current_page >= 0)
-                setCurrentPageFullscreenClickHandler(false);
-            current_page = index;
-            if (!is_full_screen && current_page >= 0)
-                setCurrentPageFullscreenClickHandler(true);
-        }
-    }
-
-
+    //-------------------------------------------------------
+    // Utilities
+    //-------------------------------------------------------
 
 
     public void onUtilsError(final String msg)
@@ -412,6 +521,18 @@ public class Artisan extends FragmentActivity implements
         });
     }
 
+
+    public void SetMainMenuText(String from,String text)
+        // only accepts text from the current page
+    {
+        myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
+        ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
+        if (page != null && page.getName().equals(from))
+        {
+            TextView title = (TextView) findViewById(R.id.main_menu_text);
+            title.setText(text);
+        }
+    }
 
 
     void showFullScreen(boolean full)
@@ -462,6 +583,57 @@ public class Artisan extends FragmentActivity implements
     // Interactions
     //-------------------------------------------------------
 
+    void setRenderer(String name)
+    {
+        String cur_name = "";
+
+        // bail if its the same renderer
+
+        if (renderer != null)
+            cur_name = renderer.getName();
+        if (cur_name.equals(name))
+        {
+            Utils.log(0,0,"ignoring attempt to set to same renderer");
+            return;
+        }
+
+        // find the new renderer
+        // bail if it's not found
+
+        Renderer new_renderer = null;
+        if (name.equals(Device.DEVICE_LOCAL_RENDERER))
+            new_renderer = local_renderer;
+        else
+            new_renderer = (Renderer) device_manager.getDevice(Device.DEVICE_MEDIA_RENDERER,name);
+
+        if (new_renderer == null)
+        {
+            Utils.error("Attempt to set Renderer to non-existing Device(" + name + ")");
+            return;
+        }
+
+        // try to start the new renderer
+        // bail if it fails.
+
+        if (!new_renderer.startRenderer())
+        {
+            Utils.error("Could not start renderer: " + name);
+            return;
+        }
+
+        // if that worked, stop the old one and send out the
+        // renderer changed event(s)
+
+        if (renderer != null)
+            renderer.stopRenderer();
+        renderer = new_renderer;
+
+        handleArtisanEvent(EVENT_RENDERER_CHANGED,renderer);
+        handleArtisanEvent(EVENT_VOLUME_CONFIG_CHANGED,renderer.getVolume());
+
+    }
+
+
     void setPlayList(String name)
         // called from station button, we select the new
         // playlist and event it to any interested clients
@@ -481,6 +653,7 @@ public class Artisan extends FragmentActivity implements
                 aPlaying.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
         }
    }
+
 
 
     public void doVolumeControl()
@@ -532,50 +705,77 @@ public class Artisan extends FragmentActivity implements
     }
 
 
+
     //---------------------------------------------------------------------
     // EVENT HANDLING
     //---------------------------------------------------------------------
 
-
-
-    public void handleArtisanEvent(final String action,final Object data)
+    public void handleArtisanEvent(final String event_id,final Object data)
     // run on UI async task to pass events to UI clients
     {
-        if (!action.equals(EventHandler.EVENT_POSITION_CHANGED))
-            Utils.log(1,0,"artisan.handleRendererEvent(" + action + ")");
+        if (!event_id.equals(EVENT_POSITION_CHANGED))
+            Utils.log(1,0,"artisan.handleRendererEvent(" + event_id + ")");
 
         runOnUiThread(new Runnable()
         {
             @Override
             public void run()
             {
+                // selective debugging
 
-                if (!action.equals(EventHandler.EVENT_POSITION_CHANGED) &&
-                    !action.equals(EventHandler.EVENT_IDLE))
-                    Utils.log(0,0,"----> " + action);
+                if (!event_id.equals(EVENT_POSITION_CHANGED) &&
+                    !event_id.equals(EVENT_IDLE))
+                    Utils.log(0,0,"----> " + event_id);
 
+                // Send all events non-IDLE to all known event handlers
+                // prh = Could use this to get rid of other Timer Loops,
+                // i.e. to hit LocalVolumeFixer and polling Volume objects.
+                // Note the selective dispatch to the volumeControl only
+                // if it's showing
 
-                // selective dispatch to the volumeControl only if it's showing
-
-                if (volume_control != null &&
-                    volume_control.isShowing() &&
-                    (action.equals(EventHandler.EVENT_VOLUME_CHANGED) ||
-                        action.equals(EventHandler.EVENT_VOLUME_CONFIG_CHANGED)))
+                if (!event_id.equals(EVENT_IDLE))
                 {
-                    volume_control.handleArtisanEvent(action,data);
-                }
-
-                // send all events to all known event handlers
-
-                else
-                {
-
                     if (aPlaying != null && aPlaying.getView() != null)
-                        aPlaying.handleArtisanEvent(action,data);
+                        aPlaying.handleArtisanEvent(event_id,data);
 
-                    if (http_server != null)
-                        http_server.handleArtisanEvent(action,data);
+                    if (aPrefs != null && aPrefs.getView() != null)
+                        aPlaying.handleArtisanEvent(event_id,data);
+
+                    if (volume_control != null &&
+                        volume_control.isShowing() &&
+                        (event_id.equals(EVENT_VOLUME_CHANGED) ||
+                            event_id.equals(EVENT_VOLUME_CONFIG_CHANGED)))
+                    {
+                        volume_control.handleArtisanEvent(event_id,data);
+                    }
                 }
+
+                // UPnP Event dispatching .. if there's an http_server
+                // it means therer are UPnP Services ... we bump the
+                // use counts on the underlying objects, and dispatch
+                // the UPnP events on EVENT_IDLE ..
+
+                if (http_server != null)
+                {
+                    UpnpEventManager event_manager = http_server.getEventManager();
+
+                    if (event_id.equals(EVENT_STATE_CHANGED) ||
+                        event_id.equals(EVENT_PLAYLIST_CHANGED))
+                        event_manager.incUpdateCount("Playlist");
+
+                    else if (event_id.equals(EVENT_TRACK_CHANGED))
+                        event_manager.incUpdateCount("Info");
+
+                    else if (event_id.equals(EVENT_POSITION_CHANGED))
+                        event_manager.incUpdateCount("Time");
+
+                    else if (event_id.equals(EVENT_VOLUME_CHANGED))
+                        event_manager.incUpdateCount("Volume");
+
+                    else if (event_id.equals(EVENT_IDLE))
+                        event_manager.send_events();
+                }
+
 
             }   // run()
         }); // runOnUiThread()

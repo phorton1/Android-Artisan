@@ -34,10 +34,24 @@ public class DeviceManager
     private static int dbg_dm = 1;
 
     Artisan artisan;
-    private class DeviceHash extends HashMap<String,Device> {}
-    private class TypeHash extends HashMap<String,DeviceHash> {}
+    public class DeviceHash extends HashMap<String,Device> {}
+    public class TypeHash extends HashMap<String,DeviceHash> {}
     TypeHash types = new TypeHash();
         // hash by device type of a hash by friendly name of Devices
+
+    public DeviceHash getDevices(String type)
+    {
+        DeviceHash hash = types.get(type);
+        return hash;
+    }
+    public Device getDevice(String type, String name)
+    {
+        Device device = null;
+        DeviceHash hash = types.get(type);
+        if (hash != null)
+            device = hash.get(name);
+        return device;
+    }
 
 
     public DeviceManager(Artisan ma)
@@ -94,10 +108,8 @@ public class DeviceManager
         // If you need to, clear the cache and re-scan.
 
         DeviceHash devices = types.get(list_type);
-        if (devices == null)
-            devices = new DeviceHash();
 
-        Device device = devices.get(friendlyName);
+        Device device = devices == null ? null : devices.get(friendlyName);
         if (device != null)
         {
             Utils.log(dbg_dm,3,"device already exists" + dbg_msg);
@@ -135,6 +147,13 @@ public class DeviceManager
         if (device != null)
         {
             device.createSSDPServices(ssdp_device);
+
+            if (devices == null)
+            {
+                devices = new DeviceHash();
+                types.put(list_type,devices);
+            }
+
             devices.put(friendlyName,device);
 
             // Notify Artisan of the new device
@@ -144,67 +163,6 @@ public class DeviceManager
         }
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    HashMap<String,Device> media_renderers = new HashMap<String,Device>();
-    HashMap<String,Device> media_servers = new HashMap<String,Device>();
-
-
-    public Device[] getMediaServers()
-    {
-        return media_servers.values().toArray(new Device[media_servers.size()]);
-    }
-    public Device[] getMediaRenderers() // should be sorted
-    {
-        return media_renderers.values().toArray(new Device[media_renderers.size()]);
-    }
-
-    public Device getMediaServer(String name)
-    {
-        return media_renderers.get(name);
-    }
-    public Device getMediaRenderer(String name)
-    {
-        return media_renderers.get(name);
-    }
-
-
-    public boolean createLocalMediaServer()
-    {
-        Device device = null; //new LocalMediaServer(artisan);
-        if (device != null)
-        {
-            media_servers.put(device.getFriendlyName(),device);
-            return true;
-        }
-        return false;
-    }
-
-    public boolean createLocalMediaRenderer()
-    {
-        Device device = null; // new LocalMediaRenderer(artisan);
-        if (device != null)
-        {
-            media_renderers.put(device.getFriendlyName(),device);
-            return true;
-        }
-        return false;
-    }
 
 
 }   // class DeviceManager

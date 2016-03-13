@@ -96,10 +96,11 @@ public class VolumeControl extends Dialog implements
         SeekBar seekbar = (SeekBar) findViewById(id);
         if (volume != null)
         {
-            if (volume.max_values[idx] > 0)
+            int max_values[] = volume.getMaxValues();
+            if (max_values[idx] > 0)
             {
                 seekbar.setOnSeekBarChangeListener(this);
-                seekbar.setMax(volume.max_values[idx]);
+                seekbar.setMax(max_values[idx]);
                 seekbar.setProgress(ctrl_values[idx]);
                 enabled = true;
             }
@@ -114,13 +115,14 @@ public class VolumeControl extends Dialog implements
         seekbar.setEnabled(enabled);
     }
 
+
     private void init_button(int id, int idx)
     {
         Boolean enabled = false;
         Button btn = (Button) findViewById(id);
         if (volume != null)
         {
-            if (volume.max_values[idx] > 0)
+            if (volume.getMaxValues()[idx] > 0)
             {
                 btn.setOnClickListener(this);
                 btn.setSelected(ctrl_values[idx] > 0);
@@ -136,42 +138,33 @@ public class VolumeControl extends Dialog implements
         btn.setEnabled(enabled);
     }
 
+    //-----------------------------------------------
+    // Helper Methods for derived Volumes
+    //-----------------------------------------------
 
-    //---------------------------------------------------
-    // renderer Event Handling
-    //---------------------------------------------------
-
-    public void handleArtisanEvent(String action,Object data)
+    public static int valid(int max_values[], int idx, int val)
     {
-        if (action.equals(EventHandler.EVENT_VOLUME_CONFIG_CHANGED))
+        int max = max_values[idx];
+        String descrip = Volume.ctrl_names[idx];
+
+        if (val < 0)
         {
-            volume = (Volume) data;
-            init_controls();
+            Utils.error("illegal value for " + descrip + "=" + val + " ... setting to zero");
+            val = 0;
         }
-        else if (action.equals(EventHandler.EVENT_VOLUME_CHANGED))
+        if (val > max)
         {
-            volume = (Volume) data;
-
-            // null is handled easiest by a re-init_controls
-
-            if (volume == null)
-            {
-                init_controls();
-            }
-            else
-            {
-                int values[] = volume.getValues();
-                for (int i = 0; i < Volume.NUM_CTRLS; i++)
-                {
-                    if (in_slider != i)
-                        ctrl_values[i] = values[i];
-                }
-            }
-            update_controls();
-
+            Utils.error("illegal value for " + descrip + "=" + val + " ... setting to max=" + max);
+            val = max;
         }
+        // Utils.log(3,0,"valid(" + descrip + ") idx=" + idx + " val=" + val + " finished");
+        return val;
     }
 
+
+    //---------------------------------------------------
+    // UpdateUI
+    //---------------------------------------------------
 
 
     private void update_controls()
@@ -188,8 +181,6 @@ public class VolumeControl extends Dialog implements
         update_slider(Volume.CTRL_HIGH);
         Utils.log(dbg_vol + 1,1,"update_controls() finished");
     }
-
-
 
 
     private void update_slider(int idx)
@@ -254,7 +245,6 @@ public class VolumeControl extends Dialog implements
             in_slider = -1;
         }
     }
-
 
 
     //--------------------------------------------------------
@@ -327,6 +317,42 @@ public class VolumeControl extends Dialog implements
         if (volume != null)
             volume.setValue(idx,ctrl_values[idx]);
         in_slider = -1;
+    }
+
+
+    //---------------------------------------------------
+    // Artisan Event Handling
+    //---------------------------------------------------
+
+    public void handleArtisanEvent(String event_id,Object data)
+    {
+        if (event_id.equals(EVENT_VOLUME_CONFIG_CHANGED))
+        {
+            volume = (Volume) data;
+            init_controls();
+        }
+        else if (event_id.equals(EVENT_VOLUME_CHANGED))
+        {
+            volume = (Volume) data;
+
+            // null is handled easiest by a re-init_controls
+
+            if (volume == null)
+            {
+                init_controls();
+            }
+            else
+            {
+                int values[] = volume.getValues();
+                for (int i = 0; i < Volume.NUM_CTRLS; i++)
+                {
+                    if (in_slider != i)
+                        ctrl_values[i] = values[i];
+                }
+            }
+            update_controls();
+
+        }
     }
 
 

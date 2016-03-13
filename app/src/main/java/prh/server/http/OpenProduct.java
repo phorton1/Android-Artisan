@@ -13,7 +13,7 @@ import prh.artisan.Artisan;
 import prh.artisan.Prefs;
 import prh.server.HTTPServer;
 import prh.server.httpRequestHandler;
-import prh.utils.DlnaUtils;
+import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
@@ -87,7 +87,7 @@ public class OpenProduct extends httpRequestHandler implements UpnpEventHandler
         }
         else if (action.equals("SetStandby"))
         {
-            int value = DlnaUtils.getXMLInt(doc,"Value",true);
+            int value = httpUtils.getXMLInt(doc,"Value",true);
         }
         else if (action.equals("SourceXml"))
         {
@@ -99,7 +99,7 @@ public class OpenProduct extends httpRequestHandler implements UpnpEventHandler
         }
         else if (action.equals("Source"))
         {
-            int value = DlnaUtils.getXMLInt(doc,"Index",true);
+            int value = httpUtils.getXMLInt(doc,"Index",true);
             hash.put("SystemeName", source_name);
             hash.put("Type", source_type);
         }
@@ -120,7 +120,7 @@ public class OpenProduct extends httpRequestHandler implements UpnpEventHandler
         }
         else if (action.equals("SetSourceIndexByName"))
         {
-            int value = DlnaUtils.getXMLInt(doc,"Value",true);
+            int value = httpUtils.getXMLInt(doc,"Value",true);
         }
         else
         {
@@ -128,7 +128,7 @@ public class OpenProduct extends httpRequestHandler implements UpnpEventHandler
         }
 
         if (ok)
-            response = DlnaUtils.hash_response(http_server,urn,service,action,hash);
+            response = httpUtils.hash_response(http_server,urn,service,action,hash);
         return response;
     }
 
@@ -140,7 +140,7 @@ public class OpenProduct extends httpRequestHandler implements UpnpEventHandler
 
     String sourceXML()
     {
-        return DlnaUtils.encode_xml(
+        return httpUtils.encode_xml(
             "<SourceList>\n" +
                 "<Source>\n" +
                 "<Name>Playlist</Name>\n" +
@@ -193,7 +193,7 @@ public class OpenProduct extends httpRequestHandler implements UpnpEventHandler
         hash.put("ManufacturerImageUri",Utils.deviceIconUrl);
         hash.put("ManufacturerInfo","Writing it all, one program at a time");
 
-        return DlnaUtils.hashToXMLString(hash,true);
+        return httpUtils.hashToXMLString(hash,true);
     }
 
 
