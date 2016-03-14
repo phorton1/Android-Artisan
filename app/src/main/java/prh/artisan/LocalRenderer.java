@@ -551,24 +551,14 @@ public class LocalRenderer implements
         public void run()
         {
             in_refresh = true;
-            if (mp_state != MP_STATE_NONE)
+            if (mp_state == MP_STATE_PAUSED ||
+                mp_state == MP_STATE_STARTED)
             {
-                if (mp_state != MP_STATE_ERROR)
-                {
-                    song_position = media_player.getCurrentPosition();
-                    if (song_position < 0)
-                        song_position = 0;
-
-                    // set the duration from media player into the track
-                    // if (false)
-                    // {
-                    //     if (mp_state != MP_STATE_IDLE &&
-                    //         mp_state != MP_STATE_INITIALIZED &&
-                    //         current_playlist.getCurrentTrack() != null)
-                    //         current_playlist.getCurrentTrack().setDuration(media_player.getDuration());
-                    // }
-                }
+                song_position = media_player.getCurrentPosition();
+                // if (song_position < 0) song_position = 0;
             }
+            else
+                song_position = 0;
 
             // event any changes by second
 

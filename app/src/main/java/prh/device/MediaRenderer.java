@@ -469,7 +469,7 @@ public class MediaRenderer extends Device implements Renderer
         Document doc = doAction("AVTransport","GetTransportInfo",args);
         if (doc == null)
         {
-            Utils.error("Could not get AVTransport::GetTransportState for " + getFriendlyName());
+            Utils.warning(0,0,"Could not get AVTransport::GetTransportState for " + getFriendlyName());
             return false;
         }
 
@@ -477,7 +477,7 @@ public class MediaRenderer extends Device implements Renderer
         renderer_status = Utils.getTagValue(doc_ele,"CurrentTransportStatus");
         if (!renderer_status.equals("OK"))
         {
-            Utils.error("Got non-ok status=" + renderer_status);
+            Utils.warning(0,0,"Got non-ok status=" + renderer_status);
             return false;
         }
 

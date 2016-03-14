@@ -259,7 +259,7 @@ public abstract class Device
             request.wait_for_result();
 
             if (request.the_result == null)
-                Utils.error("doAction(" + service + "," + action + ") failed: " + request.error_reason);
+                Utils.warning(0,0,"doAction(" + service + "," + action + ") failed: " + request.error_reason);
 
             return (Document) request.the_result;
         }
