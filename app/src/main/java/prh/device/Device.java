@@ -229,7 +229,7 @@ public abstract class Device
     static int dbg_da = 1;
 
 
-    protected Document doAction(String service, String action, stringHash args)
+    public Document doAction(String service, String action, stringHash args)
     {
         // make sure it's a valid service
 

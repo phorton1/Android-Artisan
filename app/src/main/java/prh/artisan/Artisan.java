@@ -5,14 +5,12 @@ package prh.artisan;
 // Loops and Events
 //
 //      We studiously try to not introduce Timer Loops into the program.
-//      There are currently five timer loops, three minor, one well behaved,
+//      There are currently four timer loops: two minor, one well behaved,
 //      and simple, and one important and hard to manage.
 //
 //      LocalVolumeFixer has a timer loop once per second to reconcile MTC and
 //      Android volumes only on the Car Stereo. The SSDPServer has a long timer,
 //      like once every 30 seconds, to broadcast a Keep-Alive message.
-//      The LocalVolume object currently has a timer loop of it's own to
-//      see if the local android volume has changed and to update it's state.
 //      The SSDP Search, which itself is a Thread Runnable, and called as such,
 //      essentially has a blocking timer loop for the duration of the call to run(),
 //      which entirely notifies Artisan of EVENT_NEW_DEVICE as it proceeds.
@@ -137,6 +135,7 @@ public class Artisan extends FragmentActivity implements
     private ViewPager view_pager = null;
     private pageChangeListener page_change_listener = null;
     private WifiManager.WifiLock wifi_lock = null;
+    public ViewPager getViewPager() { return view_pager; };
 
     // child (fragment) activities
 
@@ -150,6 +149,7 @@ public class Artisan extends FragmentActivity implements
     // The volume control itself is owned by the renderer
 
     private VolumeControl volume_control = null;
+    public VolumeControl getVolumeControl() { return volume_control; }
 
     // Lifetime Local Objects
 
@@ -263,7 +263,7 @@ public class Artisan extends FragmentActivity implements
         library = local_library;
         renderer = local_renderer;
 
-        view_pager.setCurrentItem(current_page = 0);
+        view_pager.setCurrentItem(current_page = 1);
         setCurrentPageTitle();
 
         // send the initial messages
@@ -280,8 +280,12 @@ public class Artisan extends FragmentActivity implements
         {
             Utils.log(0,0,"Local Renderer created ");
             renderer.startRenderer();
-            handleArtisanEvent(EventHandler.EVENT_RENDERER_CHANGED,renderer);
-            handleArtisanEvent(EVENT_VOLUME_CONFIG_CHANGED,renderer.getVolume());
+
+            // this event is too early
+            // the aPlaying view has not been initallized yet
+            // When the aPlaying view contructs itself, it gets the current renderer
+            //
+            // handleArtisanEvent(EventHandler.EVENT_RENDERER_CHANGED,renderer);
         }
         else
             Utils.warning(0,0,"Local Renderer not created");
@@ -387,14 +391,15 @@ public class Artisan extends FragmentActivity implements
         // 3 = stop the current library and renderer
 
         if (renderer != null)
-            renderer.stop();
+            renderer.stopRenderer();
+        renderer = null;
 
         if (library != null)
             library.stop();
         library = null;
 
         if (local_renderer != null)
-            local_renderer.stop();
+            local_renderer.stopRenderer();
 
         if (local_library != null)
             local_library.stop();
@@ -440,7 +445,7 @@ public class Artisan extends FragmentActivity implements
     // Paging
     //-------------------------------------------------------
 
-    public class myPagerAdapter extends FragmentPagerAdapter
+    private class myPagerAdapter extends FragmentPagerAdapter
     {
         public myPagerAdapter(FragmentManager fm)       { super(fm);  }
         @Override public int getCount()                 { return NUM_PAGER_ACTIVITIES; }
@@ -535,7 +540,7 @@ public class Artisan extends FragmentActivity implements
     }
 
 
-    void showFullScreen(boolean full)
+    private void showFullScreen(boolean full)
         // if fullscreen, then our menu disappears and
         // is replaced by the system StatusBar ..
         // otherwise, we show our menu as the same
@@ -583,9 +588,10 @@ public class Artisan extends FragmentActivity implements
     // Interactions
     //-------------------------------------------------------
 
-    void setRenderer(String name)
+    public boolean setRenderer(String name)
     {
         String cur_name = "";
+        Utils.log(0,0,"--- setRenderer(" + name + ")");
 
         // bail if its the same renderer
 
@@ -594,7 +600,7 @@ public class Artisan extends FragmentActivity implements
         if (cur_name.equals(name))
         {
             Utils.log(0,0,"ignoring attempt to set to same renderer");
-            return;
+            return true;
         }
 
         // find the new renderer
@@ -609,7 +615,7 @@ public class Artisan extends FragmentActivity implements
         if (new_renderer == null)
         {
             Utils.error("Attempt to set Renderer to non-existing Device(" + name + ")");
-            return;
+            return false;
         }
 
         // try to start the new renderer
@@ -618,7 +624,7 @@ public class Artisan extends FragmentActivity implements
         if (!new_renderer.startRenderer())
         {
             Utils.error("Could not start renderer: " + name);
-            return;
+            return false;
         }
 
         // if that worked, stop the old one and send out the
@@ -628,13 +634,14 @@ public class Artisan extends FragmentActivity implements
             renderer.stopRenderer();
         renderer = new_renderer;
 
+        Utils.log(0,0,"--- setRenderer(" + name + ") finishing and dispatching EVENT_RENDERER_CHANGED(" + renderer.getName() + ")");
         handleArtisanEvent(EVENT_RENDERER_CHANGED,renderer);
-        handleArtisanEvent(EVENT_VOLUME_CONFIG_CHANGED,renderer.getVolume());
+        return true;
 
     }
 
 
-    void setPlayList(String name)
+    public void setPlayList(String name)
         // called from station button, we select the new
         // playlist and event it to any interested clients
     {
@@ -662,7 +669,9 @@ public class Artisan extends FragmentActivity implements
         if (volume_control != null &&
             renderer != null &&
             renderer.getVolume() != null)
+        {
             volume_control.show();
+        }
     }
 
 
@@ -733,18 +742,25 @@ public class Artisan extends FragmentActivity implements
                 // Note the selective dispatch to the volumeControl only
                 // if it's showing
 
-                if (!event_id.equals(EVENT_IDLE))
+                if (!event_id.equals(EVENT_IDLE) &&
+                    !event_id.equals(EVENT_VOLUME_CHANGED))
                 {
-                    if (aPlaying != null && aPlaying.getView() != null)
+                    if (aPlaying != null &&
+                        aPlaying.getView() != null)
                         aPlaying.handleArtisanEvent(event_id,data);
 
                     if (aPrefs != null && aPrefs.getView() != null)
-                        aPlaying.handleArtisanEvent(event_id,data);
+                        aPrefs.handleArtisanEvent(event_id,data);
 
+                }
+
+                // only send volume changes if it's open,
+                // but send config messages event if it's closed
+
+                if (event_id.equals(EVENT_VOLUME_CHANGED))
+                {
                     if (volume_control != null &&
-                        volume_control.isShowing() &&
-                        (event_id.equals(EVENT_VOLUME_CHANGED) ||
-                            event_id.equals(EVENT_VOLUME_CONFIG_CHANGED)))
+                        volume_control.isShowing())
                     {
                         volume_control.handleArtisanEvent(event_id,data);
                     }

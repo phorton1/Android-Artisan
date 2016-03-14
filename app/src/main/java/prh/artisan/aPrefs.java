@@ -38,6 +38,7 @@ public class aPrefs extends Fragment implements
     private Artisan artisan = null;
     private View my_view = null;
     private int button_id;
+    private String last_renderer = "";
 
     public String getName()  { return "Preferences"; }
 
@@ -64,7 +65,7 @@ public class aPrefs extends Fragment implements
 
         LinearLayout select_renderer = ((LinearLayout)my_view.findViewById(R.id.pref_select_renderer));
         ViewGroup.LayoutParams params = select_renderer.getLayoutParams();
-        params.height = 0;
+        params.height = -2;  // show it
         select_renderer.setLayoutParams(params);
 
         // set the starting renderer name
@@ -114,7 +115,6 @@ public class aPrefs extends Fragment implements
                 params.height = 0;      // hide it
 
             select_renderer.setLayoutParams(params);
-
             Utils.log(0,0,"SELECT RENDERER");
         }
 
@@ -129,10 +129,12 @@ public class aPrefs extends Fragment implements
         else if (id == button_id)
         {
             // ask artisan to start the renderer,
-            // then re-display ourself
+            // and if it worked, switch to the page,
+            // otherwise then re-display ourselves
 
             String name = ((Button)v).getText().toString();
-            artisan.setRenderer(name);
+            if (artisan.setRenderer(name))
+                artisan.getViewPager().setCurrentItem(1);
             SetupSelectRenderer();
 
         }
@@ -205,16 +207,21 @@ public class aPrefs extends Fragment implements
     // Event Handling
     //------------------------------------------------
 
-    public void handleArtisanEvent( String action, Object data )
+    public void handleArtisanEvent( String event_id, Object data )
+        // We basically rebuild the whole list on any events
     {
-        if (action.equals(EVENT_RENDERER_CHANGED))
+        if (event_id.equals(EVENT_RENDERER_CHANGED))
         {
             String display = "";
-            if (data != null)
-                display = ((Renderer)data).getName();
-           ((TextView)my_view.findViewById(R.id.pref_renderer_selected)).setText(display);
-
+            Renderer renderer = (Renderer) data;
+            if (renderer != null)
+                display = renderer.getName();
+            ((TextView)my_view.findViewById(R.id.pref_renderer_selected)).setText(display);
+            SetupSelectRenderer();
         }
+        else if (event_id.equals(EVENT_NEW_DEVICE))
+            SetupSelectRenderer();
+
     }
 
 

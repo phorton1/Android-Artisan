@@ -12,26 +12,22 @@ import prh.utils.Utils;
 
 
 public class LocalVolume implements Volume
-    // Sends an VOLUME_CHANGED event on an explicit volume change
-    // and has a monitor loop to check for changes outside of Artisan
-    // which can also send the VOLUME_CHANGED event.
-    //
-    // Assumes parent will event the VOLUME_CONFIG_CHANGED messages
-    // when we go in, or out, of scope.
+    // The LocalVolume is intimately tied to the LocalRenderer,
+    // which constructs it, and calls getUpdateValues() in it's
+    // loop to generate and and dispatch VOLUME_CHANGED Events.
 
 {
     private static int dbg_vol = 0;
 
-    private static int REFRESH_TIME = 300;
-
-
     private Artisan artisan;
     private AudioManager am;
     private ContentResolver cr;
-    private Handler refresh_handler;
-    private VolumeMonitor volume_monitor;
-    private int last_values[] = {0,0,0,0,0,0,0,0};
+
     private int max_values[];
+    private int current_values[];
+
+    public int[] getMaxValues()  { return max_values; }
+    public int[] getValues()     { return current_values.clone(); }
 
 
     public LocalVolume(Artisan a)
@@ -42,12 +38,9 @@ public class LocalVolume implements Volume
     public void stop()
     {
         Utils.log(0,0,"LocalVolume.stop()");
-        if (refresh_handler != null)
-            refresh_handler.removeCallbacks(volume_monitor);
-        refresh_handler = null;
-        volume_monitor = null;
         am = null;
         cr = null;
+        current_values = null;
     }
 
     public void start()
@@ -67,11 +60,10 @@ public class LocalVolume implements Volume
         else
             max_values = new int[]{15, 0, 0, 0, 0, 0, 0, 0};
 
-        // start the refresh loop
+        // initialize some current values
 
-        refresh_handler = new Handler();
-        volume_monitor = new VolumeMonitor(this);
-        refresh_handler.postDelayed(volume_monitor,REFRESH_TIME);
+        current_values = new int[]{0,0,0,0,0,0,0,0};
+        getUpdateValues();
     }
 
 
@@ -90,54 +82,52 @@ public class LocalVolume implements Volume
     //---------------------------------
 
 
-    public int[] getMaxValues()  { return max_values; }
-
-    public int[] getValues()
+    public int[] getUpdateValues()
         // They are gotten as a group
         // Always returns a fresh new copy of the values.
         // We detect if am has "gone away" and just return 0s in that case
     {
         Utils.log(dbg_vol+2,0,"getValues()");
-        int values[] = new int[]{0,0,0,0,0,0,0,0};
+        int new_values[] = new int[]{0,0,0,0,0,0,0,0};
 
         if (am != null)
         {
             // volume
 
-            values[CTRL_VOL] = VolumeControl.valid(max_values,CTRL_VOL,
+            new_values[CTRL_VOL] = VolumeControl.valid(max_values,CTRL_VOL,
                 am.getStreamVolume(AudioManager.STREAM_MUSIC));
-            Utils.log(dbg_vol + 1,1,"vol=" + values[CTRL_VOL]);
+            Utils.log(dbg_vol + 1,1,"vol=" + new_values[CTRL_VOL]);
 
             // car stereo gets/sets other value
 
             if (Utils.ID_CAR_STEREO.equals(Build.ID))
             {
                 String mute_str = am.getParameters("av_mute=");
-                values[CTRL_MUTE] = mute_str.equals("true") ? 1 : 0;   // inherently valid
-                Utils.log(dbg_vol + 2,1,"mute=" + values[CTRL_MUTE]);
+                new_values[CTRL_MUTE] = mute_str.equals("true") ? 1 : 0;   // inherently valid
+                Utils.log(dbg_vol + 2,1,"mute=" + new_values[CTRL_MUTE]);
 
                 try
                 {
-                    values[CTRL_LOUD] = VolumeControl.valid(max_values,CTRL_LOUD,
+                    new_values[CTRL_LOUD] = VolumeControl.valid(max_values,CTRL_LOUD,
                         Settings.System.getInt(cr,"av_lud"));
                 }
                 catch (Exception e)
                 {
                     Utils.error("getting av_lud:" + e);
                 }
-                Utils.log(dbg_vol + 2,1,"loud=" + values[CTRL_LOUD]);
+                Utils.log(dbg_vol + 2,1,"loud=" + new_values[CTRL_LOUD]);
 
                 String balance_str = Settings.System.getString(cr,"KeyBalance");
                 Utils.log(dbg_vol + 1,1,"balance_str=" + balance_str);
                 if (balance_str != null)
                 {
                     String parts[] = balance_str.split(",");
-                    values[CTRL_BAL] = VolumeControl.valid(max_values,CTRL_BAL,
+                    new_values[CTRL_BAL] = VolumeControl.valid(max_values,CTRL_BAL,
                         Utils.parseInt(parts[0]));
-                    values[CTRL_FADE] = VolumeControl.valid(max_values,CTRL_FADE,
+                    new_values[CTRL_FADE] = VolumeControl.valid(max_values,CTRL_FADE,
                         Utils.parseInt(parts[1]));
-                    Utils.log(dbg_vol + 2,1,"bal=" + values[CTRL_BAL]);
-                    Utils.log(dbg_vol + 2,1,"fade=" + values[CTRL_FADE]);
+                    Utils.log(dbg_vol + 2,1,"bal=" + new_values[CTRL_BAL]);
+                    Utils.log(dbg_vol + 2,1,"fade=" + new_values[CTRL_FADE]);
                 }
 
                 String eq_str = Settings.System.getString(cr,"KeyCustomEQ");
@@ -145,17 +135,28 @@ public class LocalVolume implements Volume
                 if (eq_str != null)
                 {
                     String parts[] = eq_str.split(",");
-                    values[CTRL_BASS] = VolumeControl.valid(max_values,CTRL_BASS,Utils.parseInt(parts[0]));
-                    values[CTRL_MID] = VolumeControl.valid(max_values,CTRL_MID,Utils.parseInt(parts[1]));
-                    values[CTRL_HIGH] = VolumeControl.valid(max_values,CTRL_HIGH,Utils.parseInt(parts[2]));
-                    Utils.log(dbg_vol + 2,1,"bass=" + values[CTRL_BASS]);
-                    Utils.log(dbg_vol + 2,1,"mid=" + values[CTRL_MID]);
-                    Utils.log(dbg_vol + 2,1,"high=" + values[CTRL_HIGH]);
+                    new_values[CTRL_BASS] = VolumeControl.valid(max_values,CTRL_BASS,Utils.parseInt(parts[0]));
+                    new_values[CTRL_MID] = VolumeControl.valid(max_values,CTRL_MID,Utils.parseInt(parts[1]));
+                    new_values[CTRL_HIGH] = VolumeControl.valid(max_values,CTRL_HIGH,Utils.parseInt(parts[2]));
+                    Utils.log(dbg_vol + 2,1,"bass=" + new_values[CTRL_BASS]);
+                    Utils.log(dbg_vol + 2,1,"mid=" + new_values[CTRL_MID]);
+                    Utils.log(dbg_vol + 2,1,"high=" + new_values[CTRL_HIGH]);
                 }
             }
-        }
-        return values;
-    }
+
+            // if any values changed, dispatch the event
+
+            if (VolumeControl.changed(new_values,current_values))
+            {
+                current_values = new_values;
+                artisan.handleArtisanEvent(EventHandler.EVENT_VOLUME_CHANGED,this);
+            }
+
+        }   // we have an audio manager
+
+        return current_values.clone();
+
+    }   // getUpdateValues()
 
 
 
@@ -171,10 +172,9 @@ public class LocalVolume implements Volume
         // Resets last_values if they changed.
     {
         int new_value = VolumeControl.valid(max_values,idx,val);
-        int old_values[] = getValues();
-        Utils.log(dbg_vol,0,"setValue(" + idx + "," + val + ")   old=" + old_values[idx] + "  new=" + new_value);
+        Utils.log(dbg_vol,0,"setValue(" + idx + "," + val + ")   old=" + current_values[idx] + "  new=" + new_value);
 
-        if (new_value != old_values[idx])
+        if (new_value != current_values[idx])
         {
             if (idx == CTRL_VOL)
             {
@@ -201,75 +201,37 @@ public class LocalVolume implements Volume
 
                 if (idx == CTRL_BAL)
                 {
-                    String new_balance_str = "" + new_value + "," + old_values[CTRL_FADE];
+                    String new_balance_str = "" + new_value + "," + current_values[CTRL_FADE];
                     Settings.System.putString(cr,"KeyBalance",new_balance_str);
-                    am.setParameters("av_balance=" + new_value + "," + (28 - old_values[CTRL_FADE]));
+                    am.setParameters("av_balance=" + new_value + "," + (28 - current_values[CTRL_FADE]));
                 }
                 if (idx == CTRL_FADE)
                 {
-                    String new_balance_str = "" + old_values[CTRL_BAL] + "," + new_value;
+                    String new_balance_str = "" + current_values[CTRL_BAL] + "," + new_value;
                     Settings.System.putString(cr,"KeyBalance",new_balance_str);
-                    am.setParameters("av_balance=" + old_values[CTRL_BAL] + "," + (28 - new_value));
+                    am.setParameters("av_balance=" + current_values[CTRL_BAL] + "," + (28 - new_value));
                 }
 
                 if (idx == CTRL_BASS || idx == CTRL_MID || idx == CTRL_HIGH)
                 {
-                    int bass = idx == CTRL_BASS ? new_value : old_values[CTRL_BASS];
-                    int mid = idx == CTRL_MID ? new_value : old_values[CTRL_MID];
-                    int high = idx == CTRL_HIGH ? new_value : old_values[CTRL_HIGH];
+                    int bass = idx == CTRL_BASS ? new_value : current_values[CTRL_BASS];
+                    int mid = idx == CTRL_MID ? new_value : current_values[CTRL_MID];
+                    int high = idx == CTRL_HIGH ? new_value : current_values[CTRL_HIGH];
                     String new_eq_str = "" + bass + "," + mid + "," + high;
                     Settings.System.putString(cr,"KeyCustomEQ",new_eq_str);
                     am.setParameters("av_eq=" + new_eq_str);
                 }
-            }
 
-            // client will call getValues again, so it' alright
-            // if we set the parameter into old_values and set
-            // last_values to that.
 
-            last_values = old_values;
-            last_values[idx] = new_value;
+            }   // Car Stereo Only controls
 
+            // Set the new value into the current_values
+            // and send the event
+
+            current_values[idx] = new_value;
             artisan.handleArtisanEvent(EventHandler.EVENT_VOLUME_CHANGED,this);
-        }
-    }
 
-
-    //-----------------------------------------------------------------------
-    // Monitor
-    //-----------------------------------------------------------------------
-
-    private class VolumeMonitor implements Runnable
-    {
-        LocalVolume m_this;
-
-        public VolumeMonitor(LocalVolume volume)
-        {
-            m_this = volume;
-        }
-
-        public void run()
-        {
-            boolean changed = false;
-            int values[] = getValues();
-            for (int i=0; i<Volume.NUM_CTRLS; i++)
-            {
-                if (values[i] != last_values[i])
-                {
-                    changed = true;
-                    i = Volume.NUM_CTRLS;
-                }
-            }
-
-            if (changed)
-            {
-                last_values = values;
-                artisan.handleArtisanEvent(EventHandler.EVENT_VOLUME_CHANGED,m_this);
-            }
-
-            refresh_handler.postDelayed(this,REFRESH_TIME);
-        }
-    }
-
+        }   // new_value != current_value[idx];
+    }   // setValue()
 
 }   // class LocalVolume

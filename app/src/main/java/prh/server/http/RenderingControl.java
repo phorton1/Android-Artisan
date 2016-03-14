@@ -76,13 +76,13 @@ public class RenderingControl extends httpRequestHandler
         {
             response = GetRendererResponse(http_server,response,values,urn,service,action,"CurrentMute",Volume.CTRL_MUTE);
         }
-        else if (action.equals("SetLoundness"))
+        else if (action.equals("SetLoudness"))
         {
-            response = SetRendererResponse(http_server,response,doc,urn,service,action,"DesiredLoundness",Volume.CTRL_LOUD);
+            response = SetRendererResponse(http_server,response,doc,urn,service,action,"DesiredLoudness",Volume.CTRL_LOUD);
         }
-        else if (action.equals("GetLoundness"))
+        else if (action.equals("GetLoudness"))
         {
-            response = GetRendererResponse(http_server,response,values,urn,service,action,"CurrentLoundness",Volume.CTRL_LOUD);
+            response = GetRendererResponse(http_server,response,values,urn,service,action,"CurrentLoudness",Volume.CTRL_LOUD);
         }
 
         // balance and fader
@@ -95,24 +95,24 @@ public class RenderingControl extends httpRequestHandler
         {
             response = GetRendererResponse(http_server,response,values,urn,service,action,"CurrentBalance",Volume.CTRL_BAL);
         }
-        else if (action.equals("SetFader"))
+        else if (action.equals("SetFade"))
         {
-            response = SetRendererResponse(http_server,response,doc,urn,service,action,"DesiredFader",Volume.CTRL_FADE);
+            response = SetRendererResponse(http_server,response,doc,urn,service,action,"DesiredFade",Volume.CTRL_FADE);
         }
-        else if (action.equals("GetFader"))
+        else if (action.equals("GetFade"))
         {
-            response = GetRendererResponse(http_server,response,values,urn,service,action,"CurrentFader",Volume.CTRL_FADE);
+            response = GetRendererResponse(http_server,response,values,urn,service,action,"CurrentFade",Volume.CTRL_FADE);
         }
 
         // bass, mid, and high EQ
 
-        else if (action.equals("SetEQBass"))
+        else if (action.equals("SetEQLow"))
         {
-            response = SetRendererResponse(http_server,response,doc,urn,service,action,"DesiredEQBass",Volume.CTRL_BASS);
+            response = SetRendererResponse(http_server,response,doc,urn,service,action,"DesiredEQLow",Volume.CTRL_BASS);
         }
-        else if (action.equals("GetEQBass"))
+        else if (action.equals("GetEQLow"))
         {
-            response = GetRendererResponse(http_server,response,values,urn,service,action,"CurrentEQBass",Volume.CTRL_BASS);
+            response = GetRendererResponse(http_server,response,values,urn,service,action,"CurrentEQLow",Volume.CTRL_BASS);
         }
         else if (action.equals("SetEQMid"))
         {
@@ -200,7 +200,7 @@ public class RenderingControl extends httpRequestHandler
         int ctrl_idx)
     {
         int val = values[ctrl_idx];
-        Utils.log(dbg_rc,0,"returning " + field + "=" + val);
+        Utils.log(dbg_rc+1,1,"returning " + field + "=" + val);
         HashMap<String,String> hash = new HashMap<String,String>();
         hash.put(field,Integer.toString(val));
         hash.put("Channel","MASTER");

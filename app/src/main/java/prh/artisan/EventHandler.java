@@ -12,7 +12,6 @@ public interface EventHandler
     public static String EVENT_POSITION_CHANGED        = "POSITION_CHANGED";           // data = Integer renderer position
     public static String EVENT_TRACK_CHANGED           = "TRACK_CHANGED";              // data = Track
     public static String EVENT_PLAYLIST_CHANGED        = "PLAYLIST_CHANGED";           // data = Playlist
-    public static String EVENT_VOLUME_CONFIG_CHANGED   = "VOLUME_CONFIG_CHANGED";      // data = Volume object
     public static String EVENT_LIBRARY_CHANGED         = "LIBRARY_CHANGED";            // data = New Library
     public static String EVENT_RENDERER_CHANGED        = "RENDERER_CHANGED";           // data = New Renderer
     public static String EVENT_NEW_DEVICE              = "NEW_DEVICE";                 // data = New Device found in SSDP Search

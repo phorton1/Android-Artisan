@@ -4,6 +4,7 @@ import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Handler;
+import android.os.Looper;
 import android.widget.Toast;
 
 import org.w3c.dom.Document;
@@ -21,6 +22,8 @@ import prh.artisan.PlaylistSource;
 import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.artisan.Volume;
+import prh.artisan.VolumeControl;
+import prh.device.service.RenderingControl;
 import prh.utils.Utils;
 import prh.utils.stringHash;
 
@@ -46,7 +49,7 @@ public class MediaRenderer extends Device implements Renderer
     // VARIABLES
     //------------------------------------------
 
-    private Volume volume;
+    private RenderingControl volume;
 
     // State
 
@@ -69,11 +72,11 @@ public class MediaRenderer extends Device implements Renderer
     int last_position = 0;
     String last_track_uri = "";
 
-    // dummies for now
+    // nearly constants
 
     private String play_mode = "";
     private String play_speed = "";
-    private String renderer_status = "OK";
+    private String renderer_status = "";
 
 
     //--------------------------------------------
@@ -97,21 +100,41 @@ public class MediaRenderer extends Device implements Renderer
             // implements the Volume Interface, so set it as the
             // Volume object
 
-            // volume = new LocalVolume(artisan);
-            // volume.start();
-
+            volume = (RenderingControl) getServices().get("RenderingControl");
+            if (volume != null)
+            {
+                volume.start(); // should be boolean start()
+                int values[] = volume.getValues();
+                if (values[Volume.CTRL_VOL]==0)
+                {
+                    volume = null;  // so there!
+                    Utils.warning(0,0,"Turning off volume control with no MAX_VOL");
+                }
+            }
 
             // This DLNA MediaRenderer uses the LocalPlaylistSource
             // so we can jam Playlists down its throat
 
             current_playlist_source = new LocalPlaylistSource();
             current_playlist_source.start();
+            current_playlist = new LocalPlaylist();
 
-            // start the update handler
+            // start the update handler on a separate thread
+            // not currently working (timer does not advance)
 
-            update_handler = new Handler();
-            updater = new Updater();
-            update_handler.postDelayed(updater,REFRESH_INTERVAL);
+            if (false)
+            {
+                UpdateThread updateThread = new UpdateThread();
+                Thread update_thread = new Thread(updateThread);
+                update_thread.start();
+            }
+            else    // old way
+            {
+                update_handler = new Handler();
+                updater = new Updater();
+                update_handler.postDelayed(updater,REFRESH_INTERVAL);
+            }
+
         }
 
         Utils.log(dbg_mr,0,"MediaRenderer started ok=" + ok);
@@ -119,6 +142,17 @@ public class MediaRenderer extends Device implements Renderer
     }
 
 
+
+    private class UpdateThread extends Thread
+    {
+        public void run()
+        {
+            Looper.prepare();
+            update_handler = new Handler();
+            updater = new Updater();
+            update_handler.postDelayed(updater,REFRESH_INTERVAL);
+        }
+    }
 
 
     public void stopRenderer()
@@ -161,6 +195,13 @@ public class MediaRenderer extends Device implements Renderer
             volume.stop();
         volume = null;
 
+        // reset all members to their default state
+
+        last_track_uri = "";
+        song_position = 0;
+        play_mode = "";
+        play_speed = "";
+        renderer_status = "";
 
         // We used to be responsible for sending out the null VOLUME_CONFIG_CHANGED message
         // Now sent by Artisan when it changes renderers
@@ -205,7 +246,9 @@ public class MediaRenderer extends Device implements Renderer
     {
         if (current_track != null)
             return current_track;
-        return current_playlist.getCurrentTrack();
+        if (current_playlist != null)
+            return current_playlist.getCurrentTrack();
+        return null;
     }
 
 
@@ -492,6 +535,17 @@ public class MediaRenderer extends Device implements Renderer
         //
 
         // event any changes by second
+
+        // Let the volume control see if needs
+        // to get new values, etc
+
+        VolumeControl volume_control = artisan.getVolumeControl();
+        if (volume_control != null)
+            volume_control.checkVolumeChangesForRenderer();
+
+        // Dispatch the IDLE event for Artisan
+
+        artisan.handleArtisanEvent(EventHandler.EVENT_IDLE,null);
 
         return true;
     }

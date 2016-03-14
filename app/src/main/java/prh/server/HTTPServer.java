@@ -408,7 +408,10 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
                                 boolean is_loop_action =
                                     action.equals("GetTransportInfo") ||
                                         action.equals("GetPositionInfo") ||
-                                        action.equals("Time");
+                                        action.equals("Time") ||
+                                        (service.equals("RenderingControl") &&
+                                         action.startsWith("Get"));
+
                                 int use_dbg = is_loop_action ?
                                     dbg_looping_control_requests :
                                     dbg_control_requests;

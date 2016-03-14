@@ -175,6 +175,47 @@
       </argumentList>
     </action>
 
+      <action>
+          <name>SetFade</name>
+          <argumentList>
+              <argument>
+                  <name>InstanceID</name>
+                  <direction>in</direction>
+                  <relatedStateVariable>A_ARG_TYPE_InstanceID</relatedStateVariable>
+              </argument>
+              <argument>
+                  <name>Channel</name>
+                  <direction>in</direction>
+                  <relatedStateVariable>A_ARG_TYPE_Channel</relatedStateVariable>
+              </argument>
+              <argument>
+                  <name>DesiredFade</name>
+                  <direction>in</direction>
+                  <relatedStateVariable>Fade</relatedStateVariable>
+              </argument>
+          </argumentList>
+      </action>
+      <action>
+          <name>GetFade</name>
+          <argumentList>
+              <argument>
+                  <name>InstanceID</name>
+                  <direction>in</direction>
+                  <relatedStateVariable>A_ARG_TYPE_InstanceID</relatedStateVariable>
+              </argument>
+              <argument>
+                  <name>Channel</name>
+                  <direction>in</direction>
+                  <relatedStateVariable>A_ARG_TYPE_Channel</relatedStateVariable>
+              </argument>
+              <argument>
+                  <name>CurrentFAde</name>
+                  <direction>out</direction>
+                  <relatedStateVariable>Volume</relatedStateVariable>
+              </argument>
+          </argumentList>
+      </action>
+
     <action>
       <name>SetEQLow</name>
       <argumentList>
@@ -379,9 +420,20 @@
     </stateVariable>
 
     <!-- my vendor specific added state variables -->
+    <!-- these need to change depeding on actual local renderer -->
 
     <stateVariable>
       <name>Balance</name>
+      <allowedValueRange>
+        <maximum>28</maximum>
+        <minimum>0</minimum>
+        <step>1</step>
+      </allowedValueRange>
+      <dataType>ui2</dataType>
+      <sendEvents>no</sendEvents>
+    </stateVariable>
+    <stateVariable>
+      <name>Fade</name>
       <allowedValueRange>
         <maximum>28</maximum>
         <minimum>0</minimum>

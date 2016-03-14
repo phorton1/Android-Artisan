@@ -6,8 +6,6 @@ public interface Volume
     // base class of Volume control devices
     // base class provides constants for a "volume only" device
     // (no balance, fader, eq, etc) with a range of 0..16
-    // Responsible for eventing VOLUME_CHANGED events, but
-    // assumes parent will send VOLUME_CONFIG_CHANGED
 {
     int CTRL_VOL = 0;
     int CTRL_MUTE = 1;
@@ -26,6 +24,7 @@ public interface Volume
 
     public int[] getMaxValues();
     public int[] getValues();
+    public int[] getUpdateValues();
 
     // Never called by me with illegal value ..
 

@@ -8,14 +8,14 @@ public abstract class Service
     // base class of services
     // ONLY DERIVED CLASSES SEE THE SERVICE_DESCRIPTION DOC
 {
-    private Artisan artisan;
+    protected Artisan artisan;
     private Device device;
     private String service_type;
     private String control_path;
     private String event_path;
     private String urn;
 
-    public Device detDevice()       { return device; }
+    public Device getDevice()       { return device; }
     public String getFriendlyName() { return device.getFriendlyName(); }
     public String getService_type() { return service_type; }
     public String getControlUrl()   { return device.getDeviceUrl() + control_path; }

@@ -1,12 +1,19 @@
 package prh.artisan;
 
+// reconfigures itself to the current renderer's
+// volume object in overriden show() method
+//
+// Responds to VOLUME_CHANGED_EVENTS to update
+// the UI EXCEPT FOR the currently grabbed slider.
+//
+// Contains the common logic to check if the volume
+// from a Volume object has changed vis-a-vis the
+// derived Renderers, and GENERATES a VOLUME_CHANGED_EVENT
+// that in turn, artisan sends back to itself.
+//
+// Obviously these two pieces of code need to be
+// kept separate, and synchronized to prevent endless loops
 
-// The entry point is static doVolumeControl() which
-// brings up the volume control dialog box.  Internally the
-// dialog box implements a second timer loop, using Runnable(),
-// because it has to update the controls.
-// The only control that appears valid on the emulator
-// is the volume control.
 
 import android.app.Dialog;
 import android.os.Bundle;
@@ -33,9 +40,13 @@ public class VolumeControl extends Dialog implements
 
     private int in_slider = -1;
         // 0-based control number of the currently grabbed slider.
-        // We don't update the slider we are moving.
+        // Renderers should not call volume.getUpdateValues()
+        // if in_slider update the slider we are moving.
+    private int max_values[] = new int[]{0,0,0,0,0,0,0,0};
     private int ctrl_values[] = new int[]{0,0,0,0,0,0,0,0};
         // Local copy of the values for the controls
+
+
 
 
     //-----------------------------------------
@@ -50,23 +61,29 @@ public class VolumeControl extends Dialog implements
 
 
     @Override
+    public void show()
+    {
+        super.show();
+        Renderer renderer = artisan.getRenderer();
+        volume = renderer.getVolume();
+        init_controls();
+        update_controls();
+    }
+
+
+    @Override
     public void onCreate(Bundle savedInstanceState)
     {
         Utils.log(dbg_vol,1,"VolumeControl::onCreate() started ...");
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.volume_control);
-
         findViewById(R.id.button_close_volume).setOnClickListener(this);
-
-
         in_slider = -1;
 
         // set the initial max values and enable controls
         // the initial layout should be all sliders and buttons disabled
 
-        Renderer renderer = artisan.getRenderer();
-        volume = renderer.getVolume();
         init_controls();
         Utils.log(dbg_vol,1,"VolumeControl::onCreate() finished");
 
@@ -76,8 +93,16 @@ public class VolumeControl extends Dialog implements
     private void init_controls()
         // init_controls all controls based on a possibly null volume object
     {
-        if (volume != null)
+        if (volume == null)
+        {
+            max_values = new int[]{0,0,0,0,0,0,0,0};
+            ctrl_values = new int[]{0,0,0,0,0,0,0,0};
+        }
+        else
+        {
+            max_values = volume.getMaxValues();
             ctrl_values = volume.getValues();
+        }
 
         init_slider(R.id.slider_vol,Volume.CTRL_VOL);
         init_slider(R.id.slider_bal,Volume.CTRL_BAL);
@@ -94,22 +119,15 @@ public class VolumeControl extends Dialog implements
     {
         Boolean enabled = false;
         SeekBar seekbar = (SeekBar) findViewById(id);
-        if (volume != null)
-        {
-            int max_values[] = volume.getMaxValues();
-            if (max_values[idx] > 0)
-            {
-                seekbar.setOnSeekBarChangeListener(this);
-                seekbar.setMax(max_values[idx]);
-                seekbar.setProgress(ctrl_values[idx]);
-                enabled = true;
-            }
-        }
-        if (!enabled)
-        {
-            seekbar.setMax(0);
-            seekbar.setProgress(0);
+        seekbar.setMax(max_values[idx]);
+        seekbar.setProgress(ctrl_values[idx]);
+
+        if (max_values[idx] == 0)
             seekbar.setOnSeekBarChangeListener(null);
+        else
+        {
+            seekbar.setOnSeekBarChangeListener(this);
+            enabled = true;
         }
 
         seekbar.setEnabled(enabled);
@@ -141,6 +159,21 @@ public class VolumeControl extends Dialog implements
     //-----------------------------------------------
     // Helper Methods for derived Volumes
     //-----------------------------------------------
+
+    public static boolean changed(int old_values[], int new_values[])
+    {
+        boolean changed = false;
+        for (int i = 0; i < Volume.NUM_CTRLS; i++)
+        {
+            if (old_values[i] != new_values[i])
+            {
+                changed = true;
+                i = Volume.NUM_CTRLS;
+            }
+        }
+        return changed;
+    }
+
 
     public static int valid(int max_values[], int idx, int val)
     {
@@ -203,7 +236,12 @@ public class VolumeControl extends Dialog implements
 
     private void update_button(int id, int idx)
     {
-        if (volume != null && in_slider != idx)
+        // we have to allow the update of the button while
+        // it is the current in_slider, because the event
+        // comes back from Volume->Artisan right away, before
+        // toggle_button() returns ...
+
+        if (volume != null)     // && in_slider != idx)
         {
             boolean is_mute = idx == Volume.CTRL_MUTE;
             String ctrl_name = is_mute ? "mute" : "loud";
@@ -325,22 +363,13 @@ public class VolumeControl extends Dialog implements
     //---------------------------------------------------
 
     public void handleArtisanEvent(String event_id,Object data)
+        // null is handled easiest by a re-init_controls
     {
-        if (event_id.equals(EVENT_VOLUME_CONFIG_CHANGED))
+        if (event_id.equals(EVENT_VOLUME_CHANGED))
         {
             volume = (Volume) data;
-            init_controls();
-        }
-        else if (event_id.equals(EVENT_VOLUME_CHANGED))
-        {
-            volume = (Volume) data;
-
-            // null is handled easiest by a re-init_controls
-
             if (volume == null)
-            {
                 init_controls();
-            }
             else
             {
                 int values[] = volume.getValues();
@@ -351,11 +380,30 @@ public class VolumeControl extends Dialog implements
                 }
             }
             update_controls();
-
         }
     }
 
 
+
+    public void checkVolumeChangesForRenderer()
+        // Called by Derived Renderers in their loops.
+        // If we are showing, and we are not in a slider,
+        // we call the current volume control's getUpdateValues()
+        // method to refresh the values (which is slow for
+        // the DLNA RenderingControl).
+        //
+        // Those methods, may, in turn, send a VOLUME_CHANGED_EVENT
+        // back to us.
+        //
+        // Our current volume object is expected to be correct,
+        // and in synch with the current renderer (via the
+        // call to show())
+    {
+        if (volume != null && isShowing() && in_slider < 0)
+        {
+            volume.getUpdateValues();
+        }
+    }
 
 }   // class VolumeControl
 

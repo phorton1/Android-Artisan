@@ -56,6 +56,8 @@ public class aPlaying extends Fragment implements
     private String current_state = "";
     private Track current_track = null;
     private Playlist current_playlist = null;
+    private PlaylistSource current_playlist_source = null;
+
 
     // working vars
 
@@ -90,6 +92,22 @@ public class aPlaying extends Fragment implements
         enable(R.id.button_play_pause,false);
         enable(R.id.button_stop,false);
         enable(R.id.track_position_slider,false);
+
+        current_state = "";
+        current_position = 0;
+        current_track = null;
+        current_playlist = null;
+        current_playlist_source = null;
+
+        renderer = artisan.getRenderer();
+        if (renderer != null)
+        {
+            current_state = renderer.getRendererState();
+            current_position = renderer.getPosition();
+            current_track = renderer.getTrack();
+            current_playlist = renderer.getPlaylist();
+            current_playlist_source = renderer.getPlaylistSource();
+        }
 
         setPlayListNames();
 
@@ -130,7 +148,6 @@ public class aPlaying extends Fragment implements
     @Override
     public void onClick(View v)
     {
-        Renderer renderer = artisan.getRenderer();
         if (renderer == null) return;
 
         switch (v.getId())
@@ -183,7 +200,6 @@ public class aPlaying extends Fragment implements
         {
             in_slider = false;
             Utils.log(dbg_anp + 1,0,"onStopTrackingTouch() progress=" + progress);
-            Renderer renderer = artisan.getRenderer();
             if (renderer != null)
                 renderer.seekTo(progress);
         }
@@ -253,10 +269,8 @@ public class aPlaying extends Fragment implements
         // get the names, if any, from the playlist_source
 
         String names[] = new String[0];
-        Renderer renderer = artisan.getRenderer();
-        PlaylistSource playlist_source = renderer==null ? null : renderer.getPlaylistSource();
-        if (playlist_source != null)
-            names = playlist_source.getPlaylistNames();
+        if (current_playlist_source != null)
+            names = current_playlist_source.getPlaylistNames();
 
         GridView gridview = (GridView) my_view.findViewById(R.id.horizontal_gridView);
 
@@ -394,7 +408,6 @@ public class aPlaying extends Fragment implements
     {
         if (my_view != null)
         {
-            Renderer renderer = artisan.getRenderer();
             String msg = "";
             if (renderer != null)
                 msg += renderer.getName() + " :: ";
@@ -413,7 +426,6 @@ public class aPlaying extends Fragment implements
     private void update_position(int position)
     {
         current_position = position;
-
         if (!in_slider && my_view != null)
         {
             TextView position_text = (TextView) my_view.findViewById(R.id.track_elapsed);
@@ -456,10 +468,6 @@ public class aPlaying extends Fragment implements
 
     private void update_track(Track track)
     {
-        current_state = "";
-        current_position = 0;
-        current_track = track;
-
         if (my_view != null)
         {
             String img_url = "";
@@ -536,10 +544,6 @@ public class aPlaying extends Fragment implements
 
     private void update_playlist(Playlist new_playlist)
     {
-        current_state = "";
-        current_position = 0;
-        current_track = null;
-
         if (my_view != null)
         {
             if (current_playlist != null)
@@ -550,7 +554,7 @@ public class aPlaying extends Fragment implements
             boolean enable_next = false;
             if (new_playlist != null)
             {
-                current_track = new_playlist.incGetTrack(0);
+                // current_track = new_playlist.incGetTrack(0);
                 enable_next = current_track != null && new_playlist.getNumTracks() > 0;
             }
             enable(R.id.button_next,enable_next);
@@ -579,6 +583,11 @@ public class aPlaying extends Fragment implements
         }
         else if (event_id.equals(EVENT_TRACK_CHANGED))
         {
+            // current_state = "";
+            // current_position = 0;
+            current_state = renderer.getRendererState();
+            current_position = renderer.getPosition();
+
             update_track((Track) data);
             update_position(current_position);
             update_state(current_state);
@@ -586,6 +595,15 @@ public class aPlaying extends Fragment implements
         }
         else if (event_id.equals(EVENT_PLAYLIST_CHANGED))
         {
+            // current_state = "";
+            // current_position = 0;
+            // current_track = null;
+            current_state = renderer.getRendererState();
+            current_position = renderer.getPosition();
+            current_track = renderer.getTrack();
+
+            current_playlist = new LocalPlaylist();
+
             update_playlist((Playlist) data);
             update_track(current_track);
             update_position(current_position);
@@ -613,10 +631,22 @@ public class aPlaying extends Fragment implements
 
         else if (event_id.equals(EVENT_RENDERER_CHANGED))
         {
+            renderer = (Renderer) data;
+
             current_state = "";
             current_position = 0;
             current_track = null;
             current_playlist = null;
+            current_playlist_source = null;
+
+            if (renderer != null)
+            {
+                current_state = renderer.getRendererState();
+                current_position = renderer.getPosition();
+                current_track = renderer.getTrack();
+                current_playlist = renderer.getPlaylist();
+                current_playlist_source = renderer.getPlaylistSource();
+            }
 
             setPlayListNames();
             update_playlist(current_playlist);

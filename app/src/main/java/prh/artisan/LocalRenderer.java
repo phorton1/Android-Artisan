@@ -26,6 +26,7 @@ import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Handler;
+import android.os.Looper;
 import android.widget.Toast;
 
 import prh.device.Device;
@@ -131,17 +132,48 @@ public class LocalRenderer implements
         media_player.setOnCompletionListener(this);
         mp_state = MP_STATE_IDLE;
 
+        current_playlist = new LocalPlaylist();
         current_playlist_source = new LocalPlaylistSource();
         current_playlist_source.start();
 
-        refresh_handler = new Handler();
-        updater = new updateState();
-        setRendererState(RENDERER_STATE_STOPPED);
-        refresh_handler.postDelayed(updater,REFRESH_INTERVAL);
+        // start on a separate thread
+        // not currently working (timer does not advance)
 
+        if (false)
+        {
+            UpdateThread updateThread = new UpdateThread();
+            Thread update_thread = new Thread(updateThread);
+            update_thread.start();
+        }
+        else    // old way
+        {
+            refresh_handler = new Handler();
+            updater = new updateState();
+            refresh_handler.postDelayed(updater,REFRESH_INTERVAL);
+        }
+
+        setRendererState(RENDERER_STATE_STOPPED);
         Utils.log(dbg_ren,0,"LocalRenderer started");
         return true;
     }
+
+
+
+    private class UpdateThread extends Thread
+    {
+        public void run()
+        {
+            Looper.prepare();
+            refresh_handler = new Handler();
+            updater = new updateState();
+            refresh_handler.postDelayed(updater,REFRESH_INTERVAL);
+        }
+    }
+
+
+    // start the update handler
+    // on a separate thread
+
 
 
     public void stopRenderer()
@@ -162,6 +194,7 @@ public class LocalRenderer implements
             Utils.log(0,0,"waiting for LocalRenderer to stop()");
             Utils.sleep(100);
         }
+        in_refresh = false;
 
         // get rid of any references to external objects
 
@@ -182,6 +215,9 @@ public class LocalRenderer implements
         if (local_volume != null)
             local_volume.stop();
         local_volume = null;
+
+        song_position = 0;
+        last_position = 0;
 
         Utils.log(dbg_ren,0,"LocalRenderer stopped");
     }
@@ -219,7 +255,9 @@ public class LocalRenderer implements
     {
         if (current_track != null)
             return current_track;
-        return current_playlist.getCurrentTrack();
+        if (current_playlist != null)
+            return current_playlist.getCurrentTrack();
+        return null;
     }
 
 
@@ -539,6 +577,13 @@ public class LocalRenderer implements
                 last_position = song_position / 100;
                 artisan.handleArtisanEvent(EventHandler.EVENT_POSITION_CHANGED,new Integer(song_position));
             }
+
+            // Hit the volume control, which will check if volumes
+            // need to be re-gotten, etc.
+
+            VolumeControl volume_control = artisan.getVolumeControl();
+            if (volume_control != null)
+                volume_control.checkVolumeChangesForRenderer();
 
             // dispatch any open home events
             // and re-call ourselves ourselves

@@ -525,6 +525,23 @@ public class Utils {
     }
 
 
+    public static Element getTagElementBySubTagValue(Element parent, String tag, String sub_tag, String value)
+        // for all items of name "tag" (i.e. all actions)
+        // return the element who has a child called "sub_tag" (i.e. "name") of value
+    {
+        NodeList node_list = parent.getElementsByTagName(tag);
+        for (int i=0; i<node_list.getLength(); i++)
+        {
+            Element ele = (Element) node_list.item(i);
+            NodeList inner = ele.getElementsByTagName(sub_tag);
+            if (node_list.getLength() > 0)
+                if (value.equals(((Element) inner.item(0)).getTextContent()))
+                    return ele;
+        }
+        return null;
+    }
+
+
     //------------------------------------------------------------------
     // Synchronous File Routines
     //------------------------------------------------------------------
