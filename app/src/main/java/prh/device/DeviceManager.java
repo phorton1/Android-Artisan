@@ -1,6 +1,11 @@
 package prh.device;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 
 import prh.artisan.Artisan;
 import prh.artisan.EventHandler;
@@ -44,6 +49,19 @@ public class DeviceManager
         DeviceHash hash = types.get(type);
         return hash;
     }
+    public Device[] getSortedDevices(String type)
+    {
+        Device rslt[] = new Device[0];
+        DeviceHash hash = types.get(type);
+        if (hash != null)
+        {
+            Collection devices = hash.values();
+            rslt = (Device[]) devices.toArray(new Device[hash.size()]);
+        }
+        return rslt;
+    }
+
+
     public Device getDevice(String type, String name)
     {
         Device device = null;
@@ -52,7 +70,16 @@ public class DeviceManager
             device = hash.get(name);
         return device;
     }
-
+    public void addDevice(Device d)
+    {
+        DeviceHash hash = getDevices(d.getDeviceType());
+        if (hash == null)
+        {
+            hash = new DeviceHash();
+            types.put(d.getDeviceType(),hash);
+        }
+        hash.put(d.getFriendlyName(),d);
+    }
 
     public DeviceManager(Artisan ma)
     {
@@ -91,6 +118,8 @@ public class DeviceManager
         String friendlyName = ssdp_device.getFriendlyName();
         String device_type = ssdp_device.getDeviceType();
         String device_url = ssdp_device.getDeviceUrl();
+        String icon_url = ssdp_device.getIconUrl();
+
         device_type = device_type.replaceAll("^.*device:","");
         device_type = device_type.replaceAll(":.*$","");
         if (device_type.equals("Source"))
@@ -107,8 +136,7 @@ public class DeviceManager
         // We don't overwrite existing devices.
         // If you need to, clear the cache and re-scan.
 
-        DeviceHash devices = types.get(list_type);
-
+        DeviceHash devices = getDevices(list_type);
         Device device = devices == null ? null : devices.get(friendlyName);
         if (device != null)
         {
@@ -121,18 +149,17 @@ public class DeviceManager
         // device is null, and needs to be created at this point
         // create the appropriate derived class
 
-
         if (device_type.equals(Device.DEVICE_MEDIA_SERVER))
         {
-            device = new MediaServer(artisan,friendlyName,device_type,device_url);
+            device = new MediaServer(artisan,friendlyName,device_type,device_url,icon_url);
         }
         else if (device_type.equals(Device.DEVICE_MEDIA_RENDERER))
         {
-            device = new MediaRenderer(artisan,friendlyName,device_type,device_url);
+            device = new MediaRenderer(artisan,friendlyName,device_type,device_url,icon_url);
         }
         else if (device_type.equals(Device.DEVICE_OPEN_HOME))
         {
-            device = new OpenHomeRenderer(artisan,friendlyName,device_type,device_url);
+            device = new OpenHomeRenderer(artisan,friendlyName,device_type,device_url,icon_url);
         }
         else
         {
@@ -147,19 +174,8 @@ public class DeviceManager
         if (device != null)
         {
             device.createSSDPServices(ssdp_device);
-
-            if (devices == null)
-            {
-                devices = new DeviceHash();
-                types.put(list_type,devices);
-            }
-
-            devices.put(friendlyName,device);
-
-            // Notify Artisan of the new device
-
+            addDevice(device);
             artisan.handleArtisanEvent(EventHandler.EVENT_NEW_DEVICE,device);
-
         }
     }
 

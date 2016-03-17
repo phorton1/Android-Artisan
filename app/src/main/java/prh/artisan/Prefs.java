@@ -11,6 +11,8 @@ public class Prefs
 {
     public enum id
     {
+        DEFAULT_RENDERER,
+
         START_ON_BOOT,
         DEVICE_ROOM,
         DEVICE_NAME,
@@ -19,7 +21,6 @@ public class Prefs
 
         KEEP_WIFI_ALIVE,
 
-        DEFAULT_RENDERER,
         DEFAULT_LIBRARY,
 
         START_LOCAL_RENDERER,

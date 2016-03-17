@@ -1,8 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="vertical"
-              android:layout_width="320dip"
-              android:layout_height="wrap_content">
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:id="@+id/pref_select_renderer">
 
+    <TextView
+        android:id="@+id/pref_select_renderer_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text = "Selected Renderer"
+        android:layout_marginLeft="12dip"
+        android:layout_alignParentLeft="true">
+    </TextView>
 
-</LinearLayout>
+    <TextView
+        android:id="@+id/pref_selected_renderer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text = "None"
+        android:layout_marginRight="12dip"
+        android:layout_alignParentRight="true">
+    </TextView>
+
+    <LinearLayout
+        android:id="@+id/pref_renderer_list"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingBottom="12dip"
+        android:paddingTop="6dip"
+
+        android:layout_below="@id/pref_select_renderer_label" >
+    </LinearLayout>
+
+</RelativeLayout>

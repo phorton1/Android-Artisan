@@ -32,7 +32,7 @@ import android.widget.Toast;
 import prh.device.Device;
 import prh.utils.Utils;
 
-public class LocalRenderer implements
+public class LocalRenderer extends Device implements
     Renderer,
     MediaPlayer.OnErrorListener,
     MediaPlayer.OnCompletionListener
@@ -114,7 +114,11 @@ public class LocalRenderer implements
 
     public LocalRenderer(Artisan a)
     {
+        super(a,Device.DEVICE_LOCAL_RENDERER,Device.DEVICE_MEDIA_RENDERER,"","");
+            // it's a device, but has no services, url, or icon_url
         artisan = a;
+        current_playlist_source = new LocalPlaylistSource();
+        current_playlist_source.start();
         Utils.log(dbg_ren+1,1,"new LocalRenderer()");
     }
 
@@ -133,8 +137,6 @@ public class LocalRenderer implements
         mp_state = MP_STATE_IDLE;
 
         current_playlist = new LocalPlaylist();
-        current_playlist_source = new LocalPlaylistSource();
-        current_playlist_source.start();
 
         // start on a separate thread
         // not currently working (timer does not advance)
@@ -196,11 +198,22 @@ public class LocalRenderer implements
         }
         in_refresh = false;
 
+        // the LocalRenderer PlaylistSource is used by the LocalLibrary
+        // select_playlist scheme, so it must remain set here.
+        //
+        // It's expensive enough to create that we don't want to create them
+        // locally in method calls, so it seems Artisan should have a global
+        // LocalPlaylistSource, and other libraries should have remote ones
+
+        if (false)
+        {
+            if (current_playlist_source != null)
+                current_playlist_source.stop();
+            current_playlist_source = null;
+        }
+
         // get rid of any references to external objects
 
-        if (current_playlist_source != null)
-            current_playlist_source.stop();
-        current_playlist_source = null;
         current_playlist = null;
         current_track = null;
 

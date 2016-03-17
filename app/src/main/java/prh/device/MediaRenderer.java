@@ -31,19 +31,38 @@ import prh.utils.stringHash;
 
 public class MediaRenderer extends Device implements Renderer
     // Represents a DLNA AVTransport, with a possible
-    // DLNA RenderingControl for volume changes
+    // DLNA RenderingControl for volume changes.
+    //
+    // Gets current state, track, position, if any, from remote renderer.
+    // Basically advances playlist if remote_renderer is STOPPED.
+    // Has special cases to detect changes made on remote_renderer:
+    //
+    //     Detects STOP, NEXT, and PREV buttons pressed using
+    //          Pref.DETECT_MEDIARENDERER_CONTROLS and
+    //          the song position is >= DETECT_TRANSPORT_MILLISECONDS and
+    //          song_position < duration - DETECT_TRASNPORT_MILLISECONDS
+    //
+    //     Detects song change on remote_renderer from current track/playlist
+    //          Gives up control (stops the current playlist) if it's not
+    //          the expected track that we expect it to be playing
 {
 
-    public MediaRenderer(Artisan artisan, String friendlyName, String device_type, String device_url)
+    public MediaRenderer(Artisan artisan, String friendlyName, String device_type, String device_url, String icon_url)
     {
-        super(artisan,friendlyName,device_type,device_url);
+        super(artisan,friendlyName,device_type,device_url,icon_url);
         Utils.log(0,0,"new MediaRenderer(" + friendlyName + "," + device_type + "," + device_url);
     }
 
 
     private static int dbg_mr = 0;
+
     private static int REFRESH_INTERVAL = 400;
         // actually the delay between refreshes
+    private static int DETECT_TRANSPORT_SECONDS = 3;
+        // if the song_position is > this, or < duration-this
+        // and the renderer is STOPPED, then we consider it
+        // a user control, and stop the current playlist
+
 
     //------------------------------------------
     // VARIABLES
@@ -51,32 +70,53 @@ public class MediaRenderer extends Device implements Renderer
 
     private RenderingControl volume;
 
-    // State
+    // Status and State
 
+    private String renderer_status = "";
     private String renderer_state = RENDERER_STATE_NONE;
-    private int total_tracks_played = 0;
-
-    private int song_position = 0;
-    private Track current_track = null;
-    private Playlist current_playlist = new LocalPlaylist();
-    private PlaylistSource current_playlist_source = null;
     private boolean repeat = true;
     private boolean shuffle = false;
 
-    // Refresh Loop
+    // Currently Playing Item
+
+    private int song_position = 0;
+        // The current position gotten from the renderer
+
+    private Track current_track = null;
+        // The current track playing on the remote renderer, which
+        // may be the current track we are playing OVER the playlist,
+        // the current track we are playing FROM the playlist,
+        // or some other track completely local to the renderer.
+
+    private Playlist current_playlist = new LocalPlaylist();
+        // The playlist, if any, that we are playing.
+
+    // These items are currently "nearly constants"
+    // as there is no way to change them (yet)
+
+    private PlaylistSource current_playlist_source = null;
+    private String play_mode = "";
+    private String play_speed = "";
+
+    // Refresh Loop Management
 
     private Updater updater = null;
     private Handler update_handler = null;
     boolean quitting = false;
     private boolean in_update = false;
+
+    // change detection
+
     int last_position = 0;
     String last_track_uri = "";
 
-    // nearly constants
+    // counter of tracks played
 
-    private String play_mode = "";
-    private String play_speed = "";
-    private String renderer_status = "";
+    private int total_tracks_played = 0;
+
+    // pending play
+
+    private int do_play_on_next_update = 0;
 
 
     //--------------------------------------------
@@ -236,11 +276,9 @@ public class MediaRenderer extends Device implements Renderer
     //-----------------------------------------------
     // Duplicated methods
     //-----------------------------------------------
-    // These have same implementation as MediaRenderer, but
-    // Renderer is an interface (as Device is more fundamental),
+    // These have same or nearly same implementation as MediaRenderer,
+    // but Renderer is an interface (as Device is more fundamental),
     // and cannot currently have default implementations
-
-
 
     public Track getTrack()
     {
@@ -253,9 +291,8 @@ public class MediaRenderer extends Device implements Renderer
 
 
     public void setTrack(Track track, boolean interrupt_playlist)
-        // start playing the given track, possibly
-        // interrupting the current playlist if from DLNA
-        // call with null does nothing
+        // Start playing the given track in "immediate mode"
+        // possibly interrupting the current playlist, if any
     {
         if (track != null)
         {
@@ -271,23 +308,27 @@ public class MediaRenderer extends Device implements Renderer
 
 
     public void setPlaylist(Playlist playlist)
-        // it is assumed that artisan will save the previous
-        // playlist as necessary, and call start() on the new one.
-        // This just sets it and starts playing it.
+        // stop the current playlist, if any, and
+        // start the new one if not null
     {
         String dbg_name = playlist != null ? playlist.getName() : "null";
         Utils.log(0,0,"setPlaylist(" + dbg_name + ")");
+
         if (current_playlist != null)
             current_playlist.stop();
-        stop();
-        current_track = null;
+
+        stop();     // lower level?
+
         current_playlist = playlist != null ? playlist :
             new LocalPlaylist();
-
         current_playlist.start();
         artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
-        Utils.log(1,1,"setPlaylist() calling incAndPlay(0)");
-        incAndPlay(0);
+
+        if (playlist != null)
+        {
+            Utils.log(1,1,"setPlaylist() calling incAndPlay(0)");
+            incAndPlay(0);
+        }
     }
 
 
@@ -296,12 +337,8 @@ public class MediaRenderer extends Device implements Renderer
     // does nothing if no playlist
     {
         Utils.log(dbg_mr,0,"incAndPlay(" + inc + ")");
+        Track track = current_playlist.incGetTrack(inc);
 
-        song_position = 0;
-
-        current_track = null;
-        current_playlist.incGetTrack(inc);
-        Track track = current_playlist.getCurrentTrack();
         if (track == null)
         {
             if (!current_playlist.getName().equals(""))
@@ -311,10 +348,21 @@ public class MediaRenderer extends Device implements Renderer
         }
         else
         {
-            stop();
+            // stop();
             Utils.log(dbg_mr,1,"incAndPlay(" + inc + ") calling play(" + track.getPosition() + ":" + track.getTitle() +")");
+            song_position = 0;
             current_track = track;
-            play();
+
+            // for better local behavior with Next/Prev buttons
+            // we send the new track event right away for the UI
+
+            artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
+
+            // but defer the actual doAction(Play) network call till two more
+            // calls to getUpdateState() by setting do_play_on_next_update=2
+
+            do_play_on_next_update = 2;
+                // play();
         }
     }
 
@@ -328,7 +376,7 @@ public class MediaRenderer extends Device implements Renderer
 
     public void seekTo(int position)
     {
-        Utils.log(dbg_mr+1,0,"seekTo(" + position + ") state=" + getRendererState());
+        Utils.log(dbg_mr + 1,0,"seekTo(" + position + ") state=" + getRendererState());
         if (getTrack() != null)
         {
             String time_str = Utils.durationToString(position,Utils.how_precise.FOR_SEEK);
@@ -346,7 +394,12 @@ public class MediaRenderer extends Device implements Renderer
     {
         Utils.log(dbg_mr,0,"stop() state=" + getRendererState());
         if (!renderer_state.equals(RENDERER_STATE_NONE))
+        {
+            song_position = 0;
+            current_track = null;
+            current_playlist = null;
             doCommand("Stop",null);
+        }
     }
 
 
@@ -460,12 +513,23 @@ public class MediaRenderer extends Device implements Renderer
         // Get the renderer status, and if its Playing,
         // The position and metadata.
     {
-        // get the state and status
-        // event the state change, if any
+        // short ending if there's pending play
+
+        if (do_play_on_next_update > 0)
+        {
+            do_play_on_next_update--;
+            if (do_play_on_next_update == 0)
+                play();
+            return true;
+        }
+
+        //--------------------------------------------
+        // get info from remote renderer
+        //--------------------------------------------
+        // the state and status
 
         stringHash args = new stringHash();
         args.put("InstanceID","0");
-
         Document doc = doAction("AVTransport","GetTransportInfo",args);
         if (doc == null)
         {
@@ -480,15 +544,9 @@ public class MediaRenderer extends Device implements Renderer
             Utils.warning(0,0,"Got non-ok status=" + renderer_status);
             return false;
         }
-
         String new_state = Utils.getTagValue(doc_ele,"CurrentTransportState");
-        if (!new_state.equals(renderer_state))
-            setRendererState(new_state);
 
-        // get the position, and event any changes
-
-        //if (renderer_state.equals(RENDERER_STATE_PLAYING) ||
-        //    renderer_state.equals(RENDERER_STATE_PAUSED))
+        // get the position and track_uri
 
         doc = doAction("AVTransport","GetPositionInfo",args);
         if (doc == null)
@@ -500,44 +558,102 @@ public class MediaRenderer extends Device implements Renderer
         doc_ele = doc.getDocumentElement();
         String pos_str = Utils.getTagValue(doc_ele,"RelTime");
         song_position = Utils.stringToDuration(pos_str);
-        if (last_position != song_position / 100)
+        String new_track_uri = Utils.getTagValue(doc_ele,"TrackURI");
+
+        //----------------------------------------------------
+        // Detect Stops and/or Advance Playlist
+        //----------------------------------------------------
+        // OK, so now we know everything we need to know to
+        // check for a unexpected song change on the rendererer,
+        // see if they pressed STOP on the renderer, and/or
+        // to advance the song automatically
+
+        if (current_track != null && current_playlist != null)      // playlist is playing
         {
-            last_position = song_position / 100;
+            int cur_duration = current_track.getDuration()/1000;
+                // last_position is in SECONDS
+
+            if (!new_track_uri.isEmpty() &&
+                !new_track_uri.equals(current_track.getPublicUri()))
+            {
+                Utils.log(0,0,"MediaRenderer :: SONG CHANGE DETECTED ON REMOTE RENDERER");
+
+                // give up control of the renderer by turning off our track/playlist.
+                // of course, we don't want to STOP the renderer, since it's not ours anymore!
+
+                song_position = 0;
+                current_track = null;
+                current_playlist = null;
+
+                // event that the playlist has gone to null
+                // the track and position changes will be evented below
+
+                artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,null);
+            }
+
+            // Remote Renderer has stopped
+
+            else if (new_state.equals(RENDERER_STATE_STOPPED) &&
+                     !renderer_state.equals(RENDERER_STATE_STOPPED))
+            {
+                // Detect STOP button pressed on the Renderer
+                // if the last_position we noticed was in our little window,
+                // then we will advance, otherwise we will stop it
+
+                if (last_position > DETECT_TRANSPORT_SECONDS &&
+                    last_position < cur_duration - DETECT_TRANSPORT_SECONDS)
+                {
+                    Utils.log(0,0,"MediaRenderer :: STOP DETECTED ON REMOTE RENDERER last_position=" + last_position + " cur_duration=" + cur_duration);
+                    setRendererState(RENDERER_STATE_STOPPED);
+                    return true;
+                }
+
+                // normal advance of playlist
+
+                else
+                {
+                    Utils.log(0,0,"MediaRenderer :: ADVANCE PLAYLIST");
+                    incAndPlay(1);      // advance the playlist (sends all needed events)
+                    return true;
+                }
+
+            }   // Remote Renderer changed to STOPPED while playlist playing
+        }   // Playing a playlist
+
+
+        //----------------------------------------------------
+        // event any state, position or track changes
+        //----------------------------------------------------
+
+        if (!renderer_state.equals(new_state))
+        {
+            setRendererState(new_state);
+        }
+
+        if (last_position != song_position / 1000)
+        {
+            last_position = song_position / 1000;
             artisan.handleArtisanEvent(EventHandler.EVENT_POSITION_CHANGED,new Integer(song_position));
         }
 
-        // get the uri, and if it changed build a track
-        // from the metadata and event the track change/
-        // Bup local library serves up 127.0.0.1, but works
-        // at some other port ...
-
-        String uri = Utils.getTagValue(doc_ele,"TrackURI");
-
-        if (!uri.equals(last_track_uri))
+        if (!new_track_uri.equals(last_track_uri))
         {
             Track track = null;
-            last_track_uri = uri;
-            if (!uri.isEmpty())
+            last_track_uri = new_track_uri;
+            if (!new_track_uri.isEmpty())
             {
                 String didl = Utils.getTagValue(doc_ele,"TrackMetaData");
                 didl = didl.replace("127.0.0.1",Utils.ipFromUrl(getDeviceUrl()));
-                track = new Track(uri,didl);
+                track = new Track(new_track_uri,didl);
             }
             current_track = track;
             artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
         }
 
-        // Handle any "automatic" behaviours
-        //
-        //     advancing the current track
-        //     detecting stalled renderer,
-        //     checking for advance on DLNA renderer
-        //
-
-        // event any changes by second
-
-        // Let the volume control see if needs
-        // to get new values, etc
+        //----------------------------------------
+        // Give the volume control a timeslice
+        //----------------------------------------
+        // To see if needs to get new values, etc
 
         VolumeControl volume_control = artisan.getVolumeControl();
         if (volume_control != null)
@@ -546,12 +662,9 @@ public class MediaRenderer extends Device implements Renderer
         // Dispatch the IDLE event for Artisan
 
         artisan.handleArtisanEvent(EventHandler.EVENT_IDLE,null);
-
         return true;
-    }
 
-
-
+    }   // MediaRenderer.getUpdateRendererState()
 
 
 }   // class MediaRenderer

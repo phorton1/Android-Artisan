@@ -11,9 +11,9 @@ import prh.utils.Utils;
 public class OpenHomeRenderer extends Device implements Renderer
 {
 
-    public OpenHomeRenderer(Artisan artisan, String friendlyName, String device_type, String device_url)
+    public OpenHomeRenderer(Artisan artisan, String friendlyName, String device_type, String device_url, String icon_url)
     {
-        super(artisan,friendlyName,device_type,device_url);
+        super(artisan,friendlyName,device_type,device_url,icon_url);
         Utils.log(0,0,"new OpenHomeRenderer(" + friendlyName + "," + device_type + "," + device_url);
     }
 

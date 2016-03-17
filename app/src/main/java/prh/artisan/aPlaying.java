@@ -183,8 +183,12 @@ public class aPlaying extends Fragment implements
         @Override
         public void onProgressChanged(SeekBar seekBar,int progresValue,boolean fromUser)
         {
-            progress = progresValue;
             Utils.log(dbg_anp+3,0,"onProgressChanged(" + progresValue + ")");
+            progress = progresValue;
+            String time_str = Utils.durationToString(progress,Utils.how_precise.FOR_DISPLAY);
+            TextView position_text = (TextView) my_view.findViewById(R.id.track_elapsed);
+            position_text.setText(time_str);
+
         }
 
         @Override
@@ -429,18 +433,23 @@ public class aPlaying extends Fragment implements
         if (!in_slider && my_view != null)
         {
             TextView position_text = (TextView) my_view.findViewById(R.id.track_elapsed);
+            // TextView duration_text = (TextView) my_view.findViewById(R.id.track_duration);
+
             SeekBar track_slider = (SeekBar) my_view.findViewById(R.id.track_position_slider);
 
             if (current_track != null)
             {
+                int cur_duration = current_track.getDuration();
                 position_text.setText(Utils.durationToString(position,Utils.how_precise.FOR_DISPLAY));
+                // duration_text.setText(Utils.durationToString(cur_duration,Utils.how_precise.FOR_DISPLAY));
                 track_slider.setEnabled(true);
-                track_slider.setMax(current_track.getDuration());
+                track_slider.setMax(cur_duration);
                 track_slider.setProgress(current_position);
             }
             else
             {
                 position_text.setText("");
+                // duration_text.setText("");
                 track_slider.setEnabled(false);
                 track_slider.setMax(100);
                 track_slider.setProgress(0);
@@ -455,12 +464,14 @@ public class aPlaying extends Fragment implements
         if (my_view != null)
         {
             int image_id = android.R.drawable.ic_media_play;
-            if (state.equals("PLAYING"))
+            if (state.equals(Renderer.RENDERER_STATE_PLAYING))
                 image_id = android.R.drawable.ic_media_pause;
             ImageView btn = (ImageView) my_view.findViewById(R.id.button_play_pause);
             btn.setImageResource(image_id);
 
-            boolean enable_stop = current_track != null && !state.equals("STOPPED");
+            boolean enable_stop = /* current_track != null && */
+                !state.equals(Renderer.RENDERER_STATE_NONE) &&
+                !state.equals(Renderer.RENDERER_STATE_STOPPED);
             enable(R.id.button_stop,enable_stop);
         }
     }
@@ -587,8 +598,9 @@ public class aPlaying extends Fragment implements
             // current_position = 0;
             current_state = renderer.getRendererState();
             current_position = renderer.getPosition();
+            current_track = (Track) data;
 
-            update_track((Track) data);
+            update_track(current_track);
             update_position(current_position);
             update_state(current_state);
             update_whats_playing_message();

@@ -263,7 +263,14 @@ public class Artisan extends FragmentActivity implements
         library = local_library;
         renderer = local_renderer;
 
-        view_pager.setCurrentItem(current_page = 1);
+        // start car stereo in now playing, emulator in prefs
+
+        if (Build.ID.equals(Utils.ID_CAR_STEREO))
+            current_page = 1;
+        else
+            current_page = 0;
+
+        view_pager.setCurrentItem(current_page);
         setCurrentPageTitle();
 
         // send the initial messages

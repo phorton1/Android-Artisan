@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<ListView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/preferences_list_view"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+          android:scrollbars="none"
+          android:paddingLeft="12dip"
+          android:paddingRight="12dip" >
+
+
+
+</ListView>
+
+    <!-- ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
 
@@ -93,4 +105,4 @@
 
         </LinearLayout>
     </LinearLayout>
-</ScrollView>
+</ScrollView-->

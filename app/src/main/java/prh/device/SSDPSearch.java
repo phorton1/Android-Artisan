@@ -317,11 +317,14 @@ public class SSDPSearch implements Runnable
         private String device_url;
         private String location;
         private String friendlyName;
+        private String icon_url;
+
         private HashMap<String,SSDPService> services = new HashMap<String,SSDPService>();
 
         public String getDeviceUrl()  { return device_url; }
         public String getDeviceType()  { return device_type; }
         public String getFriendlyName() { return friendlyName; }
+        public String getIconUrl() { return icon_url; }
 
 
         public HashMap<String,SSDPService> getServices() { return services; }
@@ -335,6 +338,7 @@ public class SSDPSearch implements Runnable
             device_type = d_type;
             location = loc;
             device_url = "http://" + Utils.ipFromUrl(loc) + ":" + Utils.portFromUrl(loc);
+            icon_url = "";
         }
 
         public void run()
@@ -366,15 +370,14 @@ public class SSDPSearch implements Runnable
             }
             Utils.log(dbg_ssdp_search,0,"Got friendlyName(" + friendlyName + ") from " + device_url);
 
-            String icon = "";
             NodeList icons = doc.getElementsByTagName("icon");
             if (icons.getLength() > 0)
             {
                 final Element elem = (Element) icons.item(0);
-                icon =  Utils.getTagValue(elem,"url");
+                icon_url =  Utils.getTagValue(elem,"url");
+                if (icon_url == null) icon_url = "";
             }
-            if (icon == null) icon = "";
-            if (icon.equals(""))
+            if (icon_url.equals(""))
                 Utils.warning(0,0,"no icon found for " + device_type + " at " + location);
 
             // loop through the services, creating SSDPServices

@@ -13,6 +13,7 @@ import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.Socket;
 import java.net.URL;
+import java.util.Collection;
 import java.util.HashMap;
 
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -31,7 +32,7 @@ import prh.utils.networkRequest;
 import prh.utils.stringHash;
 
 
-public abstract class Device
+public abstract class Device implements Comparable<Device>
     // A base classes for Devices
     // Should have UUID, but we just use friendlyName as unique id
 {
@@ -61,14 +62,27 @@ public abstract class Device
     private String device_url;
     private String device_type;
     private String friendlyName;
+    private String icon_url = "";
     private HashMap<String,Service> services = new HashMap<String,Service>();
 
-    public String getDeviceUrl() { return device_url; }
-    public String getDeviceType() { return device_type; }
+    public String getDeviceUrl()    { return device_url; }
+    public String getDeviceType()   { return device_type; }
     public String getFriendlyName() { return friendlyName; }
+    public String getIconUrl()
+    {
+        if (icon_url.isEmpty())
+            return "";
+        return device_url + icon_url;
+    }
+
     public HashMap<String,Service> getServices() { return services; }
 
-    // utility functions
+    // Comparable interface
+
+    public int compareTo(Device other)
+    {
+        return friendlyName.compareTo(other.friendlyName);
+    }
 
     public static String short_type(String what, String st)
         // utility to change an SSDP device or service type
@@ -92,12 +106,15 @@ public abstract class Device
 
     // Constructor
 
-    public Device(Artisan ma, String name, String short_type, String url)
+    public Device(Artisan ma, String name, String short_type, String url, String icon)
     {
         artisan = ma;
         friendlyName = name;
         device_type = short_type;
         device_url = url;
+        icon_url = icon;
+        if (!icon_url.isEmpty() && !icon_url.startsWith("/"))
+            icon_url = "/" + icon_url;
         Utils.log(dbg_d,3,"new Device(" + device_type + "," + friendlyName + ") at " + device_url);
     }
 
@@ -105,8 +122,6 @@ public abstract class Device
     // Service Management
 
     public void addService(Service service)
-        // returns true if it already existed
-        // we don't check if they're different
     {
         services.put(service.getFriendlyName(),service);
     }
