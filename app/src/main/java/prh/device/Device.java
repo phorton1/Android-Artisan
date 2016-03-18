@@ -42,10 +42,12 @@ public abstract class Device implements Comparable<Device>
     public static final String DEVICE_MEDIA_RENDERER = "MediaRenderer";
     public static final String DEVICE_OPEN_HOME = "OpenHomeRenderer";
         // actual ssdp device type is "Source"
-    public static final String DEVICE_LOCAL_LIBRARY = "LocalLibrary";
-    public static final String DEVICE_LOCAL_RENDERER = "LocalRenderer";
-    public static final String DEVICE_REMOTE_LIBRARY = "RemoteLibrary";
-    public static final String DEVICE_REMOTE_RENDERER = "RemoteRenderer";
+        // and it goes in the list of MediaRenderers
+
+    public static final String DEVICE_LOCAL_LIBRARY = "Local Library";
+    public static final String DEVICE_LOCAL_RENDERER = "Local Renderer";
+    public static final String DEVICE_REMOTE_LIBRARY = "Remote Library";
+    public static final String DEVICE_REMOTE_RENDERER = "Remote Renderer";
 
     public static final String SERVICE_CONTENT_DIRECTORY = "ContentDirectory";
     public static final String SERVICE_AV_TRANSPORT = "AVTransport";
@@ -65,6 +67,8 @@ public abstract class Device implements Comparable<Device>
     private String icon_url = "";
     private HashMap<String,Service> services = new HashMap<String,Service>();
 
+    // accessors
+
     public String getDeviceUrl()    { return device_url; }
     public String getDeviceType()   { return device_type; }
     public String getFriendlyName() { return friendlyName; }
@@ -75,7 +79,10 @@ public abstract class Device implements Comparable<Device>
         return device_url + icon_url;
     }
 
-    public HashMap<String,Service> getServices() { return services; }
+    public HashMap<String,Service> getServices()
+    {
+        return services;
+    }
 
     // Comparable interface
 
@@ -84,19 +91,23 @@ public abstract class Device implements Comparable<Device>
         return friendlyName.compareTo(other.friendlyName);
     }
 
+
+    // public utilities
+
     public static String short_type(String what, String st)
         // utility to change an SSDP device or service type
-        // into one of our more simple names. Can be called
-        // over again with no harm.
+        // i.e. urn:schemas-upnp-org:service:AVTransport:1
+        // into one of our more simple names (i.e. AVTransport)
+        // Can be called over again with no harm.
     {
         st = st.replaceAll("^.*" + what + ":","");
         st = st.replaceAll(":.*$","");
         return st;
     }
 
-
     public static String get_urn(String what, String st)
-        // utility to get the urn from a device/servic type
+        // utility to get the urn from a device/service type
+        // like urn:schemas-upnp-org:service:AVTransport:1
     {
         st = st.replaceAll("^.*urn:","");
         st = st.replaceAll(":" + what + ".*$","");
@@ -117,6 +128,85 @@ public abstract class Device implements Comparable<Device>
             icon_url = "/" + icon_url;
         Utils.log(dbg_d,3,"new Device(" + device_type + "," + friendlyName + ") at " + device_url);
     }
+
+    // To and From String
+
+    protected Device(Artisan ma)
+    {
+        artisan = ma;
+    }
+
+    public String toString()
+    {
+        String retval =
+            friendlyName + "\t" +
+            device_type + "\t" +
+            device_url + "\t" +
+            icon_url + "\t" +
+            services.size() + "\t";
+        String service_part = "";
+        for (Service service : services.values())
+        {
+            retval += service.getServiceType() + "\t";
+            service_part += service.toString() + "\n";
+        }
+        return retval + "\n" + service_part;
+    }
+
+
+
+    protected boolean fromString(StringBuffer buffer)
+    {
+        StringBuffer device_part = Utils.readBufferLine(buffer);
+        friendlyName = Utils.pullTabPart(device_part);
+        device_type = Utils.pullTabPart(device_part);
+        device_url = Utils.pullTabPart(device_part);
+        icon_url = Utils.pullTabPart(device_part);
+
+        int num_services = Utils.parseInt(Utils.pullTabPart(device_part));
+
+        for (int i = 0; i < num_services; i++)
+        {
+            Service service = null;
+            String service_type = Utils.pullTabPart(device_part);
+
+            if (service_type.equals(SERVICE_CONTENT_DIRECTORY))
+                service = new ContentDirectory(artisan,this);
+            else if (service_type.equals(SERVICE_AV_TRANSPORT))
+                service = new AVTransport(artisan,this);
+            else if (service_type.equals(SERVICE_RENDERING_CONTROL))
+                service = new RenderingControl(artisan,this);
+            else if (service_type.equals(SERVICE_OPEN_PRODUCT))
+                service = new OpenProduct(artisan,this);
+            else if (service_type.equals(SERVICE_OPEN_PLAYLIST))
+                service = new OpenPlaylist(artisan,this);
+            else if (service_type.equals(SERVICE_OPEN_INFO))
+                service = new OpenInfo(artisan,this);
+            else if (service_type.equals(SERVICE_OPEN_TIME))
+                service = new OpenTime(artisan,this);
+            else if (service_type.equals(SERVICE_OPEN_VOLUME))
+                service = new OpenVolume(artisan,this);
+
+            if (service == null)
+            {
+                Utils.error("Unknown service type: '" + service_type + "'");
+                return false;
+            }
+
+            if (!service.fromString(Utils.readBufferLine(buffer)))
+            {
+                Utils.error("service(" + service_type + ").fromString() failed!");
+                return false;
+            }
+
+            services.put(service_type,service);
+        }
+
+        // Device.fromString() aok
+
+        return true;
+    }
+
 
 
     // Service Management

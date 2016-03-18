@@ -163,7 +163,6 @@ public class aPrefs extends Fragment implements
                         // set both click handlers and the initial showing state
                         // and hide it to start with
 
-                        Button clear_renderer_button = (Button) item.findViewById(R.id.clear_default_renderer);
                         set_default_renderer = (Button) item.findViewById(R.id.set_default_renderer);
                         default_renderer_layout = (RelativeLayout) item.findViewById(R.id.pref_default_renderer_layout);
 
@@ -174,8 +173,12 @@ public class aPrefs extends Fragment implements
                         set_default_renderer.setText(use_name);
 
 
-                        set_default_renderer.setOnClickListener(aprefs);
+                        Button clear_renderer_button = (Button) item.findViewById(R.id.clear_default_renderer);
+                        Button last_selected_button = (Button) item.findViewById(R.id.set_default_renderer_last_selected);
                         clear_renderer_button.setOnClickListener(aprefs);
+                        last_selected_button.setOnClickListener(aprefs);
+
+                        set_default_renderer.setOnClickListener(aprefs);
                         setDefaultRendererLayoutShowing();
 
                     }
@@ -316,7 +319,7 @@ public class aPrefs extends Fragment implements
                 }
                 catch (Exception e)
                 {
-                    Utils.error("Could not load image:" + e.getMessage());
+                    Utils.warning(0,0,"Could not load image:" + e.getMessage());
                 }
 
                 // call back to the UI thread
@@ -366,6 +369,13 @@ public class aPrefs extends Fragment implements
         {
             default_renderers_open = !default_renderers_open;
             setDefaultRendererLayoutShowing();
+        }
+
+        else if (id == R.id.set_default_renderer_last_selected)
+        {
+            Prefs.putString(Prefs.id.DEFAULT_RENDERER,Prefs.LAST_SELECTED);
+            TextView value = (TextView) my_view.findViewById(R.id.pref_default_renderer_value);
+            value.setText(Prefs.LAST_SELECTED);
         }
 
         else if (id == R.id.clear_default_renderer)

@@ -352,6 +352,47 @@ public class Utils {
     }
 
 
+    public static String pullTabPart(StringBuffer buffer)
+        // pull one tab delimited field off the string
+    {
+        String result = "";
+        int pos = buffer.indexOf("\t",0);
+        if (pos>=0)
+        {
+            if (pos > 0)
+                result = buffer.substring(0,pos);
+            buffer.delete(0,pos+1);
+        }
+        else if (buffer.length() > 0)
+        {
+            result = buffer.toString();
+            buffer.delete(0,buffer.length());
+        }
+        return result;
+    }
+
+
+
+    public static StringBuffer readBufferLine(StringBuffer buffer)
+    {
+        String retval = "";
+        int pos = buffer.indexOf("\n");
+        if (pos >= 0)
+        {
+            if (pos > 0)
+                retval = buffer.substring(0,pos);
+            buffer.delete(0,pos+1);
+        }
+        else if (buffer.length() > 0)
+        {
+            retval = buffer.toString();
+            buffer.delete(0,buffer.length());
+        }
+        return new StringBuffer(retval);
+    }
+
+
+
     //-------------------------------------
     // Duration Routines
     //-------------------------------------

@@ -127,6 +127,7 @@ public class RenderingControl extends Service implements Volume
 
 
 
+
     private void checkSetMax(Element doc_ele, int idx)
         // if the SetAction exists, then get the
         // allowedValueRange maximum
@@ -151,6 +152,36 @@ public class RenderingControl extends Service implements Volume
             }
         }
     }
+
+
+    //---------------------------------------------------------------
+    //  to and from string
+    //---------------------------------------------------------------
+
+    public RenderingControl(Artisan artisan, Device device)
+    {
+        super(artisan,device);
+        max_values = new int[]{0,0,0,0,0,0,0,0};
+    }
+
+
+    public String toString()
+    {
+        String result = "";
+        for (int i=0; i<NUM_CTRLS; i++)
+            result = result + max_values[i] + "\t";
+        result = result + super.toString();
+        return result;
+    }
+
+    public boolean fromString(StringBuffer buffer)
+    {
+        for (int i = 0; i < NUM_CTRLS; i++)
+            max_values[i] = Utils.parseInt(Utils.pullTabPart(buffer));
+        super.fromString(buffer);
+        return true;
+    }
+
 
 
     //----------------------------------------------------------------

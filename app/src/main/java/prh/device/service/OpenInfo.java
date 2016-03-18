@@ -21,4 +21,11 @@ public class OpenInfo extends Service
     {
         super(artisan,device,urn,service_type,control_url,event_url);
     }
+
+    public OpenInfo(
+        Artisan artisan,
+        Device device)
+    {
+        super(artisan,device);
+    }
 }

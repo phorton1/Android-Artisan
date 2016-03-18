@@ -176,11 +176,15 @@ public class Artisan extends FragmentActivity implements
 
     public SSDPServer ssdp_server = null;
 
-    // and finally, the device manager
+    // and finally, the device manager and default renderer and library names
 
     private DeviceManager device_manager = null;
     public DeviceManager getDeviceManager() { return device_manager; }
 
+    private String default_renderer_name = "";
+    private String default_library_name = "";
+        // if these are non-blank, we have to keep trying until the
+        // SSDPSearch finishes to set the correct renderer ...
 
     //--------------------------------------------------------
     // onCreate()
@@ -196,6 +200,11 @@ public class Artisan extends FragmentActivity implements
 
         Utils.static_init(this);
         Prefs.static_init(this);
+        default_renderer_name = Prefs.getString(Prefs.id.DEFAULT_RENDERER);
+        if (default_renderer_name.equals(Prefs.LAST_SELECTED))
+            default_renderer_name = Prefs.getString(Prefs.id.SELECTED_RENDERER);
+        if (!default_renderer_name.isEmpty())
+            Utils.log(0,0,"DEFAULT_RENDERER(" + default_renderer_name +")");
 
         // 1 = low level initialization
 
@@ -268,7 +277,7 @@ public class Artisan extends FragmentActivity implements
         if (Build.ID.equals(Utils.ID_CAR_STEREO))
             current_page = 1;
         else
-            current_page = 0;
+            current_page = 1;
 
         view_pager.setCurrentItem(current_page);
         setCurrentPageTitle();
@@ -346,6 +355,27 @@ public class Artisan extends FragmentActivity implements
         // in the cache, or found in the SSDP Search.
 
         device_manager = new DeviceManager(this);
+
+        // see if we can find the default renderer
+        // clear the name, even if it fails to start
+        // so we don't try again ...
+
+        if (!default_renderer_name.isEmpty())
+        {
+            Device found = device_manager.getDevice(Device.DEVICE_MEDIA_RENDERER,default_renderer_name);
+            if (found != null)
+            {
+                Utils.log(0,0,"STARTING DEFAULT RENDERER " + default_renderer_name);
+                setRenderer(default_renderer_name);
+                default_renderer_name = "";
+            }
+            else
+            {
+                Utils.log(0,0,"Could not find DEFAULT RENDERER " + default_renderer_name + " in onCreate() ... continuing to look ...");
+            }
+        }
+
+
         device_manager.doDeviceSearch();
 
         Utils.log(0,0,"------ Artisan.onCreate() finished ------");
@@ -634,12 +664,18 @@ public class Artisan extends FragmentActivity implements
             return false;
         }
 
-        // if that worked, stop the old one and send out the
-        // renderer changed event(s)
+        // if that worked, stop the old one
+        // save the selection to the prefs
+        // and send out the renderer changed event
 
         if (renderer != null)
             renderer.stopRenderer();
         renderer = new_renderer;
+
+        String use_name = name;
+        if (use_name.equals(Device.DEVICE_LOCAL_RENDERER))
+            use_name = "";
+        Prefs.putString(Prefs.id.SELECTED_RENDERER,use_name);
 
         Utils.log(0,0,"--- setRenderer(" + name + ") finishing and dispatching EVENT_RENDERER_CHANGED(" + renderer.getName() + ")");
         handleArtisanEvent(EVENT_RENDERER_CHANGED,renderer);
@@ -742,6 +778,35 @@ public class Artisan extends FragmentActivity implements
                 if (!event_id.equals(EVENT_POSITION_CHANGED) &&
                     !event_id.equals(EVENT_IDLE))
                     Utils.log(0,0,"----> " + event_id);
+
+                // check NEW_DEVICES if still looking for a renderer
+
+                if (event_id.equals(EVENT_NEW_DEVICE) &&
+                    !default_renderer_name.isEmpty() )
+                {
+                    Device device = (Device) data;
+                    String type = device.getDeviceType();
+                    if (type.equals(Device.DEVICE_MEDIA_RENDERER) ||
+                        type.equals(Device.DEVICE_OPEN_HOME))
+                    {
+                        if (default_renderer_name.equals(device.getFriendlyName()))
+                        {
+                            Utils.log(0,0,"FOUND DEFAULT RENDERER " + default_renderer_name);
+                            setRenderer(default_renderer_name);
+                            default_renderer_name = "";
+                        }
+                    }
+                }
+
+                // give an error on SSDP_SEARCH_FINISHED if we have not
+                // found the default renderer ...
+
+                if (event_id.equals(EVENT_SSDP_SEARCH_FINISHED) &&
+                    !default_renderer_name.isEmpty() )
+                {
+                    Utils.error("SSDPSearch could not find DEFAULT RENDERER(" + default_renderer_name + ")");
+                    default_renderer_name = "";
+                }
 
                 // Send all events non-IDLE to all known event handlers
                 // prh = Could use this to get rid of other Timer Loops,

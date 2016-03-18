@@ -15,18 +15,19 @@ import java.util.HashMap;
 import java.util.List;
 
 import prh.artisan.Artisan;
+import prh.artisan.EventHandler;
 import prh.server.SSDPServer;
 import prh.utils.Utils;
-
 
 
 public class SSDPSearch implements Runnable
     // Implements a runnable that performs an aynchronous SSDP Search
     // for interesting devices and services.
     //
-    // Maintains a cache of previously found devices which Artisan can
-    // choose to use, or clear, at startup.
+    // Devices are uniquely identified by their TYPE and FRIENDLY_NAME.
+    // PRH - The unique ID should really be the device UUID
     //
+
     //
     // As devices are found, it asks Artisan if it should proceed to get
     // to get the device_description, a costly operation, as Artisan maintains
@@ -55,11 +56,23 @@ public class SSDPSearch implements Runnable
 
 
     private DeviceManager device_manager;
-    public SSDPSearch(DeviceManager dm)
+    private boolean ssdp_search_finished = false;
+    private int num_ssdp_devices_started = 0;
+    private Artisan artisan;
+
+
+    public SSDPSearch(DeviceManager dm, Artisan ma)
     {
         device_manager = dm;
+        artisan = ma;
     }
 
+    public boolean finished()
+    {
+        return
+            ssdp_search_finished &&
+            num_ssdp_devices_started == 0;
+    }
 
 
 
@@ -112,6 +125,7 @@ public class SSDPSearch implements Runnable
             Utils.error("Could not send M_SEARCH message: " + e.toString());
         }
 
+        ssdp_search_finished = true;
         Utils.log(dbg_ssdp_search + 1,0,"SSDPSearch.run() finished");
     }
 
@@ -235,6 +249,8 @@ public class SSDPSearch implements Runnable
                             {
                                 if (allowedDevice(device_type))
                                 {
+                                    num_ssdp_devices_started++;
+                                    Utils.log(0,2,"num_ssdp_devices_started="+num_ssdp_devices_started);
                                     SSDPDevice device = new SSDPDevice(
                                         device_manager,
                                         device_type,
@@ -273,6 +289,7 @@ public class SSDPSearch implements Runnable
             }   // if sock != null
 
             Utils.log(dbg_ssdp_search+1,0,"SSDPSearchListener::run() finished");
+            ssdp_search_finished = true;
 
         }   // run()
     }   // class SSDPSearchListener
@@ -314,18 +331,22 @@ public class SSDPSearch implements Runnable
         // if conflicts, really should use the device uuids
     {
         private String device_type;
+            // open home "Source" device_type already changed to "OpenHomeRenderer"
         private String device_url;
         private String location;
         private String friendlyName;
+            // "WDTVLive = currently in use" already changed to "WDTVLive"
         private String icon_url;
+        private String urn;
+
 
         private HashMap<String,SSDPService> services = new HashMap<String,SSDPService>();
 
-        public String getDeviceUrl()  { return device_url; }
-        public String getDeviceType()  { return device_type; }
+        public String getDeviceUrl()    { return device_url; }
+        public String getDeviceType()   { return device_type; }
+        public String getListType()     { return device_type.equals(Device.DEVICE_OPEN_HOME) ? Device.DEVICE_MEDIA_RENDERER : device_type; }
         public String getFriendlyName() { return friendlyName; }
-        public String getIconUrl() { return icon_url; }
-
+        public String getIconUrl()      { return icon_url; }
 
         public HashMap<String,SSDPService> getServices() { return services; }
 
@@ -349,6 +370,8 @@ public class SSDPSearch implements Runnable
             if (doc == null)
             {
                 Utils.error("Could not get device description document for " + device_type + " at " + location);
+                num_ssdp_devices_started--;
+                Utils.log(0,2,"num_ssdp_devices_started="+num_ssdp_devices_started);
                 return;
             }
             Utils.log(dbg_ssdp_search+1,0,"Got device_description(" + device_type + ") from " + location);
@@ -359,6 +382,8 @@ public class SSDPSearch implements Runnable
             if (doc_ele == null)
             {
                 Utils.error("Could not get device description document element for " + device_type + " at " + location);
+                num_ssdp_devices_started--;
+                Utils.log(0,2,"num_ssdp_devices_started="+num_ssdp_devices_started);
                 return;
             }
 
@@ -366,8 +391,13 @@ public class SSDPSearch implements Runnable
             if (friendlyName == null || friendlyName.equals(""))
             {
                 Utils.error("No friendlyName found for " + device_type + " at " + location);
+                num_ssdp_devices_started--;
+                Utils.log(0,2,"num_ssdp_devices_started="+num_ssdp_devices_started);
                 return;
             }
+
+            friendlyName = friendlyName.replace("WDTVLive - currently in use","WDTVLive");
+                // kludge - we should really be using UUIDs and the most recent name
             Utils.log(dbg_ssdp_search,0,"Got friendlyName(" + friendlyName + ") from " + device_url);
 
             NodeList icons = doc.getElementsByTagName("icon");
@@ -408,12 +438,18 @@ public class SSDPSearch implements Runnable
                 for (SSDPService service : services.values())
                 {
                     if (!service.getServiceDoc())
+                    {
+                        num_ssdp_devices_started--;
+                        Utils.log(0,2,"num_ssdp_devices_started="+num_ssdp_devices_started);
                         return;
+                    }
                 }
             }
             else
             {
                 Utils.warning(0,0,"Device: " + friendlyName + " does not present a sufficent list of services for " + device_type);
+                num_ssdp_devices_started--;
+                Utils.log(0,2,"num_ssdp_devices_started="+num_ssdp_devices_started);
                 return;
             }
 
@@ -421,8 +457,15 @@ public class SSDPSearch implements Runnable
             // Finally, we can create the Device, which will in turn create the
             // derived Services and tell the DeviceManager  the device
 
-            Utils.log(dbg_ssdp_search,1,"CREATING DEVICE(" + device_type + ") '" + friendlyName + "' at " + device_url);
+            Utils.log(0,1,"CREATING DEVICE(" + device_type + ") '" + friendlyName + "' at " + device_url);
             device_manager.createDevice(this);
+            num_ssdp_devices_started--;
+            Utils.log(0,2,"num_ssdp_devices_started="+num_ssdp_devices_started);
+            if (finished())
+            {
+                device_manager.writeCache();
+                artisan.handleArtisanEvent(EventHandler.EVENT_SSDP_SEARCH_FINISHED,null);
+            }
 
         }   // run()
     }   // class SSDPDevice

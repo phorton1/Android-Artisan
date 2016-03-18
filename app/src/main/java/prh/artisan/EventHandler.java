@@ -15,6 +15,7 @@ public interface EventHandler
     public static String EVENT_LIBRARY_CHANGED         = "LIBRARY_CHANGED";            // data = New Library
     public static String EVENT_RENDERER_CHANGED        = "RENDERER_CHANGED";           // data = New Renderer
     public static String EVENT_NEW_DEVICE              = "NEW_DEVICE";                 // data = New Device found in SSDP Search
+    public static String EVENT_SSDP_SEARCH_FINISHED    = "SSDP_SEARCH_FINISHED";       // data = null
 
     void handleArtisanEvent(
         String event_id,

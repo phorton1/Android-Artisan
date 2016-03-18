@@ -11,7 +11,10 @@ public class Prefs
 {
     public enum id
     {
+        SELECTED_RENDERER,
+        SELECTED_LIBRARY,
         DEFAULT_RENDERER,
+        DEFAULT_LIBRARY,
 
         START_ON_BOOT,
         DEVICE_ROOM,
@@ -20,8 +23,6 @@ public class Prefs
         DATA_DIR,
 
         KEEP_WIFI_ALIVE,
-
-        DEFAULT_LIBRARY,
 
         START_LOCAL_RENDERER,
         START_LOCAL_LIBRARY,
@@ -34,7 +35,13 @@ public class Prefs
         START_AS_REMOTE,
 
         START_VOLUME_FIXER
+
     };
+
+    public static String LAST_SELECTED = "Last Selected";
+        // special value for DEFAULT_RENDERER and LIBRARY
+        // which means "use the last one selected"
+
 
 
     private static Artisan artisan = null;
@@ -123,6 +130,62 @@ public class Prefs
 
     private static String defaultValue(id id)
     {
+        // The Last_Selected library or renderer is set whenever artisan
+        // setLibrary() or setRenderer() is called. aPrefs has special
+        // UI that presents lists of available items for the user to select.
+        // The pref itself just keeps track of it for next boot in case
+        // they use "Last Selected" as the Startup Default.
+
+        if (id.equals(id.SELECTED_RENDERER))
+            return "";  // LocalRenderer
+        if (id.equals(id.SELECTED_LIBRARY))
+            return "";  // LocalLibrary if available
+
+        // The Startup_Default library and renderer.
+        // These are used at program startup as the desired library
+        // and renderer to start with.
+
+        //   "" (blank) = LocalRenderer if LocalLibrary as available
+        //   "Last Selected" = use the last selected library or renderer
+        //   name = use the named library or renderer
+
+        // Startup goes like this (renderer for example)
+        //
+        //    Get the default name
+        //         default_name = pref.LastSelectedRenderer if default_name = "Last Selected"
+        //
+        //    If default_name = ""
+        //         use the LocalRenderer
+        //         done
+        //
+        //    If default_name != ""
+        //          in the cache?
+        //          use it from the cache and try to start it
+        //               failure to start?  TELL THE USER
+        //
+        //    default_name != "" and not in the cache
+        //        Device Manager (aPrefs?) patiently waiting for SSDP to find the device
+        //        *** NEED TO KNOW WHEN SSDP SEARCH HAS COMPLETED
+        //        Still not found?  TELL THE USER
+        //        Found!! Try to start it
+        //             failure to start?  TELL THE USER
+
+
+        // These will be used from the device cache on startup, or
+        // if they're not in the cache, at the end of the SSDPSearch,
+        // if they are found.
+        //
+        // User will get a message telling them that the default
+        // renderer/library could not be started or found, as may
+        // be the case.
+
+
+        if (id.equals(id.DEFAULT_LIBRARY))
+            return "Last Selected";
+        if (id.equals(id.DEFAULT_RENDERER))
+            return "Last Selected";
+
+
         if (id.equals(id.START_ON_BOOT))
             return "0";
 
@@ -162,12 +225,6 @@ public class Prefs
         if (id.equals(id.KEEP_WIFI_ALIVE))
             return "1";
 
-        // blank == local
-
-        if (id.equals(id.DEFAULT_LIBRARY))
-            return "";
-        if (id.equals(id.DEFAULT_RENDERER))
-            return "";
 
         if (id.equals(id.START_LOCAL_RENDERER))
             return "1";

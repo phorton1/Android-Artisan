@@ -21,4 +21,13 @@ public class OpenTime extends Service
     {
         super(artisan,device,urn,service_type,control_url,event_url);
     }
+
+
+    public OpenTime(
+        Artisan artisan,
+        Device device)
+    {
+        super(artisan,device);
+    }
+
 }

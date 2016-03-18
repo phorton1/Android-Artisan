@@ -12,4 +12,8 @@ public class MediaServer extends Device
         Utils.log(0,0,"new MediaServer(" + friendlyName + "," + device_type + "," + device_url);
     }
 
+    public MediaServer(Artisan artisan)
+    {
+        super(artisan);
+    }
 }

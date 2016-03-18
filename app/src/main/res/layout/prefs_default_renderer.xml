@@ -28,21 +28,30 @@
         android:layout_height="wrap_content" >
 
         <Button
-            android:id = "@+id/clear_default_renderer"
-            android:text = "Clear"
-            android:textSize="12dip"
-            android:layout_marginLeft="160dip"
-            android:layout_alignParentLeft="true"
-            android:layout_width="wrap_content"
-            android:layout_height="36dip" />
-
-        <Button
             android:id = "@+id/set_default_renderer"
-            android:textSize="12dip"
+            android:layout_alignParentRight="true"
             android:layout_width="wrap_content"
             android:layout_height="36dip"
             android:layout_marginLeft="20dip"
-            android:layout_toRightOf="@id/clear_default_renderer"/>
+            android:textSize="12dip"/>
+
+        <Button
+            android:id = "@+id/clear_default_renderer"
+            android:layout_toLeftOf="@id/set_default_renderer"
+            android:layout_width="wrap_content"
+            android:layout_height="36dip"
+            android:layout_marginLeft="20dip"
+            android:text = "Clear"
+            android:textSize="12dip"/>
+
+        <Button
+            android:id = "@+id/set_default_renderer_last_selected"
+            android:layout_toLeftOf="@id/clear_default_renderer"
+            android:layout_width="wrap_content"
+            android:layout_height="36dip"
+            android:layout_marginLeft="20dip"
+            android:text = "Last Selected"
+            android:textSize="12dip"/>
 
 
     </RelativeLayout>

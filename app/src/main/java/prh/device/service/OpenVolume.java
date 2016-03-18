@@ -21,5 +21,13 @@ public class OpenVolume extends Service
     {
         super(artisan,device,urn,service_type,control_url,event_url);
     }
+
+    public OpenVolume(
+        Artisan artisan,
+        Device device)
+    {
+        super(artisan,device);
+    }
+
 }
 

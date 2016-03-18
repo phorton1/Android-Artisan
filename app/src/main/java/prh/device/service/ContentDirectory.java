@@ -21,4 +21,13 @@ public class ContentDirectory extends Service
     {
         super(artisan,device,urn,service_type,control_url,event_url);
     }
+
+
+    public ContentDirectory(
+        Artisan artisan,
+        Device device)
+    {
+        super(artisan,device);
+    }
+
 }

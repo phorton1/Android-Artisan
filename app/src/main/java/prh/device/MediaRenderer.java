@@ -54,6 +54,12 @@ public class MediaRenderer extends Device implements Renderer
     }
 
 
+    public MediaRenderer(Artisan artisan)
+    {
+        super(artisan);
+    }
+
+
     private static int dbg_mr = 0;
 
     private static int REFRESH_INTERVAL = 400;
@@ -96,7 +102,7 @@ public class MediaRenderer extends Device implements Renderer
 
     private PlaylistSource current_playlist_source = null;
     private String play_mode = "";
-    private String play_speed = "";
+    private String play_speed = "1";
 
     // Refresh Loop Management
 
@@ -542,7 +548,7 @@ public class MediaRenderer extends Device implements Renderer
         if (!renderer_status.equals("OK"))
         {
             Utils.warning(0,0,"Got non-ok status=" + renderer_status);
-            return false;
+            // return false;
         }
         String new_state = Utils.getTagValue(doc_ele,"CurrentTransportState");
 

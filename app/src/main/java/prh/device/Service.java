@@ -3,6 +3,7 @@ package prh.device;
 import org.w3c.dom.Document;
 
 import prh.artisan.Artisan;
+import prh.utils.Utils;
 
 public abstract class Service
     // base class of services
@@ -17,7 +18,7 @@ public abstract class Service
 
     public Device getDevice()       { return device; }
     public String getFriendlyName() { return device.getFriendlyName(); }
-    public String getService_type() { return service_type; }
+    public String getServiceType()  { return service_type; }
     public String getControlUrl()   { return device.getDeviceUrl() + control_path; }
     public String getEventUrl()     { return  device.getDeviceUrl()  + event_path; }
     public String getUrn()          { return urn; }
@@ -36,5 +37,34 @@ public abstract class Service
         control_path = ctrl_path;
         event_path = evt_path;
     }
+
+
+    protected Service(Artisan ma, Device d)
+    {
+        artisan = ma;
+        device = d;
+    }
+
+    public String toString()
+    {
+        return
+            service_type + "\t" +
+            control_path + "\t" +
+            event_path + "\t" +
+            service_type + "\t" +
+            urn + "\t";
+    }
+
+    protected boolean fromString(StringBuffer buffer)
+    {
+        service_type = Utils.pullTabPart(buffer);
+        control_path = Utils.pullTabPart(buffer);
+        event_path   = Utils.pullTabPart(buffer);
+        service_type = Utils.pullTabPart(buffer);
+        urn = Utils.pullTabPart(buffer);
+        return true;
+    }
+
+
 
 }   // base class Service

@@ -93,23 +93,35 @@ public class aPlaying extends Fragment implements
         enable(R.id.button_stop,false);
         enable(R.id.track_position_slider,false);
 
-        current_state = "";
-        current_position = 0;
-        current_track = null;
-        current_playlist = null;
-        current_playlist_source = null;
+        // not sufficient to just set members
+        // also need to update the ui in case
+        // renderer selected at startup
 
-        renderer = artisan.getRenderer();
-        if (renderer != null)
+        if (true)
         {
-            current_state = renderer.getRendererState();
-            current_position = renderer.getPosition();
-            current_track = renderer.getTrack();
-            current_playlist = renderer.getPlaylist();
-            current_playlist_source = renderer.getPlaylistSource();
+            handleArtisanEvent(EventHandler.EVENT_RENDERER_CHANGED,
+                artisan.getRenderer());
         }
+        else
+        {
+            current_state = "";
+            current_position = 0;
+            current_track = null;
+            current_playlist = null;
+            current_playlist_source = null;
 
-        setPlayListNames();
+            renderer = artisan.getRenderer();
+            if (renderer != null)
+            {
+                current_state = renderer.getRendererState();
+                current_position = renderer.getPosition();
+                current_track = renderer.getTrack();
+                current_playlist = renderer.getPlaylist();
+                current_playlist_source = renderer.getPlaylistSource();
+            }
+
+            setPlayListNames();
+        }
 
         return my_view;
     }
@@ -419,7 +431,8 @@ public class aPlaying extends Fragment implements
                 msg += current_playlist.getName() + "(" +
                     current_playlist.getCurrentIndex() + "/" +
                     current_playlist.getNumTracks() + ") ";
-            msg += current_state;
+            msg += current_state.replace("_PLAYBACK","");
+                // clean up PAUSED_PLAYBACK for display
 
             artisan.SetMainMenuText(getName(),msg);
         }

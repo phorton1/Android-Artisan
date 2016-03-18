@@ -21,4 +21,12 @@ public class AVTransport extends Service
     {
         super(artisan,device,urn,service_type,control_url,event_url);
     }
+
+    public AVTransport(
+        Artisan artisan,
+        Device device)
+    {
+        super(artisan,device);
+    }
+
 }

@@ -17,6 +17,11 @@ public class OpenHomeRenderer extends Device implements Renderer
         Utils.log(0,0,"new OpenHomeRenderer(" + friendlyName + "," + device_type + "," + device_url);
     }
 
+    public OpenHomeRenderer(Artisan artisan)
+    {
+        super(artisan);
+    }
+
     public String getName() { return getFriendlyName(); }
     public boolean startRenderer() { return false; }
 
