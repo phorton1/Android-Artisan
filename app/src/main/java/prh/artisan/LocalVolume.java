@@ -2,6 +2,7 @@ package prh.artisan;
 
 
 import android.content.ContentResolver;
+import android.content.Context;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.Handler;
@@ -50,7 +51,7 @@ public class LocalVolume implements Volume
         // via Settings.System.getString().
     {
         Utils.log(0,0,"LocalVolume.start()");
-        am = (AudioManager) artisan.getSystemService(artisan.AUDIO_SERVICE);
+        am = (AudioManager) artisan.getSystemService(Context.AUDIO_SERVICE);
         cr = artisan.getContentResolver();
 
         // initialize car stereo maximum values

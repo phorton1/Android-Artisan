@@ -29,10 +29,12 @@ public class httpUtils
     // I'm not sure if these are really urns,
     // I think they're schema names ...
 
-    public static String upnp_urn = "schema-upnp-org";
+    public static String upnp_urn = "schemas-upnp-org";
         // for AVTransport, RenderingControl, and ContentDirectory
-    public static String open_urn = "av-openhome-org";
-        // for Open Home
+    public static String open_service_urn = "av-openhome-org";
+        // for Open Home Services
+    public static String open_device_urn = "linn-co-uk";
+        // for Open Home "Source" device
 
 
     public static String commonDeviceDescription(String extra)
@@ -211,7 +213,7 @@ public class httpUtils
         // each command is different
         // dlna wraps it in <Result>
 
-        if (!urn.equals(open_urn))
+        if (!urn.equals(open_service_urn))
             xml += "<Result>\n";
 
         return xml;
@@ -221,7 +223,7 @@ public class httpUtils
     public static String action_response_footer(String urn, String action, String extra)
     {
         String xml = "";
-        if (!urn.equals(open_urn))
+        if (!urn.equals(open_service_urn))
             xml += "</Result>\n";
         xml += extra +
             "</u:" + action + "Response>\n"+

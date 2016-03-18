@@ -106,17 +106,14 @@ public class RenderingControl extends Service implements Volume
     public RenderingControl(
         Artisan artisan,
         Device device,
-        String urn,
-        String service_type,
-        String control_url,
-        String event_url,
-        Document service_description )
+        SSDPSearch.SSDPService ssdp_service )
     {
-        super(artisan,device,urn,service_type,control_url,event_url);
+        super(artisan,device,ssdp_service);
         max_values = new int[]{0,0,0,0,0,0,0,0};
 
         // check the device for SETTABLE values
 
+        Document service_description = ssdp_service.getServiceDoc();
         Element doc_ele = service_description.getDocumentElement();
         for (int i=0; i<NUM_CTRLS; i++)
             checkSetMax(doc_ele,i);
@@ -227,7 +224,7 @@ public class RenderingControl extends Service implements Volume
         {
             Element doc_ele;
             String str_value;
-            Document doc = (Document) getDevice().doAction("RenderingControl","Get" + var_name,args);
+            Document doc = (Document) getDevice().doAction(serviceType.RenderingControl,"Get" + var_name,args);
             doc_ele = doc == null ? null : doc.getDocumentElement();
 
             if (doc_ele == null)
@@ -244,7 +241,7 @@ public class RenderingControl extends Service implements Volume
             if (value != current_values[idx])
             {
                 args.put("Desired" + var_name,Integer.toString(value));
-                if (null == getDevice().doAction("RenderingControl","Set" + var_name,args))
+                if (null == getDevice().doAction(serviceType.RenderingControl,"Set" + var_name,args))
                     error_msg = "could not setValue(" + value + ")";
                 else
                     current_values[idx] = value;

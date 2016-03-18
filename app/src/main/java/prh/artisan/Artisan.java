@@ -362,7 +362,7 @@ public class Artisan extends FragmentActivity implements
 
         if (!default_renderer_name.isEmpty())
         {
-            Device found = device_manager.getDevice(Device.DEVICE_MEDIA_RENDERER,default_renderer_name);
+            Device found = device_manager.getDevice(Device.deviceGroup.DEVICE_GROUP_RENDERER,default_renderer_name);
             if (found != null)
             {
                 Utils.log(0,0,"STARTING DEFAULT RENDERER " + default_renderer_name);
@@ -644,10 +644,10 @@ public class Artisan extends FragmentActivity implements
         // bail if it's not found
 
         Renderer new_renderer = null;
-        if (name.equals(Device.DEVICE_LOCAL_RENDERER))
+        if (name.equals(Device.deviceType.LocalRenderer))
             new_renderer = local_renderer;
         else
-            new_renderer = (Renderer) device_manager.getDevice(Device.DEVICE_MEDIA_RENDERER,name);
+            new_renderer = (Renderer) device_manager.getDevice(Device.deviceGroup.DEVICE_GROUP_RENDERER,name);
 
         if (new_renderer == null)
         {
@@ -673,7 +673,7 @@ public class Artisan extends FragmentActivity implements
         renderer = new_renderer;
 
         String use_name = name;
-        if (use_name.equals(Device.DEVICE_LOCAL_RENDERER))
+        if (use_name.equals(Device.deviceType.LocalRenderer))
             use_name = "";
         Prefs.putString(Prefs.id.SELECTED_RENDERER,use_name);
 
@@ -785,16 +785,12 @@ public class Artisan extends FragmentActivity implements
                     !default_renderer_name.isEmpty() )
                 {
                     Device device = (Device) data;
-                    String type = device.getDeviceType();
-                    if (type.equals(Device.DEVICE_MEDIA_RENDERER) ||
-                        type.equals(Device.DEVICE_OPEN_HOME))
+                    if (device.getDeviceGroup() == Device.deviceGroup.DEVICE_GROUP_RENDERER &&
+                        default_renderer_name.equals(device.getFriendlyName()))
                     {
-                        if (default_renderer_name.equals(device.getFriendlyName()))
-                        {
-                            Utils.log(0,0,"FOUND DEFAULT RENDERER " + default_renderer_name);
-                            setRenderer(default_renderer_name);
-                            default_renderer_name = "";
-                        }
+                        Utils.log(0,0,"FOUND DEFAULT RENDERER " + default_renderer_name);
+                        setRenderer(default_renderer_name);
+                        default_renderer_name = "";
                     }
                 }
 

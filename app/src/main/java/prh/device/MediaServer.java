@@ -6,10 +6,10 @@ import prh.utils.Utils;
 public class MediaServer extends Device
 {
 
-    public MediaServer(Artisan artisan, String friendlyName, String device_type, String device_url, String icon_url)
+    public MediaServer(Artisan artisan, SSDPSearch.SSDPDevice ssdp_device)
     {
-        super(artisan,friendlyName,device_type,device_url,icon_url);
-        Utils.log(0,0,"new MediaServer(" + friendlyName + "," + device_type + "," + device_url);
+        super(artisan,ssdp_device);
+        Utils.log(0,0,"new MediaServer(" + ssdp_device.getFriendlyName() + "," + ssdp_device.getDeviceType() + "," + ssdp_device.getDeviceUrl());
     }
 
     public MediaServer(Artisan artisan)

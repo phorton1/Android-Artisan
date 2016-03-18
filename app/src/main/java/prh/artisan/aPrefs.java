@@ -246,7 +246,7 @@ public class aPrefs extends Fragment implements
             DeviceManager device_manager = artisan.getDeviceManager();
             if (device_manager != null)
             {
-                Device renderers[] = device_manager.getSortedDevices(Device.DEVICE_MEDIA_RENDERER);
+                Device renderers[] = device_manager.getDevices(Device.deviceGroup.DEVICE_GROUP_RENDERER);
                 for (Device renderer:renderers)
                     addRenderer(renderer,selected_name);
             }

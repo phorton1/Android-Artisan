@@ -30,7 +30,9 @@ import android.os.Looper;
 import android.widget.Toast;
 
 import prh.device.Device;
+import prh.server.SSDPServer;
 import prh.utils.Utils;
+import prh.utils.httpUtils;
 
 public class LocalRenderer extends Device implements
     Renderer,
@@ -75,7 +77,6 @@ public class LocalRenderer extends Device implements
     // VARIABLES
     //------------------------------------------
 
-    private Artisan artisan;
     private MediaPlayer media_player;
     private LocalVolume local_volume;
 
@@ -114,9 +115,16 @@ public class LocalRenderer extends Device implements
 
     public LocalRenderer(Artisan a)
     {
-        super(a,Device.DEVICE_LOCAL_RENDERER,Device.DEVICE_MEDIA_RENDERER,"","");
-            // it's a device, but has no services, url, or icon_url
-        artisan = a;
+        super(a);
+
+        device_type = deviceType.LocalRenderer;
+        device_group = deviceGroup.DEVICE_GROUP_RENDERER;
+        device_uuid = SSDPServer.dlna_uuid[SSDPServer.IDX_DLNA_RENDERER];
+        device_urn = httpUtils.upnp_urn;
+        friendlyName = deviceType.LocalRenderer.toString();
+        device_url = Utils.server_uri;
+        icon_path = "/icons/artisan.png";
+
         current_playlist_source = new LocalPlaylistSource();
         current_playlist_source.start();
         Utils.log(dbg_ren+1,1,"new LocalRenderer()");
@@ -240,7 +248,7 @@ public class LocalRenderer extends Device implements
     // Renderer API
     //----------------------------------------
 
-    public String getName()                   { return Device.DEVICE_LOCAL_RENDERER; };
+    public String getName()                   { return friendlyName; };
     public Volume getVolume()                 { return local_volume; }
     public String getRendererStatus()         { return "OK"; }
     public String getPlayMode()               { return ""; }
@@ -321,6 +329,7 @@ public class LocalRenderer extends Device implements
         song_position = 0;
 
         Track track = null;
+
         // if (current_playlist != null)
         {
             current_track = null;

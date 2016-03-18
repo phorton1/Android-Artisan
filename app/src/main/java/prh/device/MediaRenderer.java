@@ -47,10 +47,10 @@ public class MediaRenderer extends Device implements Renderer
     //          the expected track that we expect it to be playing
 {
 
-    public MediaRenderer(Artisan artisan, String friendlyName, String device_type, String device_url, String icon_url)
+    public MediaRenderer(Artisan artisan, SSDPSearch.SSDPDevice ssdp_device)
     {
-        super(artisan,friendlyName,device_type,device_url,icon_url);
-        Utils.log(0,0,"new MediaRenderer(" + friendlyName + "," + device_type + "," + device_url);
+        super(artisan,ssdp_device);
+        Utils.log(0,0,"new MediaRenderer(" + ssdp_device.getFriendlyName() + "," + ssdp_device.getDeviceType() + "," + ssdp_device.getDeviceUrl());
     }
 
 
@@ -464,7 +464,7 @@ public class MediaRenderer extends Device implements Renderer
         if (args == null)
             args = new stringHash();
         args.put("InstanceID","0");
-        return doAction("AVTransport",action,args);
+        return doAction(Service.serviceType.AVTransport,action,args);
     }
 
 
@@ -536,7 +536,7 @@ public class MediaRenderer extends Device implements Renderer
 
         stringHash args = new stringHash();
         args.put("InstanceID","0");
-        Document doc = doAction("AVTransport","GetTransportInfo",args);
+        Document doc = doAction(Service.serviceType.AVTransport,"GetTransportInfo",args);
         if (doc == null)
         {
             Utils.warning(0,0,"Could not get AVTransport::GetTransportState for " + getFriendlyName());
@@ -554,7 +554,7 @@ public class MediaRenderer extends Device implements Renderer
 
         // get the position and track_uri
 
-        doc = doAction("AVTransport","GetPositionInfo",args);
+        doc = doAction(Service.serviceType.AVTransport,"GetPositionInfo",args);
         if (doc == null)
         {
             Utils.warning(0,0,"Could not get AVTransport::GetPositionInfo for " + getFriendlyName());

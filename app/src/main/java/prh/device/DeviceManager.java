@@ -5,12 +5,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 
 import prh.artisan.Artisan;
 import prh.artisan.EventHandler;
@@ -18,59 +14,102 @@ import prh.utils.Utils;
 
 
 public class DeviceManager
-    // A class that manages a cached list of Devices and their
-    // Services and which can do an SSDP scan for new ones.
+    // A class that manages a list of Devices and their Services.
+    //
+    // These Devices and Services are Providers of information to
+    // the Artisan so that it can function, as opposed to the http
+    // "services", where Artisan acts as a network server of that
+    // information.
+    //
+    // Devices are kept in a hash by their UUID, so all devices
+    // must provide a uuid.  Devices have a low level actual
+    // DEVICE_TYPE that corresponds to an actual java object.
+    //
+    // Devices have a DEVICE_GROUP which is sometimes the same
+    // as the deviceType.  LocalRenderer, MediaServer, and
+    // OpenHomeServer are all different device_types, but they
+    // all share the deviceGroup of "MediaRenderer". Artisan
+    // currently makes use of the following DEVICE_GROUPS:
+    //
+    //       MediaServer
+    //       MediaRenderer
+    //       PlaylistSource
+    //
+    //---------------------------------------------------------
+    // Unique friendlyNames within a DEVICE_GROUP
+    //---------------------------------------------------------
+    // Devices have a friendlyName.  In order to prevent confusion
+    // in the UI, we ensure that all Devices in a DeviceGroup have
+    // unique friendlyNames by tacking 1,2,3 and so on onto the
+    // friendly name when we encounter conflicts.
+    //
+    // For this reason, for the time being, the UUID is not used
+    // in the user interface, though accessors are provided.
+    // Currently, within this system, a Device can be uniquely
+    // identified, and retrieved, given it's DEVICE_GROUP and NAME.
+    //
+    //------------------------------------------------------------
+    // Tweaks
+    //------------------------------------------------------------
+    // In general we use the actual deviceType returned by SSDPSearch
+    // when creating the device.  The exception is that I didn't want
+    // a device called "Source", so the open home renderer is called
+    // an OpenHomeRenderer.  This change happens during SSDPSearch and
+    // is not known to DeviceManager or the rest of the system.
+    //
+    // The other low level change is that SSDPSearch changes the
+    // friendlyName of "WDTVLive - currently in use" to WDTVLive.
+    //
+    //---------------------------------------------------------------
+    // Caching and Local Devices
+    //---------------------------------------------------------------
+    // The DeviceManager does not know particularly about LocalDevices.
+    // Local devices are created by Artisan and added() to the device_manager.
+    // Thereafter they can be used polymorphically by the UI to select the
+    // LocalLibrary (MediaServer), LocalRenderer (MediaRenderer) or
+    // LocalPlaylistSource (PlaylistSource).
+    //
+    // Local Devices are not written to (and hence not read from) the
+    // cache.
     //
     // The cache is read during DeviceManager construction.
-    // Thereafter, Artisan call doSSDPSearch(), and the
-    // the SSDPSearch calls DeviceManager.createDevice()
-    // for each new device it finds, which in turn sends
-    // EVENT_NEW_DEVICE events back to Artisan.
+    // Artisan is NOT evented about devices in the cache, or
+    // that it adds to the DeviceManager.
     //
-    // At the end of the SSDPSearch() Artisan is notified
-    // via the EVENT_SSDP_SEARCH_FINISHED event.
-    //
-    // This class does not currently own, or know about the
-    // LocalRenderer or LocalLibrary "devices".
-    //
-    // We currently keep separate hash of devices by device_type,
-    // MediaRenderers and MediaServers.  This called the "list_type",
-    // and may differ from the actual device_type (for the
-    // OpenHomeRenderer, the list_type is still MediaRenderer).
-    //
-    // The hashes are currently by the device FRIENDLY_NAME,
-    // which serves as the unique ID within Artisan. This really
-    // PRH should be the UUID, but it works right now, so, later.
-    //
-    // One other wrinkle is that some devices give different names
-    // at different times. Specifically the WDTVLive is sometimes
-    // called "WDTVLive - currently in use", so we remove the
-    // " - currently in use" portion.
-    //
-    // Memory is cleaned up during stop().
-    // Pointers to devices and services are invalid after stop()
+    //-------------------------------------------------------------------
+    // SSDPSearch and Eventing
+    //-------------------------------------------------------------------
+    // At the end of Artisan onCreate(), and via a UI button, an SSDPSearch
+    // may be initiated.  Artisan will receive a EVENT_NEW_DEVICE for any
+    // new devices found in the process.  At the end of each SSDPSearch
+    // artisan will receive an EVENT_SSDP_SEARCH_FINISHED.
     //
     // It is up to Artisan to maintain the notion of a currently
-    // selected Device, and to start() and stop() the Devices theselves
+    // selected Device, and to start() and stop() the Devices themselves
     // when changing selections, and or shutting down.
 {
+
     private static int dbg_dm = 1;
     private static int dbg_cache = 0;
-
     private static String cache_file_name = "device_cache.txt";
+    public static boolean USE_DEVICE_CACHE = false;
 
-    // types
+    // DeviceHash type - hash of all Devices by uuid
 
-    public class DeviceHash extends HashMap<String,Device> {}
-    public class TypeHash extends HashMap<String,DeviceHash> {}
-        // hash by device type of a hash by friendly name of Devices
+    private class DeviceHash extends HashMap<String,Device> {}
+    private class DeviceGroupHash extends HashMap<Device.deviceGroup,DeviceHash> {}
 
     // variables
 
     Artisan artisan;
     private SSDPSearch ssdp_search = null;
-    TypeHash types = new TypeHash();
+    private DeviceHash devices = new DeviceHash();
+    private DeviceGroupHash devices_by_group = new DeviceGroupHash();
 
+
+    //----------------------------------------------------
+    // Constructor and Accessors
+    //----------------------------------------------------
 
     public DeviceManager(Artisan ma)
     {
@@ -78,18 +117,24 @@ public class DeviceManager
         readCache();
     }
 
-
-    public DeviceHash getDevices(String type)
+    public Device getDevice(String uuid)
     {
-        DeviceHash hash = types.get(type);
-        return hash;
+        return devices.get(uuid);
     }
 
+    public Device getDevice(Device.deviceGroup group, String name)
+    {
+        Device device = null;
+        DeviceHash hash = devices_by_group.get(group);
+        if (hash != null)
+            device = hash.get(name);
+        return device;
+    }
 
-    public Device[] getSortedDevices(String type)
+    public Device[] getDevices(Device.deviceGroup group)
     {
         Device rslt[] = new Device[0];
-        DeviceHash hash = types.get(type);
+        DeviceHash hash = devices_by_group.get(group);
         if (hash != null)
         {
             Collection devices = hash.values();
@@ -99,31 +144,24 @@ public class DeviceManager
     }
 
 
-    public Device getDevice(String type, String name)
-    {
-        Device device = null;
-        DeviceHash hash = types.get(type);
-        if (hash != null)
-            device = hash.get(name);
-        return device;
-    }
-
-
     public void addDevice(Device d)
     {
-        String list_type = d.getDeviceType();
-        if (list_type.equals(Device.DEVICE_OPEN_HOME))
-            list_type = Device.DEVICE_MEDIA_RENDERER;
-
-        DeviceHash hash = getDevices(list_type);
+        Device.deviceGroup group = d.getDeviceGroup();
+        DeviceHash hash = devices_by_group.get(group);
         if (hash == null)
         {
             hash = new DeviceHash();
-            types.put(list_type,hash);
+            devices_by_group.put(group,hash);
         }
         hash.put(d.getFriendlyName(),d);
+        devices.put(d.getDeviceUUID(),d);
     }
 
+
+
+    //----------------------------------------------------
+    // CacheFile
+    //----------------------------------------------------
 
     public boolean writeCache()
         // called at the end of SSDP Search
@@ -134,14 +172,14 @@ public class DeviceManager
         int num_devices = 0;
         Utils.log(dbg_cache,0,"DeviceManager.writeCache() called");
 
-        for (String type: types.keySet())
+        for (Device.deviceGroup group: devices_by_group.keySet())
         {
-            DeviceHash hash = types.get(type);
+            DeviceHash hash = devices_by_group.get(group);
             for (String name : hash.keySet())
             {
                 Device device = hash.get(name);
                 num_devices++;
-                header += device.getDeviceType() + "\t";
+                header += device.getDeviceGroup().toString() + "\t";
                 devices += device.toString();
             }
         }
@@ -223,21 +261,28 @@ public class DeviceManager
 
         for (int i=0; i<num_devices; i++)
         {
-            String device_type = Utils.pullTabPart(device_line);
+            String device_type_str = Utils.pullTabPart(device_line);
+            Device.deviceType device_type = Device.deviceType.DeviceNone;
+
+            try
+            {
+                device_type = Device.deviceType.valueOf(device_type_str);
+            }
+            catch (Exception e)
+            {
+                Utils.warning(0,0,"illegal device type: " + device_type_str);
+                return false;
+            }
+
             Utils.log(dbg_cache,2,"readCache() CREATING(" + device_type + ") device");
 
             Device device = null;
-            if (device_type.equals(Device.DEVICE_MEDIA_SERVER))
+            if (device_type == Device.deviceType.MediaServer)
                 device = new MediaServer(artisan);
-            else if (device_type.equals(Device.DEVICE_MEDIA_RENDERER))
+            else if (device_type == Device.deviceType.MediaRenderer)
                 device = new MediaRenderer(artisan);
-            else if (device_type.equals(Device.DEVICE_OPEN_HOME))
+            else if (device_type == Device.deviceType.OpenHomeRenderer)
                 device = new OpenHomeRenderer(artisan);
-            else
-            {
-                Utils.error("unknown device type: " + device_type);
-                return false;
-            }
 
             Utils.log(dbg_cache,3,"readCache() calling device.fromString()");
             if (!device.fromString(buffer))
@@ -295,38 +340,27 @@ public class DeviceManager
         // Called from SSDPSearch when a valid, createable,
         // Device and set of Services are found.
         //
-        // We change the ssdp device_type to our "short_type"
+        // We change the ssdp deviceType to our "short_type"
         // which is just MediaRenderer, MediaServer, etc, and
         // "OpenHomeRenderer".
         //
         // The OpenHomeRenderer is added to the hash as a
         // MediaRenderer. Clients can differentiate it by
-        // asking it's actual device_type.
+        // asking it's actual deviceType.
     {
         String friendlyName = ssdp_device.getFriendlyName();
-        String device_type = ssdp_device.getDeviceType();
+        Device.deviceType device_type = ssdp_device.getDeviceType();
+        Device.deviceGroup device_group = ssdp_device.getDeviceGroup();
         String device_url = ssdp_device.getDeviceUrl();
-        String icon_url = ssdp_device.getIconUrl();
+        String icon_path = ssdp_device.getIconPath();
 
-        device_type = device_type.replaceAll("^.*device:","");
-        device_type = device_type.replaceAll(":.*$","");
-
-        if (device_type.equals("Source"))
-            device_type = Device.DEVICE_OPEN_HOME;
-
-        String list_type = device_type;
-        if (device_type.equals(Device.DEVICE_OPEN_HOME))
-            list_type = Device.DEVICE_MEDIA_RENDERER;
-
-        String dbg_msg = "(" + list_type + (device_type.equals(list_type)?"":"("+device_type+")") + " " + friendlyName + ") at " + device_url;
-        Utils.log(dbg_dm,2,"createDevice" + dbg_msg);
+        String dbg_msg = "(" + device_group + (device_type.equals(device_group)?"":"("+device_type+")") + " " + friendlyName + ") at " + device_url;
+        Utils.log(0,2,"CREATE_DEVICE" + dbg_msg);
 
         // See if the device already exists.
-        // We don't overwrite existing devices.
-        // If you need to, clear the cache and re-scan.
+        // Should not happen, but just in case ...
 
-        DeviceHash devices = getDevices(list_type);
-        Device device = devices == null ? null : devices.get(friendlyName);
+        Device device = devices.get(ssdp_device.getDeviceUUID());
         if (device != null)
         {
             Utils.log(0,3,"device already exists" + dbg_msg);
@@ -338,17 +372,17 @@ public class DeviceManager
         // device is null, and needs to be created at this point
         // create the appropriate derived class
 
-        if (device_type.equals(Device.DEVICE_MEDIA_SERVER))
+        if (device_type == Device.deviceType.MediaServer)
         {
-            device = new MediaServer(artisan,friendlyName,device_type,device_url,icon_url);
+            device = new MediaServer(artisan,ssdp_device);
         }
-        else if (device_type.equals(Device.DEVICE_MEDIA_RENDERER))
+        else if (device_type == Device.deviceType.MediaRenderer)
         {
-            device = new MediaRenderer(artisan,friendlyName,device_type,device_url,icon_url);
+            device = new MediaRenderer(artisan,ssdp_device);
         }
-        else if (device_type.equals(Device.DEVICE_OPEN_HOME))
+        else if (device_type == Device.deviceType.OpenHomeRenderer)
         {
-            device = new OpenHomeRenderer(artisan,friendlyName,device_type,device_url,icon_url);
+            device = new OpenHomeRenderer(artisan,ssdp_device);
         }
         else
         {

@@ -13,13 +13,9 @@ public class ContentDirectory extends Service
     public ContentDirectory(
         Artisan artisan,
         Device device,
-        String urn,
-        String service_type,
-        String control_url,
-        String event_url,
-        Document service_description )
+        SSDPSearch.SSDPService ssdp_service )
     {
-        super(artisan,device,urn,service_type,control_url,event_url);
+        super(artisan,device,ssdp_service);
     }
 
 

@@ -3,20 +3,7 @@ package prh.device;
 
 import org.w3c.dom.Document;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.net.HttpURLConnection;
-import java.net.Socket;
-import java.net.URL;
-import java.util.Collection;
 import java.util.HashMap;
-
-import javax.xml.parsers.DocumentBuilderFactory;
 
 import prh.artisan.Artisan;
 import prh.device.service.AVTransport;
@@ -38,94 +25,115 @@ public abstract class Device implements Comparable<Device>
 {
     private static int dbg_d = 1;
 
-    public static final String DEVICE_MEDIA_SERVER = "MediaServer";
-    public static final String DEVICE_MEDIA_RENDERER = "MediaRenderer";
-    public static final String DEVICE_OPEN_HOME = "OpenHomeRenderer";
-        // actual ssdp device type is "Source"
-        // and it goes in the list of MediaRenderers
+    // Constants and Types
 
-    public static final String DEVICE_LOCAL_LIBRARY = "Local Library";
-    public static final String DEVICE_LOCAL_RENDERER = "Local Renderer";
-    public static final String DEVICE_REMOTE_LIBRARY = "Remote Library";
-    public static final String DEVICE_REMOTE_RENDERER = "Remote Renderer";
+    public static enum deviceGroup
+    {
+        DEVICE_GROUP_NONE,
+        DEVICE_GROUP_LIBRARY,
+        DEVICE_GROUP_RENDERER,
+        DEVICE_GROUP_PLAYLIST_SOURCE
+    }
 
-    public static final String SERVICE_CONTENT_DIRECTORY = "ContentDirectory";
-    public static final String SERVICE_AV_TRANSPORT = "AVTransport";
-    public static final String SERVICE_RENDERING_CONTROL = "RenderingControl";
-    public static final String SERVICE_OPEN_PRODUCT = "Product";
-    public static final String SERVICE_OPEN_PLAYLIST = "Playlist";
-    public static final String SERVICE_OPEN_INFO = "Info";
-    public static final String SERVICE_OPEN_TIME = "Time";
-    public static final String SERVICE_OPEN_VOLUME = "Volume";
+    public static enum deviceType
+    {
+        DeviceNone,
+        LocalRenderer,
+        LocalLibrary,
+        LocalPlaylistSource,
+        MediaServer,
+        MediaRenderer,
+        OpenHomeRenderer
+    }
+
+    public class ServiceHash extends HashMap<Service.serviceType,Service> {}
 
     // member variables
 
     protected Artisan artisan;
-    private String device_url;
-    private String device_type;
-    private String friendlyName;
-    private String icon_url = "";
-    private HashMap<String,Service> services = new HashMap<String,Service>();
+    protected deviceGroup device_group = deviceGroup.DEVICE_GROUP_NONE;
+    protected deviceType device_type = deviceType.DeviceNone;
+    protected String device_uuid;
+    protected String device_urn;
+    protected String device_url;
+    protected String friendlyName;
+    protected String icon_path;
+    protected ServiceHash services = new ServiceHash();
 
     // accessors
+    // isLocal() MUST be overriden by local devices
 
-    public String getDeviceUrl()    { return device_url; }
-    public String getDeviceType()   { return device_type; }
-    public String getFriendlyName() { return friendlyName; }
+    public boolean isLocal()                { return false; }
+    public ServiceHash getServices()        { return services; }
+    public deviceType getDeviceType()       { return device_type; }
+    public deviceGroup getDeviceGroup()     { return device_group; };
+    public String getDeviceUUID()           { return device_uuid; }
+    public String getDeviceUrn()            { return device_urn; }
+    public String getDeviceUrl()            { return device_url; }
+    public String getFriendlyName()         { return friendlyName; }
+
     public String getIconUrl()
     {
-        if (icon_url.isEmpty())
+        if (icon_path.isEmpty())
             return "";
-        return device_url + icon_url;
+        return device_url + icon_path;
     }
 
-    public HashMap<String,Service> getServices()
+    public void addService(Service service)
     {
-        return services;
+        services.put(service.getServiceType(),service);
     }
+
 
     // Comparable interface
+    // Sorts by name, with local items last
 
     public int compareTo(Device other)
     {
+        if (isLocal() && !other.isLocal())
+            return 1;
+        if (!isLocal() && other.isLocal())
+            return -1;
         return friendlyName.compareTo(other.friendlyName);
     }
 
 
-    // public utilities
+    // static utilities
 
-    public static String short_type(String what, String st)
-        // utility to change an SSDP device or service type
-        // i.e. urn:schemas-upnp-org:service:AVTransport:1
-        // into one of our more simple names (i.e. AVTransport)
-        // Can be called over again with no harm.
+    public static deviceGroup groupOf(deviceType type)
     {
-        st = st.replaceAll("^.*" + what + ":","");
-        st = st.replaceAll(":.*$","");
-        return st;
-    }
-
-    public static String get_urn(String what, String st)
-        // utility to get the urn from a device/service type
-        // like urn:schemas-upnp-org:service:AVTransport:1
-    {
-        st = st.replaceAll("^.*urn:","");
-        st = st.replaceAll(":" + what + ".*$","");
-        return st;
+        deviceGroup group = deviceGroup.DEVICE_GROUP_NONE;
+        if (type == deviceType.LocalLibrary ||
+            type == deviceType.MediaServer)
+            group = deviceGroup.DEVICE_GROUP_LIBRARY;
+        else if (
+            type == deviceType.LocalRenderer ||
+                type == deviceType.MediaServer.MediaRenderer ||
+                type == deviceType.MediaServer.OpenHomeRenderer)
+            group = deviceGroup.DEVICE_GROUP_RENDERER;
+        else if (type == deviceType.LocalPlaylistSource)
+            group = deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE;
+        return group;
     }
 
 
-    // Constructor
+    //-------------------------------------------
+    // Constructors
+    //-------------------------------------------
 
-    public Device(Artisan ma, String name, String short_type, String url, String icon)
+    public Device(Artisan ma, SSDPSearch.SSDPDevice ssdp_device)
     {
         artisan = ma;
-        friendlyName = name;
-        device_type = short_type;
-        device_url = url;
-        icon_url = icon;
-        if (!icon_url.isEmpty() && !icon_url.startsWith("/"))
-            icon_url = "/" + icon_url;
+        friendlyName = ssdp_device.getFriendlyName();
+        device_group = ssdp_device.getDeviceGroup();
+        device_uuid = ssdp_device.getDeviceUUID();
+        device_urn = ssdp_device.getDeviceUrn();
+        device_type = ssdp_device.getDeviceType();
+        device_url = ssdp_device.getDeviceUrl();
+        icon_path = ssdp_device.getIconPath();
+
+        if (!icon_path.isEmpty() && !icon_path.startsWith("/"))
+            icon_path = "/" + icon_path;
         Utils.log(dbg_d,3,"new Device(" + device_type + "," + friendlyName + ") at " + device_url);
     }
 
@@ -140,10 +148,13 @@ public abstract class Device implements Comparable<Device>
     {
         String retval =
             friendlyName + "\t" +
-            device_type + "\t" +
-            device_url + "\t" +
-            icon_url + "\t" +
-            services.size() + "\t";
+                device_group.toString() + "\t" +
+                device_uuid + "\t" +
+                device_urn + "\t" +
+                device_type + "\t" +
+                device_url + "\t" +
+                icon_path + "\t" +
+                services.size() + "\t";
         String service_part = "";
         for (Service service : services.values())
         {
@@ -154,37 +165,40 @@ public abstract class Device implements Comparable<Device>
     }
 
 
-
     protected boolean fromString(StringBuffer buffer)
     {
         StringBuffer device_part = Utils.readBufferLine(buffer);
         friendlyName = Utils.pullTabPart(device_part);
-        device_type = Utils.pullTabPart(device_part);
+        device_type = deviceType.valueOf(Utils.pullTabPart(device_part));
+        device_group = deviceGroup.valueOf(Utils.pullTabPart(device_part));
+        device_uuid = Utils.pullTabPart(device_part);
+        device_urn =  Utils.pullTabPart(device_part);
         device_url = Utils.pullTabPart(device_part);
-        icon_url = Utils.pullTabPart(device_part);
+        icon_path = Utils.pullTabPart(device_part);
 
         int num_services = Utils.parseInt(Utils.pullTabPart(device_part));
 
         for (int i = 0; i < num_services; i++)
         {
             Service service = null;
-            String service_type = Utils.pullTabPart(device_part);
+            Service.serviceType service_type =
+                Service.serviceType.valueOf(Utils.pullTabPart(device_part));
 
-            if (service_type.equals(SERVICE_CONTENT_DIRECTORY))
+            if (service_type == Service.serviceType.ContentDirectory)
                 service = new ContentDirectory(artisan,this);
-            else if (service_type.equals(SERVICE_AV_TRANSPORT))
+            else if (service_type == Service.serviceType.AVTransport)
                 service = new AVTransport(artisan,this);
-            else if (service_type.equals(SERVICE_RENDERING_CONTROL))
+            else if (service_type == Service.serviceType.RenderingControl)
                 service = new RenderingControl(artisan,this);
-            else if (service_type.equals(SERVICE_OPEN_PRODUCT))
+            else if (service_type == Service.serviceType.OpenProduct)
                 service = new OpenProduct(artisan,this);
-            else if (service_type.equals(SERVICE_OPEN_PLAYLIST))
+            else if (service_type == Service.serviceType.OpenPlaylist)
                 service = new OpenPlaylist(artisan,this);
-            else if (service_type.equals(SERVICE_OPEN_INFO))
+            else if (service_type == Service.serviceType.OpenInfo)
                 service = new OpenInfo(artisan,this);
-            else if (service_type.equals(SERVICE_OPEN_TIME))
+            else if (service_type == Service.serviceType.OpenTime)
                 service = new OpenTime(artisan,this);
-            else if (service_type.equals(SERVICE_OPEN_VOLUME))
+            else if (service_type == Service.serviceType.OpenVolume)
                 service = new OpenVolume(artisan,this);
 
             if (service == null)
@@ -209,105 +223,38 @@ public abstract class Device implements Comparable<Device>
 
 
 
-    // Service Management
-
-    public void addService(Service service)
-    {
-        services.put(service.getFriendlyName(),service);
-    }
-
-
-    // Default Service Construction
+    //-------------------------------------------
+    // SSDPDevice Construction
+    //-------------------------------------------
+    // Called from DeviceManager during createDevice() callback
+    // from SSDPSearch after validating sufficient services, etc,
+    // this creates the services from an SSDP_Device
 
     public boolean createSSDPServices(SSDPSearch.SSDPDevice ssdp_device)
     {
-        HashMap<String,SSDPSearch.SSDPService> ssdp_services = ssdp_device.getServices();
+        SSDPSearch.SSDPDevice.ServiceHash ssdp_services = ssdp_device.getServices();
         for (SSDPSearch.SSDPService ssdp_service : ssdp_services.values())
         {
             Service service = null;
-            String urn = get_urn("service",ssdp_service.service_type);
-            String service_type = short_type("service",ssdp_service.service_type);
+            Service.serviceType service_type = ssdp_service.getServiceType();
             Utils.log(dbg_d,4,"Creating " + service_type + " Service on " + friendlyName);
 
-            if (service_type.equals(SERVICE_CONTENT_DIRECTORY))
-                service = new ContentDirectory(
-                    artisan,
-                    this,
-                    urn,
-                    service_type,
-                    ssdp_service.control_url,
-                    ssdp_service.event_url,
-                    ssdp_service.service_doc);
-
-            else if (service_type.equals(SERVICE_AV_TRANSPORT))
-                service = new AVTransport(
-                    artisan,
-                    this,
-                    urn,
-                    service_type,
-                    ssdp_service.control_url,
-                    ssdp_service.event_url,
-                    ssdp_service.service_doc);
-
-            else if (service_type.equals(SERVICE_RENDERING_CONTROL))
-                service = new RenderingControl(
-                    artisan,
-                    this,
-                    urn,
-                    service_type,
-                    ssdp_service.control_url,
-                    ssdp_service.event_url,
-                    ssdp_service.service_doc);
-
-            else if (service_type.equals(SERVICE_OPEN_PRODUCT))
-                service = new OpenProduct(
-                    artisan,
-                    this,
-                    urn,
-                    service_type,
-                    ssdp_service.control_url,
-                    ssdp_service.event_url,
-                    ssdp_service.service_doc);
-
-            else if (service_type.equals(SERVICE_OPEN_PLAYLIST))
-                service = new OpenPlaylist(
-                    artisan,
-                    this,
-                    urn,
-                    service_type,
-                    ssdp_service.control_url,
-                    ssdp_service.event_url,
-                    ssdp_service.service_doc);
-
-            else if (service_type.equals(SERVICE_OPEN_INFO))
-                service = new OpenInfo(
-                    artisan,
-                    this,
-                    urn,
-                    service_type,
-                    ssdp_service.control_url,
-                    ssdp_service.event_url,
-                    ssdp_service.service_doc);
-
-            else if (service_type.equals(SERVICE_OPEN_TIME))
-                service = new OpenTime(
-                    artisan,
-                    this,
-                    urn,
-                    service_type,
-                    ssdp_service.control_url,
-                    ssdp_service.event_url,
-                    ssdp_service.service_doc);
-
-            else if (service_type.equals(SERVICE_OPEN_VOLUME))
-                service = new OpenVolume(
-                    artisan,
-                    this,
-                    urn,
-                    service_type,
-                    ssdp_service.control_url,
-                    ssdp_service.event_url,
-                    ssdp_service.service_doc);
+            if (service_type == Service.serviceType.ContentDirectory)
+                service = new ContentDirectory(artisan,this,ssdp_service);
+            else if (service_type == Service.serviceType.AVTransport)
+                service = new AVTransport(artisan,this,ssdp_service);
+            else if (service_type == Service.serviceType.RenderingControl)
+                service = new RenderingControl(artisan,this,ssdp_service);
+            else if (service_type == Service.serviceType.OpenProduct)
+                service = new OpenProduct(artisan,this,ssdp_service);
+            else if (service_type == Service.serviceType.OpenPlaylist)
+                service = new OpenPlaylist(artisan,this,ssdp_service);
+            else if (service_type == Service.serviceType.OpenInfo)
+                service = new OpenInfo(artisan,this,ssdp_service);
+            else if (service_type == Service.serviceType.OpenVolume)
+                service = new OpenVolume(artisan,this,ssdp_service);
+            else if (service_type == Service.serviceType.OpenTime)
+                service = new OpenTime(artisan,this,ssdp_service);
 
             if (service == null)
             {
@@ -327,36 +274,37 @@ public abstract class Device implements Comparable<Device>
 
 
     //-----------------------------------------------------------
-    // doAction()
+    // doAction() - do an SSDP Action on a given service
     //-----------------------------------------------------------
-    // Implementation moved to old_DoAction.java
 
     static int dbg_da = 1;
 
 
-    public Document doAction(String service, String action, stringHash args)
+    public Document doAction(Service.serviceType service_type, String action, stringHash args)
     {
         // make sure it's a valid service
 
         synchronized (this)
         {
-            Service service_object = getServices().get(service);
-            if (service == null)
+            Service service_object = getServices().get(service_type);
+            if (service_object == null)
             {
                 Utils.error("Could not find service for " + getFriendlyName());
                 return null;
             }
-            String urn = service_object.getUrn();
             String url = service_object.getControlUrl();
 
             // build the SOAP xml reply
+            // Note that we remove "Open" from "OpenProduct", "OpenInfo", etc
 
-            String xml = getSoapBody(urn,service,action,args);
+            String service_string = service_type.toString();
+            service_string = service_string.replaceAll("^Open","");
+            String xml = getSoapBody(device_urn,service_string,action,args);
 
             // create the thread and start the request
 
             stringHash headers = new stringHash();
-            headers.put("soapaction","\"urn:" + urn + ":service:" + service + ":1#" + action + "\"");
+            headers.put("soapaction","\"urn:" + device_urn + ":service:" + service_string + ":1#" + action + "\"");
 
             networkRequest request = new networkRequest("text/xml",null,null,url,headers,xml);
             Thread request_thread = new Thread(request);
@@ -364,7 +312,7 @@ public abstract class Device implements Comparable<Device>
             request.wait_for_result();
 
             if (request.the_result == null)
-                Utils.warning(0,0,"doAction(" + service + "," + action + ") failed: " + request.error_reason);
+                Utils.warning(0,0,"doAction(" + service_string + "," + action + ") failed: " + request.error_reason);
 
             return (Document) request.the_result;
         }

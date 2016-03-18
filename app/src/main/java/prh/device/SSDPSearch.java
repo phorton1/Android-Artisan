@@ -18,6 +18,7 @@ import prh.artisan.Artisan;
 import prh.artisan.EventHandler;
 import prh.server.SSDPServer;
 import prh.utils.Utils;
+import prh.utils.httpUtils;
 
 
 public class SSDPSearch implements Runnable
@@ -37,10 +38,11 @@ public class SSDPSearch implements Runnable
     // and a factory that creates derived Services
     // and notifies Artisan about them.
 {
-    private static int dbg_ssdp_search = 2;
+    private static int dbg_ssdp_search = 0;
     private static int LISTEN_PORT = 8070;
     private static int SEARCH_TIME = 4;
 
+    /*
     private static String SSDP_DEVICE_MEDIA_SERVER = "urn:schemas-upnp-org:device:MediaServer:1";
     private static String SSDP_DEVICE_MEDIA_RENDERER = "urn:schemas-upnp-org:device:MediaRenderer:1";
     private static String SSDP_DEVICE_OPEN_HOME = "urn:linn-co-uk:device:Source:1";
@@ -53,13 +55,19 @@ public class SSDPSearch implements Runnable
     private static String SSDP_SERVICE_OPEN_INFO = "urn:av-openhome-org:service:Info:1";
     private static String SSDP_SERVICE_OPEN_TIME = "urn:av-openhome-org:service:Time:1";
     private static String SSDP_SERVICE_OPEN_VOLUME = "urn:av-openhome-org:service:Volume:1";
+    */
 
 
     private DeviceManager device_manager;
     private boolean ssdp_search_finished = false;
     private int num_ssdp_devices_started = 0;
+    private int num_new_devices = 0;
     private Artisan artisan;
 
+
+    //------------------------------------------------------
+    // constructor and utilities
+    //------------------------------------------------------
 
     public SSDPSearch(DeviceManager dm, Artisan ma)
     {
@@ -69,12 +77,35 @@ public class SSDPSearch implements Runnable
 
     public boolean finished()
     {
-        return
-            ssdp_search_finished &&
-            num_ssdp_devices_started == 0;
+        return ssdp_search_finished;
     }
 
 
+    private static String ShortType(String what, String st)
+        // utility to change an SSDP device or service type
+        // i.e. urn:schemas-upnp-org:service:AVTransport:1
+        // into one of our more simple names (i.e. AVTransport)
+        // Can be called over again with no harm.
+    {
+        st = st.replaceAll("^.*" + what + ":","");
+        st = st.replaceAll(":.*$","");
+        return st;
+    }
+
+
+    private static String GetUrn(String st)
+        // utility to get the urn from a long device type
+        // like urn:schemas-upnp-org:device:MediaServer:1
+    {
+        st = st.replaceAll("^.*urn:","");
+        st = st.replaceAll(":device.*$","");
+        return st;
+    }
+
+
+    //------------------------------------------------------
+    // run() - do the SSDPSearch
+    //------------------------------------------------------
 
     public void run()
     {
@@ -125,26 +156,13 @@ public class SSDPSearch implements Runnable
             Utils.error("Could not send M_SEARCH message: " + e.toString());
         }
 
-        ssdp_search_finished = true;
         Utils.log(dbg_ssdp_search + 1,0,"SSDPSearch.run() finished");
-    }
-
-
-
-    private static boolean allowedDevice(String device_type)
-    // we only care about these service types
-    {
-        if (device_type.equals(SSDP_DEVICE_MEDIA_SERVER)) return true;
-        if (device_type.equals(SSDP_DEVICE_MEDIA_RENDERER)) return true;
-        if (device_type.equals(SSDP_DEVICE_OPEN_HOME)) return true;
-        return false;
     }
 
 
     //-----------------------------------------------------------
     // SearchListener
     //-----------------------------------------------------------
-
 
     private class SSDPSearchListener implements Runnable
     {
@@ -202,7 +220,8 @@ public class SSDPSearch implements Runnable
                         // fire off a deviceDescriptionGetter
 
                         String location = null;
-                        String device_type = null;
+                        String device_usn = null;
+                        // String device_st = null;
 
                         boolean dbg_first_line = true;
                         String lines[] = data.split("\n");
@@ -226,8 +245,10 @@ public class SSDPSearch implements Runnable
 
                                     if (lvalue.equalsIgnoreCase("location"))
                                         location = rvalue;
-                                    if (lvalue.equalsIgnoreCase("st"))
-                                        device_type = rvalue;
+                                    if (lvalue.equalsIgnoreCase("usn"))
+                                        device_usn = rvalue;
+                                    //if (lvalue.equalsIgnoreCase("st"))
+                                    //    device_st = rvalue;
                                 }
                             }   // not the first line
                         }   // for each line in the reply
@@ -241,28 +262,32 @@ public class SSDPSearch implements Runnable
                         // not have had time to start (so I got errors here anyways
                         // cuz the doc could not be loaded).
 
-
-                        if (location != null && !location.equals("") &&
-                            device_type != null && !device_type.equals(""))
+                        if (location != null && !location.isEmpty() &&
+                            // device_st != null && !device_st.isEmpty() &&
+                            device_usn != null && !device_usn.isEmpty() &&
+                            !location.contains(Utils.server_ip + ":" + Utils.server_port) &&
+                            isValidDeviceUSN(device_usn))
                         {
-                            if (!location.contains(Utils.server_ip + ":" + Utils.server_port))
+                            SSDPDevice device = new SSDPDevice(
+                                device_manager,
+                                location,
+                                device_usn );
+
+                            // The devices take place on separate threads
+                            // Which leads to a race condition tyring to figure out if
+                            // the search is completed by counting number started - number_finished
+
+                            if (device.isValid())
                             {
-                                if (allowedDevice(device_type))
-                                {
-                                    num_ssdp_devices_started++;
-                                    Utils.log(0,2,"num_ssdp_devices_started="+num_ssdp_devices_started);
-                                    SSDPDevice device = new SSDPDevice(
-                                        device_manager,
-                                        device_type,
-                                        location);
-                                    Thread device_thread = new Thread(device);
-                                    device_thread.start();
-                                }
+                                num_ssdp_devices_started++;
+                                Utils.log(dbg_ssdp_search,0,"creating SSDPDevice(" + device_usn + ") num_ssdp_devices_started="+num_ssdp_devices_started);
+                                Thread device_thread = new Thread(device);
+                                device_thread.start();
                             }
                         }
                         else
                         {
-                            Utils.warning(0,1,"Reply from device(" + reply.getAddress() + ":" + reply.getPort() + ") without location or ST device_type");
+                            Utils.warning(dbg_ssdp_search+2,1,"Skipping reply from device(" + reply.getAddress() + ":" + reply.getPort() + ") usn=" + device_usn);
                         }
 
 
@@ -288,10 +313,70 @@ public class SSDPSearch implements Runnable
                 }   // while running
             }   // if sock != null
 
-            Utils.log(dbg_ssdp_search+1,0,"SSDPSearchListener::run() finished");
+            // Since the search runs in it's own thread,
+            // it's ok to make it synchronous
+            // Here we wait for all children to finish
+
+            while (num_ssdp_devices_started > 0)
+            {
+                Utils.log(dbg_ssdp_search+3,5,"waiting for SSDPSearch to finish");
+                Utils.sleep(100);
+            }
+
+            // finished!
+
+            if (DeviceManager.USE_DEVICE_CACHE && num_new_devices > 0)
+                device_manager.writeCache();
             ssdp_search_finished = true;
+            artisan.handleArtisanEvent(EventHandler.EVENT_SSDP_SEARCH_FINISHED,null);
+            Utils.log(dbg_ssdp_search + 1,0,"SSDPSearchListener::run() finished");
 
         }   // run()
+
+
+
+        // check if it's a valid, and interesting device_type
+        // the single switch of "Source" to "OpenHomeRenderer"
+
+
+        // validation
+
+        public boolean isValidDeviceUSN(String usn)
+            // Checks USN for uuid, urn, and device:
+            // Makes sure device_type is one we want
+            // Validates the urn versus the expected_urn
+        {
+            String uuid = Utils.extract_re("uuid:(.*?):",usn);
+            String urn = Utils.extract_re("urn:(.*?):",usn);
+            String device_type_string = Utils.extract_re("device:(.*?):",usn);
+
+            if (uuid.isEmpty())
+                return false;
+            if (urn.isEmpty())
+                return false;
+            if (device_type_string.isEmpty())
+                return false;
+
+            String expected_urn = "";
+            if (device_type_string.equals(Device.deviceType.MediaRenderer.toString()))
+                expected_urn = httpUtils.upnp_urn;
+            if (device_type_string.equals(Device.deviceType.MediaServer.toString()))
+                expected_urn = httpUtils.upnp_urn;
+            if (device_type_string.equals(Device.deviceType.OpenHomeRenderer.toString()))
+                expected_urn = httpUtils.open_device_urn;
+
+            if (expected_urn.isEmpty())
+                return false;
+            if (!urn.equals(expected_urn))
+            {
+                Utils.warning(0,0,"mismatched urn " + urn + " for " + device_type_string);
+                return false;
+            }
+
+            return true;
+        }
+
+
     }   // class SSDPSearchListener
 
 
@@ -300,174 +385,241 @@ public class SSDPSearch implements Runnable
     // SSDPDevice
     //-----------------------------------------------------------
 
-    private static boolean hasRequiredServices(String device_type, HashMap<String,SSDPService> services)
-    {
-        if (device_type.equals(SSDP_DEVICE_MEDIA_SERVER))
-            return services.get(SSDP_SERVICE_CONTENT_DIRECTORY) != null;
-        if (device_type.equals(SSDP_DEVICE_MEDIA_RENDERER))
-            return services.get(SSDP_SERVICE_AV_TRANSPORT) != null;
-
-        // we require them all for openHome
-
-        if (device_type.equals(SSDP_DEVICE_OPEN_HOME))
-        {
-            if (services.get(SSDP_SERVICE_OPEN_PRODUCT) == null) return false;
-            if (services.get(SSDP_SERVICE_OPEN_PLAYLIST) == null) return false;
-            if (services.get(SSDP_SERVICE_OPEN_INFO) == null) return false;
-            if (services.get(SSDP_SERVICE_OPEN_TIME) == null) return false;
-            if (services.get(SSDP_SERVICE_OPEN_PRODUCT) == null) return false;
-            if (services.get(SSDP_SERVICE_OPEN_VOLUME) == null) return false;
-            return true;
-        }
-
-        return false;
-    }
-
-
-
 
     public class SSDPDevice implements Runnable
         // only uses friendlyName to differentiate them
         // if conflicts, really should use the device uuids
     {
-        private String device_type;
-            // open home "Source" device_type already changed to "OpenHomeRenderer"
-        private String device_url;
+        public class ServiceHash extends HashMap<Service.serviceType,SSDPService>{}
+
         private String location;
-        private String friendlyName;
-            // "WDTVLive = currently in use" already changed to "WDTVLive"
-        private String icon_url;
-        private String urn;
+        private boolean valid = false;
+        private ServiceHash services = new ServiceHash();
+
+        // following parsed from USN
+        // actual device type "Source" changed to OpenHomeRenderer
+        // friendlyName "WDTVLive = currently in use" changed to "WDTVLive"
+
+        private Device.deviceType device_type = Device.deviceType.DeviceNone;
+        private Device.deviceGroup device_group = Device.deviceGroup.DEVICE_GROUP_NONE;
+        private String device_uuid = "";
+        private String device_urn = "";
+        private String device_url = "";
+
+        // following gotten from device description document
+
+        private String friendlyName = "";
+        private String icon_path = "";
+
+        // accessors
+
+        public boolean isValid()                    { return valid; }
+        public String getFriendlyName()             { return friendlyName; }
+        public Device.deviceGroup getDeviceGroup()  { return device_group; }
+        public Device.deviceType getDeviceType()    { return device_type; }
+        public String getDeviceUUID()               { return device_uuid; }
+        public String getDeviceUrn()                { return device_urn; }
+        public String getDeviceUrl()                { return device_url; }
+        public String getIconPath()                 { return icon_path; }
+        public ServiceHash getServices()            { return services; }
 
 
-        private HashMap<String,SSDPService> services = new HashMap<String,SSDPService>();
+        // validation
 
-        public String getDeviceUrl()    { return device_url; }
-        public String getDeviceType()   { return device_type; }
-        public String getListType()     { return device_type.equals(Device.DEVICE_OPEN_HOME) ? Device.DEVICE_MEDIA_RENDERER : device_type; }
-        public String getFriendlyName() { return friendlyName; }
-        public String getIconUrl()      { return icon_url; }
-
-        public HashMap<String,SSDPService> getServices() { return services; }
-
-
-        SSDPDevice(DeviceManager dm,
-                   String d_type,
-                   String loc)
+        private boolean hasRequiredServices()
         {
-            device_manager = dm;
-            device_type = d_type;
-            location = loc;
-            device_url = "http://" + Utils.ipFromUrl(loc) + ":" + Utils.portFromUrl(loc);
-            icon_url = "";
+            if (device_type == Device.deviceType.MediaServer)
+                return services.get(Service.serviceType.ContentDirectory) != null;
+            if (device_type == Device.deviceType.MediaRenderer)
+                return services.get(Service.serviceType.AVTransport) != null;
+
+            // we require them all for openHome
+
+            if (device_type == Device.deviceType.OpenHomeRenderer)
+            {
+                if (services.get(Service.serviceType.OpenProduct) == null) return false;
+                if (services.get(Service.serviceType.OpenPlaylist) == null) return false;
+                if (services.get(Service.serviceType.OpenInfo) == null) return false;
+                if (services.get(Service.serviceType.OpenVolume) == null) return false;
+                if (services.get(Service.serviceType.OpenTime) == null) return false;
+                return true;
+            }
+
+            return false;
         }
 
-        public void run()
+
+        // constructor
+        // usn is of the form:
+        // uuid:987f-887d-d98d-d97d97d::urn:schemas-upnp-org:device:MediaServer:1
+
+        SSDPDevice(DeviceManager dm, String loc, String usn )
         {
-            // String url = location + device_url;
-            Utils.log(dbg_ssdp_search + 1,0,"SSDPDeviceListener::run(" + device_type + ") at " + location);
-            Document doc = Utils.xml_request(location);
-            if (doc == null)
-            {
-                Utils.error("Could not get device description document for " + device_type + " at " + location);
-                num_ssdp_devices_started--;
-                Utils.log(0,2,"num_ssdp_devices_started="+num_ssdp_devices_started);
-                return;
-            }
-            Utils.log(dbg_ssdp_search+1,0,"Got device_description(" + device_type + ") from " + location);
+            device_manager = dm;
+            location = loc;
+            device_uuid = Utils.extract_re("uuid:(.*?):",usn);
+            device_urn = Utils.extract_re("urn:(.*?):",usn);
+            String device_type_string = Utils.extract_re("device:(.*?):",usn);
+            if (device_type_string.equals("Source"))
+                device_type_string = "OpenHomeRenderer";
 
-            // get the icon and friendly name
+            // if the uuid already exists in device_manager, skip it
 
-            Element doc_ele = doc.getDocumentElement();
-            if (doc_ele == null)
+            if (dm.getDevice(device_uuid) != null)
             {
-                Utils.error("Could not get device description document element for " + device_type + " at " + location);
-                num_ssdp_devices_started--;
-                Utils.log(0,2,"num_ssdp_devices_started="+num_ssdp_devices_started);
+                Utils.log(dbg_ssdp_search,0,"Device Already Exists " + device_type_string + "::" + device_uuid);
                 return;
             }
 
-            friendlyName = Utils.getTagValue(doc_ele,"friendlyName");
-            if (friendlyName == null || friendlyName.equals(""))
+              // the device_type_string now maps to a valid device_type enum
+
+            try
             {
-                Utils.error("No friendlyName found for " + device_type + " at " + location);
-                num_ssdp_devices_started--;
-                Utils.log(0,2,"num_ssdp_devices_started="+num_ssdp_devices_started);
+                device_type = Device.deviceType.valueOf(device_type_string);
+            }
+            catch (Exception e)
+            {
+                Utils.warning(0,0,"Illegal device_type:" + device_type_string);
                 return;
             }
 
-            friendlyName = friendlyName.replace("WDTVLive - currently in use","WDTVLive");
-                // kludge - we should really be using UUIDs and the most recent name
-            Utils.log(dbg_ssdp_search,0,"Got friendlyName(" + friendlyName + ") from " + device_url);
+            device_group = Device.groupOf(device_type);
+            device_url = "http://" + Utils.ipFromUrl(loc) + ":" + Utils.portFromUrl(loc);
+            valid = true;
+        }
 
-            NodeList icons = doc.getElementsByTagName("icon");
-            if (icons.getLength() > 0)
+
+        // get the device description and parse it for friendlyName, icon, services, etc
+
+        public void run()  { synchronized(device_manager)
             {
-                final Element elem = (Element) icons.item(0);
-                icon_url =  Utils.getTagValue(elem,"url");
-                if (icon_url == null) icon_url = "";
-            }
-            if (icon_url.equals(""))
-                Utils.warning(0,0,"no icon found for " + device_type + " at " + location);
-
-            // loop through the services, creating SSDPServices
-            // but don't get documents yet
-
-            NodeList servs = doc.getElementsByTagName("service");
-            if (servs.getLength() > 0)
-            {
-                for (int i=0; i<servs.getLength(); i++)
+                // String url = location + device_url;
+                Utils.log(dbg_ssdp_search + 1,0,"SSDPDeviceListener::run(" + device_type + ") at " + location);
+                Document doc = Utils.xml_request(location);
+                if (doc == null)
                 {
-                    Element serv_ele = (Element) servs.item(i);
-                    SSDPService service = new SSDPService(this);
-                    service.service_type = Utils.getTagValue(serv_ele,"serviceType");
-                    service.desc_url = fix_url(Utils.getTagValue(serv_ele,"SCPDURL"));
-                    service.control_url = fix_url(Utils.getTagValue(serv_ele,"controlURL"));
-                    service.event_url = fix_url(Utils.getTagValue(serv_ele,"eventSubURL"));
-                    if (service.valid())
-                        services.put(service.service_type,service);
+                    Utils.error("Could not get device description document for " + device_type + " at " + location);
+                    num_ssdp_devices_started--;
+                    return;
                 }
-            }
+                Utils.log(dbg_ssdp_search + 1,0,"Got device_description(" + device_type + ") from " + location);
 
-            // if the device is sufficient, proceed to get documents
-            // if we can't get a service document for any service,
-            // the whole device is considered invalid, and we bail
+                // get the friendly name
 
-            if (hasRequiredServices(device_type,services))
-            {
-                for (SSDPService service : services.values())
+                Element doc_ele = doc.getDocumentElement();
+                if (doc_ele == null)
                 {
-                    if (!service.getServiceDoc())
+                    Utils.error("Could not get device description document element for " + device_type + " at " + location);
+                    num_ssdp_devices_started--;
+                    return;
+                }
+
+                friendlyName = Utils.getTagValue(doc_ele,"friendlyName");
+                if (friendlyName == null || friendlyName.equals(""))
+                {
+                    Utils.error("No friendlyName found for " + device_type + " at " + location);
+                    num_ssdp_devices_started--;
+                    return;
+                }
+
+                friendlyName = friendlyName.replace("WDTVLive - currently in use","WDTVLive");
+                // kludge - we should really be using UUIDs and the most recent name
+                Utils.log(dbg_ssdp_search,0,"Got friendlyName(" + friendlyName + ") from " + device_url);
+
+                // get the icon path
+
+                NodeList icons = doc.getElementsByTagName("icon");
+                if (icons.getLength() > 0)
+                {
+                    final Element elem = (Element) icons.item(0);
+                    icon_path = Utils.getTagValue(elem,"url");
+                    if (icon_path == null) icon_path = "";
+                }
+                if (icon_path.equals(""))
+                    Utils.warning(0,0,"no icon found for " + device_type + " at " + location);
+
+
+                // loop through the services, creating SSDPServices
+                // all services shall be known
+                // but don't get documents yet
+
+
+                NodeList servs = doc.getElementsByTagName("service");
+                if (servs.getLength() > 0)
+                {
+                    for (int i = 0; i < servs.getLength(); i++)
                     {
-                        num_ssdp_devices_started--;
-                        Utils.log(0,2,"num_ssdp_devices_started="+num_ssdp_devices_started);
-                        return;
+                        Element serv_ele = (Element) servs.item(i);
+
+                        // GET THE SERVICE TYPE
+
+                        Boolean ok = false;
+                        Service.serviceType service_type = Service.serviceType.ServiceNone;
+                        String long_service_type_string = Utils.getTagValue(serv_ele,"serviceType");
+                        String service_type_string = Utils.extract_re("service:(.*):",long_service_type_string);
+                        if (device_type == Device.deviceType.OpenHomeRenderer)
+                            service_type_string = "Open" + service_type_string;
+
+                        // if we return before we fire off the document request, then
+                        // this device dies on the vine
+
+                        try
+                        {
+                            service_type = Service.serviceType.valueOf(service_type_string);
+                            ok = true;
+                        }
+                        catch (Exception e)
+                        {
+                            Utils.warning(0,1,"Skipping invalid service type(" + service_type_string + ")");
+                        }
+
+                        if (ok)
+                        {
+                            SSDPService service = new SSDPService(
+                                this,
+                                service_type,
+                                fix_url(Utils.getTagValue(serv_ele,"SCPDURL")),
+                                fix_url(Utils.getTagValue(serv_ele,"controlURL")),
+                                fix_url(Utils.getTagValue(serv_ele,"eventSubURL")));
+
+                            if (service.valid())
+                                services.put(service.service_type,service);
+                        }
                     }
                 }
-            }
-            else
-            {
-                Utils.warning(0,0,"Device: " + friendlyName + " does not present a sufficent list of services for " + device_type);
+
+                // if the device is sufficient, proceed to get documents
+                // if we can't get a service document for any service,
+                // the whole device is considered invalid, and we bail
+
+                if (hasRequiredServices())
+                {
+                    for (SSDPService service : services.values())
+                    {
+                        if (!service.loadServiceDoc())
+                        {
+                            num_ssdp_devices_started--;
+                            return;
+                        }
+                    }
+                }
+                else
+                {
+                    Utils.warning(0,1,"Device: " + friendlyName + " does not present a sufficient list of services for " + device_type);
+                    num_ssdp_devices_started--;
+                    return;
+                }
+
+                // Finally, we can create the Device, which will in turn create the
+                // derived Services and tell the DeviceManager  the device
+
+                num_new_devices++;
+                Utils.log(dbg_ssdp_search,1,"Calling device_manager.createDevice(" + device_type + ") '" + friendlyName + "' at " + device_url);
+                device_manager.createDevice(this);
                 num_ssdp_devices_started--;
-                Utils.log(0,2,"num_ssdp_devices_started="+num_ssdp_devices_started);
-                return;
-            }
-
-
-            // Finally, we can create the Device, which will in turn create the
-            // derived Services and tell the DeviceManager  the device
-
-            Utils.log(0,1,"CREATING DEVICE(" + device_type + ") '" + friendlyName + "' at " + device_url);
-            device_manager.createDevice(this);
-            num_ssdp_devices_started--;
-            Utils.log(0,2,"num_ssdp_devices_started="+num_ssdp_devices_started);
-            if (finished())
-            {
-                device_manager.writeCache();
-                artisan.handleArtisanEvent(EventHandler.EVENT_SSDP_SEARCH_FINISHED,null);
-            }
-
+            }   // synchronized
         }   // run()
+
     }   // class SSDPDevice
 
 
@@ -488,21 +640,45 @@ public class SSDPSearch implements Runnable
         // what's available from parsing the device description
     {
         private SSDPDevice device;
+        private Service.serviceType service_type;
+        private String desc_path;
+        private String control_path;
+        private String event_path;
+        private Document service_doc = null;
 
-        public String service_type;
-        public String desc_url;
-        public String control_url;
-        public String event_url;
-        public Document service_doc;
+        public Service.serviceType getServiceType()  { return service_type; }
+        public String getControlPath()  { return control_path; }
+        public String getEventPath()    { return event_path; }
+        public Document getServiceDoc()   { return service_doc; }
 
 
-        public boolean getServiceDoc()
+        public SSDPService(
+            SSDPDevice d,
+            Service.serviceType type,
+            String d_path,
+            String c_path,
+            String e_path )
         {
-            String url = device.getDeviceUrl() + desc_url;
-            Utils.log(dbg_ssdp_search,1,"Getting SSDP_Service(" + service_type +") from " + url);
-            Utils.log(dbg_ssdp_search+1,2,"desc_url=" + desc_url);
-            Utils.log(dbg_ssdp_search+1,2,"control_url=" + control_url);
-            Utils.log(dbg_ssdp_search+1,2,"event_url="+event_url);
+            Utils.log(dbg_ssdp_search,1,"new SSDPService(" + type + ")");
+
+            device = d;
+            service_type = type;
+            desc_path = d_path;
+            control_path = c_path;
+            event_path = e_path;
+        }
+
+
+        public boolean loadServiceDoc()
+            // not to be confused with getServiceDescription()
+            // which returns the existing doc, this one gets it
+            // from the network.
+        {
+            String url = device.getDeviceUrl() + desc_path;
+            Utils.log(dbg_ssdp_search,1,"Getting SSDP_Service(" + service_type + ") from " + url);
+            Utils.log(dbg_ssdp_search + 1,2,"desc_url=" + desc_path);
+            Utils.log(dbg_ssdp_search + 1,2,"control_url=" + control_path);
+            Utils.log(dbg_ssdp_search + 1,2,"event_url=" + event_path);
 
             service_doc = Utils.xml_request(url);
             if (service_doc == null)
@@ -514,22 +690,19 @@ public class SSDPSearch implements Runnable
         }
 
 
-        public SSDPService(SSDPDevice d)
-        {
-            device = d;
-        }
-
         public boolean valid()
         {
             String msg = null;
-            if (service_type == null || service_type.equals(""))
+            /* if (service_type == null || service_type.equals(""))
                 msg = "Missing Service Type";
-            else if (desc_url == null || desc_url.equals(""))
-                msg = "Missing Description Url";
-            else if (control_url == null || control_url.equals(""))
-                msg = "Missing Control Url";
-            else if (event_url == null || event_url.equals(""))
-                msg = "Missing Event Url";
+            else */
+
+            if (desc_path == null || desc_path.equals(""))
+                msg = "Missing Description Path";
+            else if (control_path == null || control_path.equals(""))
+                msg = "Missing Control Path";
+            else if (event_path == null || event_path.equals(""))
+                msg = "Missing Event Path";
             if (msg != null)
             {
                 Utils.error(msg);
@@ -537,25 +710,26 @@ public class SSDPSearch implements Runnable
             }
 
             // return true if it's an allowed service (that we can create)
-            // for the device_type
+            // for the deviceType
 
-            String device_type = device.getDeviceType();
+            Device.deviceType device_type = device.getDeviceType();
 
-            if (device_type.equals(SSDP_DEVICE_MEDIA_SERVER))
-                if (service_type.equals(SSDP_SERVICE_CONTENT_DIRECTORY)) return true;
-            if (device_type.equals(SSDP_DEVICE_MEDIA_RENDERER))
+            if (device_type == Device.deviceType.MediaServer)
             {
-                if (service_type.equals(SSDP_SERVICE_AV_TRANSPORT)) return true;
-                if (service_type.equals(SSDP_SERVICE_RENDERING_CONTROL)) return true;
+                if (service_type == Service.serviceType.ContentDirectory) return true;
             }
-            if (device_type.equals(SSDP_DEVICE_OPEN_HOME))
+            else if (device_type == Device.deviceType.MediaRenderer)
             {
-                if (service_type.equals(SSDP_SERVICE_OPEN_PRODUCT)) return true;
-                if (service_type.equals(SSDP_SERVICE_OPEN_PLAYLIST)) return true;
-                if (service_type.equals(SSDP_SERVICE_OPEN_INFO)) return true;
-                if (service_type.equals(SSDP_SERVICE_OPEN_TIME)) return true;
-                if (service_type.equals(SSDP_SERVICE_OPEN_PRODUCT)) return true;
-                if (service_type.equals(SSDP_SERVICE_OPEN_VOLUME)) return true;
+                if (service_type == Service.serviceType.AVTransport) return true;
+                if (service_type == Service.serviceType.RenderingControl) return true;
+            }
+            else if (device_type == Device.deviceType.OpenHomeRenderer)
+            {
+                if (service_type == Service.serviceType.OpenProduct) return true;
+                if (service_type == Service.serviceType.OpenPlaylist) return true;
+                if (service_type == Service.serviceType.OpenInfo) return true;
+                if (service_type == Service.serviceType.OpenVolume) return true;
+                if (service_type == Service.serviceType.OpenTime) return true;
             }
 
             Utils.warning(dbg_ssdp_search+1,1,"Skipping unsupported service:" + device_type + "::" + service_type);

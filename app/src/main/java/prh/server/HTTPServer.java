@@ -196,11 +196,11 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
         {
             Utils.log(dbg_http,1,"starting OpenHomeRenderer http listeners ...");
 
-            OpenProduct  product  = new OpenProduct(artisan,this,httpUtils.open_urn);
-            OpenVolume   volume   = new OpenVolume(artisan,this,httpUtils.open_urn);
-            OpenPlaylist playlist = new OpenPlaylist(artisan,this,httpUtils.open_urn);
-            OpenInfo     info     = new OpenInfo(artisan,this,httpUtils.open_urn);
-            OpenTime     time     = new OpenTime(artisan,this,httpUtils.open_urn);
+            OpenProduct  product  = new OpenProduct(artisan,this,httpUtils.open_service_urn);
+            OpenVolume   volume   = new OpenVolume(artisan,this,httpUtils.open_service_urn);
+            OpenPlaylist playlist = new OpenPlaylist(artisan,this,httpUtils.open_service_urn);
+            OpenInfo     info     = new OpenInfo(artisan,this,httpUtils.open_service_urn);
+            OpenTime     time     = new OpenTime(artisan,this,httpUtils.open_service_urn);
 
             Utils.log(dbg_http,2,"OpenHomeRenderer http listeners created");
 
