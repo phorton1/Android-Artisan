@@ -2,10 +2,10 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:id = "@+id/pref_renderer_item">
+                android:id = "@+id/pref_select_device_item">
 
     <ImageView
-        android:id="@+id/pref_list_renderer_icon"
+        android:id="@+id/pref_select_device_list_icon"
         android:layout_width="18dip"
         android:layout_height="18dip"
         android:layout_marginLeft="160dip"
@@ -14,11 +14,11 @@
     </ImageView>
 
     <TextView
-        android:id="@+id/pref_list_renderer_name"
+        android:id="@+id/pref_select_device_list_name"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginLeft="12dip"
-        android:layout_toRightOf="@id/pref_list_renderer_icon">
+        android:layout_toRightOf="@id/pref_select_device_list_icon">
     </TextView>
 
 

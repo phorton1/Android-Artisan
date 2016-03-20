@@ -12,7 +12,10 @@ import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 import prh.artisan.Prefs;
 import prh.server.HTTPServer;
-import prh.server.httpRequestHandler;
+import prh.server.utils.UpnpEventSubscriber;
+import prh.server.utils.httpRequestHandler;
+import prh.server.utils.UpdateCounter;
+import prh.server.utils.UpnpEventHandler;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
@@ -45,6 +48,9 @@ public class OpenProduct extends httpRequestHandler implements UpnpEventHandler
         http_server.getEventManager().UnRegisterHandler(this);
     }
 
+    public void notifySubscribed(UpnpEventSubscriber subscriber,boolean subscribe)
+    {}
+
 
 
     public NanoHTTPD.Response response(
@@ -53,7 +59,8 @@ public class OpenProduct extends httpRequestHandler implements UpnpEventHandler
         String unused_uri,
         String service,
         String action,
-        Document doc)
+        Document doc,
+        UpnpEventSubscriber unused_subscriber)
     {
         HashMap<String,String> hash = new HashMap<String,String>();
 
@@ -160,7 +167,7 @@ public class OpenProduct extends httpRequestHandler implements UpnpEventHandler
     public String getName() { return "Product"; };
 
 
-    public String getEventContent()
+    public String getEventContent(UpnpEventSubscriber unused_subscriber)
         // Return the XML state table for the UPnP EVENT
         // This is static in my current implementation.
         // I may add multiple Sources (Radio Stations) later.

@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import prh.device.LocalLibrary;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
@@ -325,19 +326,27 @@ public class Track extends Record
     // openHomeSupport
     //----------------------------------------------------------
 
-    public void setExposed(boolean b)
+    public void setExposed(int bit_mask, boolean value)
     {
-        // Utils.log(0,5,"setExposed(" + b + ") " + getTitle());
-        putInt("exposed",b ? 1 : 0);
+        // Utils.log(0,5,"setExposed(" + bit_mask + "," + value + ") for " + getTitle());
+        int cur = getInt("exposed");
+        cur = cur & ~bit_mask;
+        if (value) cur = cur | bit_mask;
+        putInt("exposed",cur);
     }
 
-    public boolean getExposed()
+    public boolean getExposed(int bit_mask)
     {
-        boolean b = getInt("exposed") > 0;
-        // Utils.log(0,5,"getExposed(" + b + ") " + getTitle());
+        int cur = getInt("exposed");
+        boolean b = (cur & bit_mask) == 0 ? false : true;
+        // Utils.log(0,5,"getExposed(" + bit_mask + ")=" + b + " for " + getTitle());
         return b;
     }
 
+    public void clearExposed()
+    {
+        putInt("exposed",0);
+    }
 
     public boolean insert(SQLiteDatabase track_db)
     {

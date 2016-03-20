@@ -2,10 +2,11 @@
 // UpnpEventSubscriber - member of list on UpnpEventManager
 //--------------------------------------------------------------
 
-package prh.server.http;
+package prh.server.utils;
 
 
 import prh.server.SSDPServer;
+import prh.server.utils.UpnpEventHandler;
 import prh.utils.Utils;
 
 public class UpnpEventSubscriber
@@ -19,6 +20,14 @@ public class UpnpEventSubscriber
     private String sid;
     private int expires;
     private UpnpEventHandler handler;
+    private int openPlaylist_exposure_mask = 0;
+        // set intelligently to 1^0..31 if the subscriber
+        // is to the OpenPlaylist and we want to use the
+        // EXPOSE_SCHEME for the subscriber. This mask is
+        // used to create (register) and destroy (unregister)
+        // the (Local)PlaylistExposers on the OpenPlayList,
+        // which in turn, are cleared and set into each
+        // LocalPlaylist as it is started.
 
     private int event_count = 0;
         // the post-increment SEQ "event key" for individual subscribers
@@ -61,6 +70,7 @@ public class UpnpEventSubscriber
     {
         return Utils.portFromUrl(url);
     }
+
 
 
 }   // class UpnpEventSubscriber

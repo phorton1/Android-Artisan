@@ -13,8 +13,10 @@ public class Prefs
     {
         SELECTED_RENDERER,
         SELECTED_LIBRARY,
+        SELECTED_PLAYLIST_SOURCE,
         DEFAULT_RENDERER,
         DEFAULT_LIBRARY,
+        DEFAULT_PLAYLIST_SOURCE,
 
         START_ON_BOOT,
         DEVICE_ROOM,
@@ -140,6 +142,8 @@ public class Prefs
             return "";  // LocalRenderer
         if (id.equals(id.SELECTED_LIBRARY))
             return "";  // LocalLibrary if available
+        if (id.equals(id.SELECTED_PLAYLIST_SOURCE))
+            return "";  // LocalPlaylistSource if available
 
         // The Startup_Default library and renderer.
         // These are used at program startup as the desired library
@@ -183,6 +187,8 @@ public class Prefs
         if (id.equals(id.DEFAULT_LIBRARY))
             return "Last Selected";
         if (id.equals(id.DEFAULT_RENDERER))
+            return "Last Selected";
+        if (id.equals(id.DEFAULT_PLAYLIST_SOURCE))
             return "Last Selected";
 
 

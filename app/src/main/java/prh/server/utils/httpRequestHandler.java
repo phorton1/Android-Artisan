@@ -1,4 +1,4 @@
-package prh.server;
+package prh.server.utils;
 
 import org.w3c.dom.Document;
 
@@ -12,5 +12,9 @@ public abstract class httpRequestHandler
         String uri,
         String service,
         String action,
-        Document doc);
+        Document doc,
+        UpnpEventSubscriber subscriber);
+
+    // subscriber will be null, except for OpenPlaylist
+    // subscribers that are using the EXPOSE_SCHEME
 }

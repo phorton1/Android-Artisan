@@ -21,29 +21,31 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 
+import prh.artisan.Artisan;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
 public class SSDPServer implements Runnable
 {
-
     public static int dbg_ssdp = 1;
 
-    // There are three root devices.
+    // configuration constants
+
+    private static boolean WITH_CONNECTION_MANAGER = false;
+    // trying to get open_home working
+    private static int ALIVE_BROADCAST_INTERVAL = 15000;
+
+    // There are three root devices (SSDP Devices we expose).
+    // They also map to the corresponding LocalDevices
+    // LocalLibrary, LocalRenderer, and LocalPlaylistSource
 
     public static int IDX_DLNA_SERVER = 0;
     public static int IDX_DLNA_RENDERER = 1;
     public static int IDX_OPEN_HOME = 2;
 
-    // configuration constants
 
-    private static boolean WITH_CONNECTION_MANAGER = false;
-        // trying to get open_home working
-    private static int HIGH_DEV = IDX_OPEN_HOME;
-        // set to 1 to include DLNA Renderer
-    private static int ALIVE_BROADCAST_INTERVAL = 15000;
-
+    // UUIDS
     // The uuid is a based on the hex representation of
     // the UNIQUE Build.ID, with my device "type" tacked on the end
 
@@ -58,6 +60,14 @@ public class SSDPServer implements Runnable
         uuid_root += hex_string.substring(16,20);
         return uuid_root;
     }
+    // The MediaServer is a "feed" (also the UUID of the LocalLibrary)
+    // the MediaRenderer is a "face" (also the UUID of the LocalRenderer)
+    // the OpenHome server is a bace (also the UUID of the LocalPlaylistSource)
+
+    public static String[] dlna_uuid = {
+        uuid_root + "-aaaaaaaafeed",
+        uuid_root + "-aaaaaaaaface",
+        uuid_root + "-aaaaaaaabace" };
 
     // names of device description files
 
@@ -66,15 +76,6 @@ public class SSDPServer implements Runnable
         "MediaRenderer",
         "OpenHome"
     };
-
-    // The MediaServer is a "feed"
-    // the MediaRnderer is a "face". and
-    // the OpenHome server is a bace.
-
-    public static String[] dlna_uuid = {
-        uuid_root + "-aaaaaaaafeed",
-        uuid_root + "-aaaaaaaaface",
-        uuid_root + "-aaaaaaaabace" };
 
     // All device description requests to the HTTP server
     // are of the form /device/DeviceType.xml, and all
@@ -124,18 +125,33 @@ public class SSDPServer implements Runnable
     private DatagramSocket mUnicastSocket = null;
     Handler alive_loop = null;
     AliveSender alive_sender = null;
-    private Context mContext;
+    private Artisan artisan;
+    boolean active[] = null;
 
 
     //-------------------------------------------------
     // construction, startup, etc
     //-------------------------------------------------
 
-    public SSDPServer(Context ctx)
+    public SSDPServer(Artisan ma,HTTPServer http_server)
     {
         Utils.log(dbg_ssdp,0,"SSDPServer() ctor called");
-        mContext = ctx;
+        artisan = ma;
+
+        // set active=true for the services we want to advertise
+        // based on the corresponding handlers created in the
+        // http_server
+
+        active = new boolean[]{false,false,false};
+        if (http_server.getHandler("ContentDirectory") != null)
+            active[IDX_DLNA_SERVER] = true;
+        if (http_server.getHandler("AVTransport") != null)
+            active[IDX_DLNA_RENDERER] = true;
+        if (http_server.getHandler("Product") != null)
+            active[IDX_OPEN_HOME] = true;
+
         running = 0;
+
     }
 
 
@@ -241,6 +257,8 @@ public class SSDPServer implements Runnable
 
         // send_byebye();
 
+        send_broadcast("alive");
+
         if (true)   // set to false to not start alive_thread
         {
             Utils.log(dbg_ssdp,1,"starting alive thread");
@@ -248,10 +266,6 @@ public class SSDPServer implements Runnable
             alive_sender = new AliveSender();
             alive_loop = new Handler();
             alive_loop.postDelayed(alive_sender,ALIVE_BROADCAST_INTERVAL);
-        }
-        else
-        {
-            send_broadcast("alive");
         }
 
         //-------------------------
@@ -290,32 +304,37 @@ public class SSDPServer implements Runnable
                         Random rand = new Random();
                         Utils.log(dbg_ssdp + 1,0,"M_SEARCH(" + dp.getAddress() + ":" + dp.getPort() + ") st = " + st);
 
-                        for (int dev_idx=0; running==1 && dev_idx <= HIGH_DEV; dev_idx++)
+                        for (int dev_idx=0; running==1 && dev_idx <= IDX_OPEN_HOME; dev_idx++)
                         {
-                            String[] ssdp_types = dlna_types[dev_idx];
-                            for (String ssdp_type: ssdp_types)
+                            if (active[dev_idx])
                             {
-                                if (ssdp_type != null && (st.equals("ssdp:all") || st.equals(ssdp_type)))
+                                String[] ssdp_types = dlna_types[dev_idx];
+                                for (String ssdp_type: ssdp_types)
                                 {
-                                    Utils.log(dbg_ssdp,1,"M_SEARCH_REPLY(" +
+                                    if (ssdp_type != null && (st.equals("ssdp:all") || st.equals(ssdp_type)))
+                                    {
+                                        Utils.log(dbg_ssdp,1,"M_SEARCH_REPLY(" +
                                             deviceType[dev_idx] + ") to " +
                                             dp.getAddress() + ":" + dp.getPort() + " " +
                                             ssdp_type);
-                                    String msg = create_search_message(dev_idx,ssdp_type);
-                                    DatagramPacket response = new DatagramPacket(
+                                        String msg = create_search_message(dev_idx,ssdp_type);
+                                        DatagramPacket response = new DatagramPacket(
                                             msg.getBytes(),
                                             msg.length(),
                                             new InetSocketAddress(dp.getAddress(),dp.getPort()));
 
-                                    // Utils.sleep(rand.nextInt(1000 * int_mx));
-                                    mUnicastSocket.send(response);
-                                    Utils.log(dbg_ssdp + 1,1,"M_SEARCH_REPLY response sent");
-                                    Utils.log(dbg_ssdp + 1,2,msg);
-                                }
-                            }
-                        }
-                    }
-                }
+                                        // Utils.sleep(rand.nextInt(1000 * int_mx));
+                                        mUnicastSocket.send(response);
+                                        Utils.log(dbg_ssdp + 1,1,"M_SEARCH_REPLY response sent");
+                                        Utils.log(dbg_ssdp + 1,2,msg);
+
+                                    }   // a M_SEARCH we should reply to
+                                }   // for each of the types for the Service
+                            }   // the Service is Active
+                        }   // for each Service
+                    }   // man==ssdp:discover
+                }   // M_SEARCH message
+
                 else if (false)
                 {
                     Utils.log(0,0,"NOT M_SEARCH: " + dp.getAddress() + ":" + dp.getPort() + " = " + new String(dp.getData()));
@@ -469,37 +488,44 @@ public class SSDPServer implements Runnable
 
     public void send_broadcast(String action)
     {
-        for (int dev_idx=0; dev_idx <= HIGH_DEV; dev_idx++)
+        for (int dev_idx=0; dev_idx <= IDX_OPEN_HOME; dev_idx++)
         {
-            String[] ssdp_types = dlna_types[dev_idx];
-            for (String ssdp_type: ssdp_types)
+            if (active[dev_idx])
             {
-                if (ssdp_type != null)
+                String[] ssdp_types = dlna_types[dev_idx];
+                for (String ssdp_type: ssdp_types)
                 {
-                    String msg = create_notify_message(dev_idx,action,ssdp_type);
-                    Utils.log(dbg_ssdp + 2,2,"sending M_NOTIFY message=\n" + msg);
+                    // two dimensional arrays created from {}'s
+                    // may have nulls to fill them out at each level?
 
-                    try
+                    if (ssdp_type != null)
                     {
-                        DatagramPacket response = new DatagramPacket(
-                            msg.getBytes(),
-                            msg.length(),
-                            new InetSocketAddress(ssdp_ip,ssdp_port));
-                        mMulticastSocket.send(response);
-                    }
-                    catch (Exception e)
-                    {
-                        // don't report errors if stopping
+                        String msg = create_notify_message(dev_idx,action,ssdp_type);
+                        Utils.log(dbg_ssdp + 2,2,"sending M_NOTIFY message=\n" + msg);
 
-                        if (running == 1)
+                        try
                         {
-                            Utils.error("Could not send_broadcast:" + e);
+                            DatagramPacket response = new DatagramPacket(
+                                msg.getBytes(),
+                                msg.length(),
+                                new InetSocketAddress(ssdp_ip,ssdp_port));
+                            mMulticastSocket.send(response);
                         }
-                    }
-                }
-            }
-        }
-    }
+                        catch (Exception e)
+                        {
+                            // don't report errors if stopping
+
+                            if (running == 1)
+                            {
+                                Utils.error("Could not send_broadcast:" + e);
+                            }
+                        }
+
+                    }   // why would that ever be null?
+                }   // for each type in the service
+            }   // Service is Active
+        }   // for each Service
+    }   // send_broadcast()
 
 
 

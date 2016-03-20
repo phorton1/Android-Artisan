@@ -1,4 +1,4 @@
-package prh.artisan;
+package prh.device;
 
 
 import android.database.Cursor;
@@ -7,21 +7,49 @@ import android.database.sqlite.SQLiteDatabase;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import prh.artisan.LocalPlaylist;
+import prh.artisan.Artisan;
+import prh.artisan.Database;
 import prh.artisan.Playlist;
 import prh.artisan.PlaylistSource;
 import prh.artisan.Prefs;
+import prh.server.SSDPServer;
 import prh.utils.Utils;
+import prh.utils.httpUtils;
 
 
-public class LocalPlaylistSource extends PlaylistSource
+public class LocalPlaylistSource extends Device implements PlaylistSource
 {
     private static int dbg_pls = 1;
-    public final static String LOCAL_PLAYLIST_SOURCE_NAME = "Local Playlist Source";
+
 
     private ArrayList<LocalPlaylist> playlists = null;
     private HashMap<String,LocalPlaylist> playlists_by_name = null;
     private SQLiteDatabase playlist_db = null;
+
+
+    public LocalPlaylistSource(Artisan a)
+    {
+        super(a);
+        device_type = deviceType.LocalPlaylistSource;
+        device_group = deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE;
+        device_uuid = SSDPServer.dlna_uuid[SSDPServer.IDX_OPEN_HOME];
+            // overuse of http_server openHome uuid as the
+            // uuid of this LocalPlaylistSource
+
+        device_urn = "schemas-artisan-home";
+            // not used anyways
+            // httpUtils.upnp_urn;
+        friendlyName = deviceType.LocalPlaylistSource.toString();
+        device_url = Utils.server_uri;
+        icon_path = "/icons/artisan.png";
+        Utils.log(dbg_pls+1,1,"new LocalPlaylistSource()");
+    }
+
+
+    public String getName()
+    {
+        return getFriendlyName();
+    }
 
 
     @Override
@@ -33,9 +61,14 @@ public class LocalPlaylistSource extends PlaylistSource
         return names.toArray(new String[names.size()]);
     }
 
+
     @Override
     public Playlist getPlaylist(String name)
+        // this should be the only place that
+        // new LocalPlaylist() is called
     {
+        if (name.isEmpty())
+            return new LocalPlaylist(artisan);
         return playlists_by_name.get(name);
     }
 
@@ -56,7 +89,10 @@ public class LocalPlaylistSource extends PlaylistSource
 
 
     @Override
-    public void start()
+    public boolean start()
+        // The local playlist source NEVER fails to start
+        // It just starts up empty if there's no db or
+        // playlist.db
     {
         Utils.log(0,0,"LocalPlaylistSource.start()");
 
@@ -76,7 +112,7 @@ public class LocalPlaylistSource extends PlaylistSource
             catch (Exception e)
             {
                 Utils.error("Could not open database " + db_name);
-                return;
+                return true; // false;
             }
 
             // get the names from it
@@ -92,7 +128,7 @@ public class LocalPlaylistSource extends PlaylistSource
             catch (Exception e)
             {
                 Utils.error("Could not execute query: " + query);
-                return;
+                return true; // false;
             }
 
             // construct the playlists
@@ -106,12 +142,14 @@ public class LocalPlaylistSource extends PlaylistSource
                     addLocalPlayList(cursor.getString(0));
             }
         }
+
+        return true;
     }
 
 
     private void addLocalPlayList(String name)
     {
-        LocalPlaylist playlist = new LocalPlaylist(playlist_db,name);
+        LocalPlaylist playlist = new LocalPlaylist(artisan,playlist_db,name);
         playlists.add(playlist);
         playlists_by_name.put(name,playlist);
     }

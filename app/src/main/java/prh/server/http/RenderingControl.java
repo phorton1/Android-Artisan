@@ -12,7 +12,8 @@ import prh.artisan.Artisan;
 import prh.artisan.Renderer;
 import prh.artisan.Volume;
 import prh.server.HTTPServer;
-import prh.server.httpRequestHandler;
+import prh.server.utils.UpnpEventSubscriber;
+import prh.server.utils.httpRequestHandler;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
@@ -44,7 +45,8 @@ public class RenderingControl extends httpRequestHandler
         String uri,
         String service,
         String action,
-        Document doc )
+        Document doc ,
+        UpnpEventSubscriber unused_subscriber)
     {
         // Only handles actions, expects doc != null, and never looks at uri
         // All actions get, and ignore, an InstanceID parameter

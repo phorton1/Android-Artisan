@@ -27,8 +27,10 @@ import prh.server.http.OpenProduct;
 import prh.server.http.OpenTime;
 import prh.server.http.OpenVolume;
 import prh.server.http.RenderingControl;
-import prh.server.http.UpnpEventHandler;
-import prh.server.http.UpnpEventManager;
+import prh.server.utils.UpnpEventHandler;
+import prh.server.utils.UpnpEventManager;
+import prh.server.utils.UpnpEventSubscriber;
+import prh.server.utils.httpRequestHandler;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
@@ -64,6 +66,12 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
     private UpnpEventManager event_manager = null;
     public UpnpEventManager getEventManager() { return event_manager; }
     private HashMap<String,httpRequestHandler> handlers = null;
+
+
+    public httpRequestHandler getHandler(String service_name)
+    {
+        return handlers.get(service_name);
+    }
 
 
     //-----------------------------------------------
@@ -382,7 +390,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
                             response = event_manager.subscription_request_response(session,response,service);
                         }
 
-                        // all other /control and uri requests are passed off to services
+                        // All other /control and uri requests are passed off to services.
 
                         else
                         {
@@ -422,7 +430,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
                                 doc = httpUtils.get_xml_from_post(session);
                                 if (doc == null)
                                 {
-                                    Utils.error("Null document in " + service + " " + action + "request");
+                                    Utils.error("Null document in " + service + "(" + action + ") request");
                                     return response;
                                 }
                             }
@@ -434,23 +442,39 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
                             // dispatch the request to a service handler
                             // shorten the name of OpenHome services to just Product, Volume, etc
 
-                            String use_service = service.startsWith("Open") ? "OpenHome" : service;
-                            if (service.startsWith("Open"))
-                                service = service.replace("Open","");
+                            String use_service = service.startsWith("Open") ?
+                                service.replace("Open","") : service;
+                            boolean isOpenPlaylist = use_service.equals("Playlist");
+
+                            // OpenPlaylist
+                            // gets the matching subscriber, if any, for EXPOSE_SCHEME
+                            // is currently only service to get a subscriber. We consider
+                            // the Playlist request to have come from the subscriber if the ip
+                            // and the user agent match a subscriber to the Playlist
+
+                            UpnpEventSubscriber open_playlist_subscriber = null;
+                            if (isOpenPlaylist)
+                            {
+                                String ip = session.getHeaders().get("remote-addr");
+                                String ua = session.getHeaders().get("user-agent");
+                                open_playlist_subscriber = event_manager.findOpenPlaylistSubscriber(ip,ua);
+                            }
+
+
+                            // HANDLER REQUEST
+                            // The httpHandlers are synchronized with their potential
+                            // UpnpEventHandlers so that actions and events are atomic
 
                             httpRequestHandler handler = handlers.get(use_service);
                             if (handler == null)
                                 Utils.error("No handler found for service(" + service + ")");
-
-                            // HANDLER REQUEST
-                            // The httpHandlers are synchronized with their potential
-                            // upnEventHandlers so that actions and events are atomic
-
                             else synchronized (handler)
                             {
-                                response = handler.response(session,response,uri,service,action,doc);
+                                response = handler.response(session,response,uri,service,action,doc,
+                                    open_playlist_subscriber);
                             }
-                        }
+
+                        }   // ! Event request
                     }   // checkServices
                 }   // starts with /
             }

@@ -1,77 +1,94 @@
-package prh.artisan;
+package prh.device;
 
-// The positions in the database file are used to
-// create the initial in-memory list. Thereafter
-// the position is the position of the track in
-// the list after it has been de-cached.
+// Constructing a LocalPlaylist is very quick, requiring
+// only 1 hit to the playlist.db file.  The initial array
+// of tracks is filled with nulls, indicating that the Track
+// database records have not yet been read into memory.
 //
-// The positions in the database are updated as
-// tracks are inserted and deleted.
+// Any call to getTrack() will cause the track to get
+// read in from the database if it is null in the list.
+// Thereafter, it is in memory.
+//
+// The track.db file and the in-memory list are kept
+// in synch with regards to insertions and deletions, etc,
+// as the positions in the database are UPDATED to match
+// the new positions in-memory.
 
 
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
+
+import prh.artisan.Artisan;
+import prh.artisan.Database;
+import prh.artisan.Playlist;
+import prh.artisan.Prefs;
+import prh.artisan.Track;
+import prh.server.HTTPServer;
+import prh.server.http.OpenPlaylist;
+//import prh.server.utils.PlaylistExposer;
+import prh.server.utils.PlaylistExposer;
+import prh.server.utils.UpnpEventManager;
+import prh.server.utils.UpnpEventSubscriber;
 import prh.utils.Base64;
 import prh.utils.Utils;
+import prh.utils.httpUtils;
 
 
-public class LocalPlaylist extends Playlist
+public class LocalPlaylist implements Playlist
 {
     private int dbg_pl = 1;
     private int dbg_open_pl = 0;
 
     public static int MAX_TRACKS = 1000;
 
-    // member variables
-    
+    // playlist member variables
+    // it is not necessary to call start on a new default
+    // null,"" playlist, as all members are set here ...
+
+    private Artisan artisan;
     private String name ="";
     private int num = 0;
     private int num_tracks = 0;
     private int track_index = 0;
     private int my_shuffle = 0;
-
-
     private int dirty = 0;
         // bitwise 1=playlist, 2=tracks
     private static int next_open_id = 1;
 
-    // it is not necessary to call start on a new default null,"" playlist
-    // all members are set here ...
+    // database and track lists
 
+    private SQLiteDatabase track_db = null;
+    private SQLiteDatabase playlist_db = null;
+        // these are null for un-named default playlist
     private HashMap<Integer,Track> tracks_by_open_id = new HashMap<Integer,Track>();
     private LinkedList<Track> tracks_by_position =  new LinkedList<Track>();
         // list of in-memory tracks
         // the linked list is flushed out with null members during start()
 
-    private SQLiteDatabase track_db = null;
-    private SQLiteDatabase playlist_db = null;
-        // these are null for un-named default playlist
-
-    //-------------------------------------------------------------
-    // accessors (Playlist interface)
-    //-------------------------------------------------------------
-
-    public String getName()         { return name; }
-    public int getNum()             { return num; }
-    public int getNumTracks()       { return num_tracks; }
-    public int getCurrentIndex()    { return track_index; }
-    public int getMyShuffle()       { return my_shuffle; }
+    private boolean is_started = false;
+    public boolean isStarted() { return is_started; }
 
 
     //----------------------------------------------------------------
     // Constructor
     //----------------------------------------------------------------
 
-    public LocalPlaylist() {}
+    public LocalPlaylist(Artisan ma)
         // default constructor creates an un-named playlist ""
         // with no associated playlist_db or tracklist_db handles
-
-
-    public LocalPlaylist(SQLiteDatabase list_db,String name)
+        // but still has to be done in context of an Artisan
     {
+        artisan = ma;
+    }
+
+
+    public LocalPlaylist(Artisan ma, SQLiteDatabase list_db,String name)
+    {
+        artisan = ma;
         this.name = name;
         playlist_db = list_db;
         Utils.log(dbg_pl,0,"LocalPlaylist(" + name + ") ...");
@@ -121,6 +138,16 @@ public class LocalPlaylist extends Playlist
     }   // ctor
 
 
+    //-------------------------------------------------------------
+    // accessors (Playlist interface)
+    //-------------------------------------------------------------
+
+    public String getName()         { return name; }
+    public int getNum()             { return num; }
+    public int getNumTracks()       { return num_tracks; }
+    public int getCurrentIndex()    { return track_index; }
+    public int getMyShuffle()       { return my_shuffle; }
+
     public void start()
     {
         tracks_by_open_id = new HashMap<Integer,Track>();
@@ -145,23 +172,36 @@ public class LocalPlaylist extends Playlist
                 tracks_by_position.add(i,null);
             }
         }
-        expose_more();
-    }
+
+        // EXPOSE THE CURRENT TRACK
+
+        if (track_index > 0)
+        {
+            HTTPServer http_server = artisan.getHTTPServer();
+            OpenPlaylist open_playlist = http_server == null ? null :
+                (OpenPlaylist) http_server.getHandler("Playlist");
+            if (open_playlist != null)
+                open_playlist.exposeCurrentTrack(this);
+        }
+
+        is_started = true;
+
+
+    }   // LocalPlaylist.start()
 
 
     public void stop()
     {
-        if (upnp_event_manager != null)
-        {
-            for (int i = 0; i < num_tracks; i++)
-            {
-                Track track = tracks_by_position.get(i);
-                if (track != null)
-                    track.setExposed(false);
-            }
-            num_exposed = 0;
-            upnp_event_manager = null;
-        }
+        is_started = false;
+
+
+        // unexpose any tracks
+
+        HTTPServer http_server = artisan.getHTTPServer();
+        OpenPlaylist open_playlist = http_server == null ? null :
+            (OpenPlaylist) http_server.getHandler("Playlist");
+        if (open_playlist != null)
+            open_playlist.clearAllExposers(this);
 
         if (track_db != null)
         {
@@ -302,6 +342,26 @@ public class LocalPlaylist extends Playlist
     //------------------------------------------------------
     // OpenHome Support
     //------------------------------------------------------
+    //  Track getTrackLow(int index)
+    //  Track getByOpenId(int open_id);
+    //  Track seekByIndex(int index);
+    //  Track seekByOpenId(int open_id);
+    //  Track insertTrack(int after_id, String uri, String metadata);
+    //  boolean removeTrack(int open_id);
+    //
+    //  String getIdArrayString(PlaylistExposer exposer);
+    //  int[] string_to_id_array(String id_string);
+    //  String id_array_to_tracklist(int ids[]);
+
+
+    public Track getTrackLow(int index)
+    // specifically for use by PlaylistExposer
+    // may return null for non-exposed
+    // as-yet otherwise unused records
+    {
+        return tracks_by_position.get(index-1);
+    }
+
 
     public Track getByOpenId(int open_id)
     {
@@ -309,16 +369,10 @@ public class LocalPlaylist extends Playlist
     }
 
 
-    public Track seekByOpenId(int open_id)
+    public Track insertTrack(int after_id, String uri, String metadata)
     {
-        Track track = getByOpenId(open_id);
-        if (track != null)
-        {
-            track_index = tracks_by_position.indexOf(track) + 1;
-            dirty |= 1;
-            save(false);
-        }
-        return track;
+        Track track = new Track(uri,metadata);
+        return insertTrack(after_id,track);
     }
 
 
@@ -335,49 +389,17 @@ public class LocalPlaylist extends Playlist
     }
 
 
-
-    public boolean removeTrack(int open_id)
+    public Track seekByOpenId(int open_id)
     {
-        Track track = tracks_by_open_id.get(open_id);
-        if (track == null)
+        Track track = getByOpenId(open_id);
+        if (track != null)
         {
-            Utils.error("Could not remove(" + open_id + ") from playlist(" + name + ")");
-            return false;
-        }
-        int position = tracks_by_position.indexOf(track) + 1;
-
-        if (track_db != null)
-        {
-            String query1 = "DELETE FROM playlists WHERE position=" + position;
-            String query2 = "UPDATE SET position=position-1 FROM tracks WHERE position>" + position;
-            try
-            {
-                playlist_db.rawQuery(query1,new String[]{});
-                playlist_db.rawQuery(query2,new String[]{});
-            }
-            catch (Exception e)
-            {
-                Utils.error("Could not remove track(" + track.getPosition() + ")=" + track.getTitle() + " from playlist(" + name + "): " + e.toString());
-                return false;
-            }
-        }
-
-        num_tracks--;
-        tracks_by_open_id.remove(track);
-        tracks_by_position.remove(track);
-
-        int old_track_index = track_index;
-        if (track_index > num_tracks)
-            track_index = num_tracks;
-
-        dirty |= 2;
-        if (old_track_index != track_index)
+            track_index = tracks_by_position.indexOf(track) + 1;
             dirty |= 1;
-
-        save(false);
-        return true;
+            save(false);
+        }
+        return track;
     }
-
 
 
     public Track insertTrack(int after_id, Track track)
@@ -419,7 +441,7 @@ public class LocalPlaylist extends Playlist
                 return null;
             }
 
-            String query = "UPDATE SET position=position+1 FROM tracks WHERE position>=" + position;
+            String query = "UPDATE tracks SET position=position+1 WHERE position>=" + position;
 
             try
             {
@@ -444,44 +466,114 @@ public class LocalPlaylist extends Playlist
             dirty |= 1;
         save(false);
 
-        if (track != null)
-            expose(position);
-
         return track;
     }
 
 
-    public String getIdArrayString()
-    // return a base64 encoded array of integers
-    //
-    // In order to facilitate BuP responsiveness,
-    // assuming only one Bup client using our openRenderer,
-    // We expose the playlist 50 items at a time ...
-    // first exposing the current track and those items
-    // following it, then those slighly before it,
-    // expanding the selection outwards,
-    //
-    // The "loop" is formed by having the OpenPlaylist ReadList
-    // call the expose_more() method, and if it returns true,
-    // generating another (pending) PlayList event, feeding
-    // some more id's to Bup.
+    public boolean removeTrack(int open_id)
     {
-        int num_exp = 0;
+        Track track = tracks_by_open_id.get(open_id);
+        if (track == null)
+        {
+            Utils.error("Could not remove(" + open_id + ") from playlist(" + name + ")");
+            return false;
+        }
+        int position = tracks_by_position.indexOf(track) + 1;
+
+        if (track_db != null)
+        {
+            String query1 = "DELETE FROM playlists WHERE position=" + position;
+            String query2 = "UPDATE tracks SET position=position-1 WHERE position>" + position;
+            try
+            {
+                playlist_db.rawQuery(query1,new String[]{});
+                playlist_db.rawQuery(query2,new String[]{});
+            }
+            catch (Exception e)
+            {
+                Utils.error("Could not remove track(" + track.getPosition() + ")=" + track.getTitle() + " from playlist(" + name + "): " + e.toString());
+                return false;
+            }
+        }
+
+        HTTPServer http_server = artisan.getHTTPServer();
+        OpenPlaylist open_playlist = http_server == null ? null :
+            (OpenPlaylist) http_server.getHandler("Playlist");
+        if (open_playlist != null)
+            open_playlist.exposeTrack(track,false);
+
+
+        num_tracks--;
+        tracks_by_open_id.remove(track);
+        tracks_by_position.remove(track);
+
+        int old_track_index = track_index;
+        if (track_index > num_tracks)
+            track_index = num_tracks;
+
+        dirty |= 2;
+        if (old_track_index != track_index)
+            dirty |= 1;
+
+        save(false);
+        return true;
+    }
+
+
+    //---------------------------------------------
+    // openHome idArray and ReadList
+    //---------------------------------------------
+
+    public int[] string_to_id_array(String id_string)
+        // gets a string of space delimited ascii integers!
+    {
+        Utils.log(0,0,"string_to_id_array(" + id_string + ")");
+        String parts[] = id_string.split("\\s");
+        int ids[] = new int[parts.length];
+        for (int i=0; i<parts.length; i++)
+            ids[i] = Utils.parseInt(parts[i]);
+        return ids;
+    }
+
+
+    public String getIdArrayString(PlaylistExposer exposer)
+        // return a base64 encoded array of integers
+        // May be called with a PlaylistExposer or not
+    {
+        int num = 0;
         byte data[] = new byte[num_tracks * 4];
-        Utils.log(dbg_open_pl,0,"getIdArrayString() num_tracks="+num_tracks +" num_exposed=" + num_exposed);
+        Utils.log(dbg_open_pl,0,"getIdArrayString() num_tracks="+num_tracks);
+
+        // show debugging for the exposer, if any
+
+        if (exposer != null)
+             Utils.log(dbg_open_pl,1,"exposer(" + exposer.getMask() + ") num_exposed=" + exposer.getNumExposed());
 
         for (int index=1; index<=num_tracks; index++)
         {
-            Track track = tracks_by_position.get(index-1);
-                // not exposed if null
+            // If there is an exposer, then a null record
+            // indicates it has not yet been exposed.
+            // For requests from non-exposer control points,
+            // we get the Track
+            //
+            // Since this could take a long time if a non-exposer
+            // tried to get all the tracks on a single go, it might
+            // be better to just read all the records into memory from
+            // a single cursor in Start() if there are any non-exposers
 
-            if (upnp_event_manager == null || track != null && track.getExposed())
+            Track track = (exposer == null) ?
+                getTrack(index) :
+                tracks_by_position.get(index - 1);
+
+            if (track != null &&
+                (exposer == null ||
+                 track.getExposed(exposer.getMask())))
             {
                 int id = track.getOpenId();
-                data[num_exp * 4 + 0] = (byte) ((id >> 24) & 0xFF);
-                data[num_exp * 4 + 1] = (byte) ((id >> 16) & 0xFF);
-                data[num_exp * 4 + 2] = (byte) ((id >> 8) & 0xFF);
-                data[num_exp * 4 + 3] = (byte) (id & 0xFF);
+                data[num * 4 + 0] = (byte) ((id >> 24) & 0xFF);
+                data[num * 4 + 1] = (byte) ((id >> 16) & 0xFF);
+                data[num * 4 + 2] = (byte) ((id >> 8) & 0xFF);
+                data[num * 4 + 3] = (byte) (id & 0xFF);
 
                 // Utils.log(dbg_play,2,"id(" + num_exp + ") id=" + id + " ==> " +
                 //     String.format("0x%02x 0x%02x 0x%02x 0x%02x",
@@ -490,22 +582,97 @@ public class LocalPlaylist extends Playlist
                 //         data[num_exp*4+2],
                 //         data[num_exp*4+3]));
 
-                num_exp++;
+                num++;
             }
         }
 
         // java.util.Arrays.copyOf(data,num_exp);
 
-        byte data2[] = new byte[num_exp * 4];
-        for (int i=0; i<num_exp*4; i++)
+        byte data2[] = new byte[num * 4];
+        for (int i=0; i<num*4; i++)
             data2[i] = data[i];
 
         String retval = Base64.encode(data2);
-        Utils.log(dbg_open_pl+1,1,"id_array num_exp=" + num_exp);
+        Utils.log(dbg_open_pl+1,1,"id_array Length=" + num);
         Utils.log(dbg_open_pl+1,1,"id_array='" + retval + "'");
         return retval;
     }
 
+
+
+
+    // ReadList experimental constants
+    // Took a long time to figure out that BubbleUP delivers (expects)
+    // the whole thing to be xml_encoded, with no outer <didl> tag,
+    // but an extra inner TrackList tag. And apparently BuP only works
+    // if it gets ALL of the ids it asked for ... you cannot trim
+    // the list here ...
+
+    private static final int READLIST_LIMIT = 0;
+        // only return this number of tracks
+        // set to zero to send all
+    private static final boolean READLIST_ENCODE = true;
+        // if true, the entire tracklist returned by ReadList action
+        // will be xml_encoded. This is what BubbleUp does.
+    private static final boolean READLIST_DIDL = false;
+        // if true, the whole tracklist will be wrapped in didl tags.
+        // BubbleUp does not do this, though they do encode the whole thing.
+    private static final boolean READLIST_INNER_TRACKLIST = true;
+        // if true an extra level of of <Tracklist> tags
+        // will be added to the Readlist tracklist reply.
+        // For some reason BuP does this, and it's xml_encoded.
+    private static final boolean READLIST_INNER_DIDL = true;
+        // if true, even if the whole message is diddled,
+        // an inner didl tag will be added to each metadata
+        // I guess this is true by default.
+
+
+    public String id_array_to_tracklist(int ids[])
+        // The response TrackList XML item has an
+        // inner DIDL TrackList ... these details
+        // determined empirically from BuP
+    {
+        boolean one_error = false;
+
+        String rslt = "\n";
+        if (READLIST_DIDL)
+            rslt +=  httpUtils.start_didl() + "\n";
+        if (READLIST_INNER_TRACKLIST)
+            rslt += "<TrackList>\n";
+
+        int use_len = READLIST_LIMIT > 0 ? READLIST_LIMIT : ids.length;
+
+        for (int i=0; i<use_len; i++)
+        {
+            int id = ids[i];
+            Track track = getByOpenId(id);
+            if (track == null)
+            {
+                if (!one_error)
+                    Utils.error("id_array_to_tracklist: index("+i+")  id("+id+") not found");
+                one_error = true;
+            }
+            else
+            {
+                String metadata = !READLIST_DIDL || READLIST_INNER_DIDL ?
+                    track.getDidl() :
+                    track.getMetadata();
+
+                rslt += "<Entry>\n" +
+                    "<Id>" + id + "</Id>\n" +
+                    "<Uri>" + track.getPublicUri() + "</Uri>\n" +
+                    "<Metadata>" + metadata + "</Metadata>\n" +
+                    "</Entry>\n";
+            }
+        }
+        if (READLIST_INNER_TRACKLIST)
+            rslt += "</TrackList>\n";
+        if (READLIST_DIDL)
+            rslt = httpUtils.end_didl() + "\n";
+        if (READLIST_ENCODE)
+            rslt = httpUtils.encode_xml(rslt);
+        return rslt;
+    }
 
 
 
@@ -516,7 +683,7 @@ public class LocalPlaylist extends Playlist
     //-------------------------------------------------------------
     //-------------------------------------------------------------
 
-    public void save(boolean release)
+    private void save(boolean release)
     // save any dirty playlists
     // does nothing for the default songlist.
     // called with release=true before de-activating in the Renderer,

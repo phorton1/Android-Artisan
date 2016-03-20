@@ -1,12 +1,15 @@
 package prh.artisan;
 
 
-public abstract class PlaylistSource
+public interface PlaylistSource
 {
-    public abstract void start();
-    public abstract void stop();
+    String getName();
 
-    public abstract String[] getPlaylistNames();
-    public abstract Playlist getPlaylist(String name);
+    boolean start();
+    void stop();
+
+    String[] getPlaylistNames();
+    Playlist getPlaylist(String name);
+        // by convention "" creates a new empty playlist
 
 }

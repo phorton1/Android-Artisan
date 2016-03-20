@@ -4,6 +4,8 @@
 
 package prh.server.http;
 
+import android.os.Handler;
+
 import org.w3c.dom.Document;
 
 import java.util.HashMap;
@@ -12,32 +14,65 @@ import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 
 import prh.artisan.EventHandler;
-import prh.artisan.LocalPlaylist;
+import prh.device.LocalPlaylist;
 import prh.artisan.Playlist;
 import prh.artisan.PlaylistSource;
-import prh.artisan.Renderer;
 import prh.artisan.Track;
+import prh.device.LocalPlaylistSource;
+import prh.device.LocalRenderer;
 import prh.server.HTTPServer;
-import prh.server.httpRequestHandler;
+import prh.server.utils.PlaylistExposer;
+import prh.server.utils.UpnpEventSubscriber;
+import prh.server.utils.UpdateCounter;
+import prh.server.utils.UpnpEventHandler;
+import prh.server.utils.httpRequestHandler;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
-public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandler
+public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
+    //    has different response method
 {
     private static int dbg_playlist = 0;
 
     private final static int MAX_TRACKS = 10000;
         // OpenPlaylists have a max
 
-    private static String DEBUG_ACTION = ""; //"ReadList";
+    private static final String DEBUG_ACTION = ""; //"ReadList";
         // set this string to an action name and the
         // response for the action will be display
         // at debug level 0
 
+    // member variables
+
     private Artisan artisan;
     private HTTPServer http_server;
     private String urn;
+
+    // BubbleUp incremental playlist exposure support.
+    // Each UpNP OpenHome subscriber is given a unique
+    // bit_mask from 1..2^32, as they subscribe, and the
+    // UpnpEventManager intelligently re-uses the availabe
+    // 32 bits (i.e. it tries 1, then 2, then 4, then 8,
+    // until it finds a number for which there is no bitmask.
+
+
+    public class exposerHash extends HashMap<Integer,PlaylistExposer> {}
+    public class exposersByIpUA extends HashMap<String,PlaylistExposer> {}
+
+    exposerHash exposers_by_mask = null;
+    exposersByIpUA exposers_by_ipua = null;
+
+    public exposerHash getExposers() { return exposers_by_mask; }
+        // a list of exposers that are created when UpNP remote
+        // control points subscribe to this server, by their
+        // bitmap.  he first
+        // one that
+    int next_exposer_bit_mask = 0;
+
+    private Handler delayed_event = null;
+    private SendEventDelayed delayed_sender = null;
+
 
     public OpenPlaylist(Artisan ma, HTTPServer http, String the_urn)
     {
@@ -49,14 +84,146 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
 
     public void start()
     {
+        next_exposer_bit_mask = 1;
+        exposers_by_mask = new exposerHash();
+        exposers_by_ipua = new exposersByIpUA();
         http_server.getEventManager().RegisterHandler(this);
+        delayed_event = new Handler();
     }
 
     public void stop()
     {
         http_server.getEventManager().UnRegisterHandler(this);
+        exposers_by_mask = null;
+        exposers_by_ipua = null;
+        if (delayed_sender != null)
+            delayed_event.removeCallbacks(delayed_sender);
     }
 
+    public void notifySubscribed(UpnpEventSubscriber subscriber,boolean subscribe)
+    {
+        String ip = subscriber.getIp();
+        String user_agent = subscriber.getUserAgent();
+        String ipua = ip + ":" + user_agent;
+        PlaylistExposer exposer = exposers_by_ipua.get(ipua);
+        LocalRenderer local_renderer = artisan.getLocalRenderer();
+            // NEVER NULL
+        LocalPlaylist local_playlist = getRendererLocalPlaylist(local_renderer);
+            // NEVER NULL
+
+        if (subscribe)
+        {
+            if (exposer != null)
+            {
+                Utils.log(dbg_playlist,0,"notifySubscribed() Already has an Exposer for " + ipua);
+            }
+            else
+            {
+                int num = 0;
+                int mask = 1;
+                while (num < 32 &&
+                    exposers_by_mask.get(mask) != null)
+                {
+                    num++;
+                    mask <<= 1;
+                }
+
+                if (num == 32)
+                {
+                    Utils.error("This server only supports 32 concurrent OpenPlaylist subscribers with EXPOSURE_SCHEME");
+                    return;
+                }
+                Utils.log(0,0,"notifySubscribed() Creating Exposer(" + mask + ") for " + ipua);
+                exposer = new PlaylistExposer(this,artisan,mask);
+                exposers_by_mask.put(mask,exposer);
+                exposers_by_ipua.put(ipua,exposer);
+            }
+
+            // This will be evented to the client with the
+            // initial event for subscribe ...
+
+            Track track = local_playlist.getCurrentTrack();
+            if (track != null)
+                exposer.exposeTrack(track,true);
+        }
+
+        // unsubscribe
+
+        else if (exposer == null)
+        {
+            Utils.warning(0,0,"notifySubscribed(false) could not find exposer for " + ip + ":" + user_agent);
+        }
+        else
+        {
+            exposer.clearExposedBits(local_playlist);
+            exposers_by_mask.remove(exposer.getMask());
+            exposers_by_ipua.remove(ipua);
+        }
+    }   // OpenPlaylist.notifySubscribed()
+
+
+    public void exposeTrack(Track track,boolean set_it)
+        // called from the playlist itself on start()
+        // expose the inital track to all exposers
+        // and send out the event
+        // The call is presumably accompanied by a artisan
+        // PLAYLIST_CHANGED event.
+    {
+        if (!exposers_by_ipua.isEmpty())
+            for (PlaylistExposer exposer : exposers_by_ipua.values())
+                exposer.exposeTrack(track,set_it);
+    }
+
+
+    public void exposeCurrentTrack(LocalPlaylist local_playlist)
+    // called from the playlist itself on start()
+    // expose the inital track to all exposers
+    // and send out the event
+    // The call is presumably accompanied by a artisan
+    // PLAYLIST_CHANGED event.
+    {
+        if (!exposers_by_ipua.isEmpty())
+        {
+            Track track = local_playlist.getCurrentTrack();
+            exposeTrack(track,true);
+        }
+    }
+
+
+    public void clearAllExposers(LocalPlaylist local_playlist)
+        // called from the playlist itself on stop()
+        // clear the exposers (and the tracks in the playlist)
+        // NOTE that this means you CANT START THE NEW ONE THEN
+        // STOP THE OLD ONE .. you have to stop the old one first.
+        // The call is presumably accompanied by a artisan
+        // PLAYLIST_CHANGED event.
+    {
+        for (PlaylistExposer exposer : exposers_by_ipua.values())
+        {
+            exposer.clearExposedBits(local_playlist);
+        }
+    }
+
+
+
+    private LocalPlaylist getRendererLocalPlaylist(LocalRenderer local_renderer)
+    {
+        if (local_renderer == null)
+            return null;
+
+        Playlist check_playlist = local_renderer.getPlaylist();
+        LocalPlaylist local_playlist = check_playlist instanceof LocalPlaylist ?
+            (LocalPlaylist) check_playlist : null;
+        if (local_playlist == null)
+            Utils.error("OpenPlaylist server currently only works with LocalPlaylists");
+        return local_playlist;
+    }
+
+    private LocalPlaylist createLocalPlaylist()
+    {
+        LocalPlaylistSource lps = artisan.getLocalPlaylistSource();
+        return (LocalPlaylist) lps.getPlaylist("");
+    }
 
 
     public NanoHTTPD.Response response(
@@ -65,13 +232,22 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
         String unused_uri,
         String service,
         String action,
-        Document doc)
+        Document doc,
+        UpnpEventSubscriber subscriber)
+            // OpenPlaylist is the only service that currently gets a subscriber
     {
         boolean ok = true;
         boolean changed = false;
-        HashMap<String,String> hash = new HashMap<String,String>();
-        Renderer renderer = artisan.getRenderer();
-        Playlist list = getRendererPlaylist();
+        HashMap<String,String> hash = new HashMap<>();
+        LocalRenderer local_renderer = artisan.getLocalRenderer();
+            // NEVER NULL
+        LocalPlaylist local_playlist = getRendererLocalPlaylist(local_renderer);
+            // NEVER NULL
+
+        String ipua =
+            session.getHeaders().get("remote-addr") + ":" +
+            session.getHeaders().get("user-agent");
+        PlaylistExposer exposer = exposers_by_ipua.get(ipua);
 
         // get basic info
 
@@ -85,15 +261,15 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
         }
         else if (action.equals("TransportState"))
         {
-            hash.put("Value",DLNAStateToOpenHomeState(renderer.getRendererState()));
+            hash.put("Value",DLNAStateToOpenHomeState(local_renderer.getRendererState()));
         }
         else if (action.equals("Repeat"))
         {
-            hash.put("Value",renderer.getRepeat() ? "1" : "0");
+            hash.put("Value",local_renderer.getRepeat() ? "1" : "0");
         }
         else if (action.equals("Shuffle"))
         {
-            hash.put("Value",renderer.getShuffle() ? "1" : "0");
+            hash.put("Value",local_renderer.getShuffle() ? "1" : "0");
         }
 
 
@@ -101,13 +277,13 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
 
         else if (action.equals("Id"))
         {
-            Track track = renderer.getTrack();
+            Track track = local_renderer.getTrack();
             hash.put("Value",track == null ? "0" : Integer.toString(track.getOpenId()));
         }
         else if (action.equals("IdArray"))
         {
             hash.put("Token",Integer.toString(getUpdateCount()));
-            hash.put("Array",list.getIdArrayString());
+            hash.put("Array",local_playlist.getIdArrayString(exposer));
         }
         else if (action.equals("IdArrayChanged"))
         {
@@ -120,7 +296,7 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
         {
             int open_id = httpUtils.getXMLInt(doc,"Id",true);
             Utils.log(0,0,"open_id=" + open_id);
-            Track track = list.getByOpenId(open_id);
+            Track track = local_playlist.getByOpenId(open_id);
             if (track == null)
                 return error_response(http_server,800,open_id);
             hash.put("Uri",track.getPublicUri());
@@ -128,19 +304,28 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
         }
         else if (action.equals("ReadList"))
         {
-            int id_array[] = list.string_to_id_array(httpUtils.getXMLString(doc,"IdList",true));
-            hash.put("TrackList",list.id_array_to_tracklist(id_array));
-            list.start_expose_more_thread();
+            int id_array[] = local_playlist.string_to_id_array(
+                httpUtils.getXMLString(doc,"IdList",true));
+            hash.put("TrackList",local_playlist.id_array_to_tracklist(
+                id_array));
+            if (exposer != null)
+                exposer.ThreadedExposeMore(local_playlist);
         }
 
 
         // playlist modifications
+        // We subvert a DeleteAll action from an OpenHome control point,
+        // that doesn't know about our PlaylistSources, into creating
+        // a new empty LocalPlaylist, so that selecting a song on the
+        // control point doesn't wipe out the list. Otherwise the atomic
+        // single-track Insert and Delete actions work on the currently
+        // selected LocalPlaylist ...
 
         else if (action.equals("DeleteAll"))
         {
-            Playlist playlist = new LocalPlaylist();
-            playlist.setUpnpEventManager(http_server.getEventManager());
-            renderer.setPlaylist(playlist);
+            local_playlist = createLocalPlaylist();
+                // empty playlists don't need exposers
+            local_renderer.setPlaylist(local_playlist);
             changed = true;
         }
         else if (action.equals("DeleteId"))
@@ -148,7 +333,7 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
             // 800 if not in list
             int open_id = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"open_id=" + open_id);
-            if (!list.removeTrack(open_id))
+            if (!local_playlist.removeTrack(open_id))
                 return error_response(http_server,800,open_id);
             changed = true;
         }
@@ -173,21 +358,24 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
                 String name = content_uri.replace(pattern,"");
                 name = name.replace(".mp3","");
                 Utils.log(0,0,"SELECTING PLAYLIST via Playlist Insert action");
-                PlaylistSource source = renderer.getPlaylistSource();
+
+                // Fuzzy with regards to handling EXPOSE_SCHEME
+
+                PlaylistSource source = artisan.getPlaylistSource();
                 Playlist playlist = source.getPlaylist(name);
-
-                playlist.setUpnpEventManager(http_server.getEventManager());
-
-                renderer.setPlaylist(playlist);
+                // playlist.setUpnpEventManager(http_server.getEventManager());
+                local_renderer.setPlaylist(playlist);
                 hash.put("NewId","0");
             }
             else    // real playlist insert
             {
-                int save_index = list.getCurrentIndex();
-                Track track = list.insertTrack(after_id,content_uri,content_data);
+                int save_index = local_playlist.getCurrentIndex();
+                Track track = local_playlist.insertTrack(after_id,content_uri,content_data);
                 if (track == null)
                     return error_response(http_server,800,after_id);
-                if (save_index != list.getCurrentIndex() ||
+
+                exposeTrack(track,true);
+                if (save_index != local_playlist.getCurrentIndex() ||
                     save_index == track.getPosition())
                 {
                     artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
@@ -205,14 +393,14 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
         {
             int value = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"value=" + value);
-            renderer.setRepeat(value > 0);
+            local_renderer.setRepeat(value > 0);
             changed = true;
         }
         else if (action.equals("SetShuffle"))
         {
             int value = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"value=" + value);
-            renderer.setShuffle(value > 0);
+            local_renderer.setShuffle(value > 0);
             changed = true;
         }
 
@@ -225,12 +413,12 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
             Utils.log(0,0,"open_id=" + open_id);
             if (open_id > 0)
             {
-                Track track = list.seekByOpenId(open_id);
-                Utils.log(0,0,"after list.seekByOpenId() track_index=" + list.getCurrentIndex());
+                Track track = local_playlist.seekByOpenId(open_id);
+                Utils.log(0,0,"after list.seekByOpenId() track_index=" + local_playlist.getCurrentIndex());
                 artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
                 if (track == null)
                     return error_response(http_server,800,open_id);
-                renderer.play();
+                local_renderer.play();
             }
         }
         else if (action.equals("SeekIndex"))
@@ -239,12 +427,12 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
             Utils.log(0,0,"index=" + index);
             if (index > 0)
             {
-                Track track = list.seekByIndex(index);
-                Utils.log(0,0,"after list.seekByIndex() track_index=" + list.getCurrentIndex());
+                Track track = local_playlist.seekByIndex(index);
+                Utils.log(0,0,"after list.seekByIndex() track_index=" + local_playlist.getCurrentIndex());
                 artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
                 if (track == null)
                     return error_response(http_server,800,index);
-                renderer.play();
+                local_renderer.play();
             }
         }
 
@@ -254,15 +442,15 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
         {
             int seconds = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"seconds=" + seconds);
-            renderer.seekTo(seconds * 1000);
+            local_renderer.seekTo(seconds * 1000);
         }
         else if (action.equals("SeekSecondRelative"))
         {
             int seconds = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"seconds=" + seconds);
-            int position = renderer.getPosition();
+            int position = local_renderer.getPosition();
             position += seconds * 1000;
-            renderer.seekTo(position);
+            local_renderer.seekTo(position);
         }
 
         // transport controls
@@ -270,27 +458,27 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
 
         else if (action.equals("Next"))
         {
-            renderer.incAndPlay(1);
+            local_renderer.incAndPlay(1);
             changed = true;
         }
         else if (action.equals("Previous"))
         {
-            renderer.incAndPlay(-1);
+            local_renderer.incAndPlay(-1);
             changed = true;
         }
         else if (action.equals("Pause"))
         {
-            renderer.pause();
+            local_renderer.pause();
             changed = true;
         }
         else if (action.equals("Play"))
         {
-            renderer.play();
+            local_renderer.play();
             changed = true;
         }
         else if (action.equals("Stop"))
         {
-            renderer.stop();
+            local_renderer.stop();
             changed = true;
         }
 
@@ -311,12 +499,37 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
             response = httpUtils.hash_response(http_server,urn,service,action,hash);
             httpUtils.dbg_hash_response = false;
         }
-        if (changed)
-            incUpdateCount();
+
+        if (changed) synchronized (delayed_event)
+        {
+            // Instead of incUpdateCount()  we use a delayed post to
+            // do the increment. If a change happens again before the timeout,
+            // the old one will be cleared and a new time out interval will
+            // proceed.
+
+            if (delayed_sender != null)
+                delayed_event.removeCallbacks(delayed_sender);
+            delayed_sender = new SendEventDelayed();
+            delayed_event.postDelayed(delayed_sender,1200);
+        }
 
         return response;
     }
 
+
+    private class SendEventDelayed implements Runnable
+    {
+        public void run()
+        {
+            synchronized (delayed_event)
+            {
+                Utils.log(0,0,"OpenPlaylist::SendEventDelayed()");
+                incUpdateCount();
+                delayed_event.removeCallbacks(delayed_sender);
+                delayed_sender = null;
+            }
+        }
+    }
 
 
     //---------------------------------------
@@ -335,25 +548,6 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
             "http-get:*:application/x-ms-wma:*," +
             "http-get:*:audio/wma:*," +
             "http-get:*:application/wma:*";
-    };
-
-
-    public Playlist getRendererPlaylist()
-    // set a point to the open home object
-    // into the playlist for open home management.
-    // It will be cleared upon playlist stop()
-    {
-        Renderer renderer = artisan.getRenderer();
-        Playlist playlist = renderer==null ? null : renderer.getPlaylist();
-        if (playlist == null)
-        {
-            Utils.error("unexpected Renderer without a playlist");
-        }
-        else
-        {
-            playlist.setUpnpEventManager(http_server.getEventManager());
-        }
-        return playlist;
     }
 
 
@@ -389,7 +583,8 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
     UpdateCounter update_counter = new UpdateCounter();
     public int getUpdateCount()  { return update_counter.get_update_count(); }
     public int incUpdateCount()  { return update_counter.inc_update_count(); }
-    public String getName() { return "Playlist"; };
+    public String getName() { return "Playlist"; }
+
 
     String DLNAStateToOpenHomeState(String dlna_state)
     {
@@ -401,21 +596,28 @@ public class OpenPlaylist  extends httpRequestHandler implements UpnpEventHandle
     }
 
 
-    public String getEventContent()
+    public String getEventContent(UpnpEventSubscriber subscriber)
     {
-        HashMap<String,String> hash = new HashMap<String,String>();
-        Renderer renderer = artisan.getRenderer();
-        Playlist list = getRendererPlaylist();
-        Track track = list.getCurrentTrack();
+        HashMap<String,String> hash = new HashMap<>();
+        LocalRenderer local_renderer = artisan.getLocalRenderer();
+        LocalPlaylist local_playlist = getRendererLocalPlaylist(local_renderer);
+        if (local_playlist == null)
+            return "";
+        Track track = local_playlist.getCurrentTrack();
 
-        // following are "evented" xm
+        // EXPOSE_SCHEME support
 
-        hash.put("TransportState",DLNAStateToOpenHomeState(renderer.getRendererState()));
+        String ipua = subscriber.getIp() + ":" + subscriber.getUserAgent();
+        PlaylistExposer exposer = exposers_by_ipua.get(ipua);
+
+        // build the event response
+
+        hash.put("TransportState",DLNAStateToOpenHomeState(local_renderer.getRendererState()));
         hash.put("ProtocolInfo",getProtocolInfo());
         hash.put("TracksMax",Integer.toString(MAX_TRACKS));
-        hash.put("Shuffle",renderer.getShuffle() ? "1" : "0");
-        hash.put("Repeat",renderer.getRepeat() ? "1" : "0");
-        hash.put("IdArray",list.getIdArrayString());
+        hash.put("Shuffle",local_renderer.getShuffle() ? "1" : "0");
+        hash.put("Repeat",local_renderer.getRepeat() ? "1" : "0");
+        hash.put("IdArray",local_playlist.getIdArrayString(exposer));
         hash.put("Id", track == null ? "0" : Integer.toString(track.getOpenId()));
 
         // state variables from XML that

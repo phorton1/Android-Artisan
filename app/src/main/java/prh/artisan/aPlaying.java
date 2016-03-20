@@ -27,7 +27,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 
-import prh.device.Device;
+import prh.device.LocalPlaylist;
 import prh.utils.Utils;
 
 
@@ -117,7 +117,7 @@ public class aPlaying extends Fragment implements
                 current_position = renderer.getPosition();
                 current_track = renderer.getTrack();
                 current_playlist = renderer.getPlaylist();
-                current_playlist_source = renderer.getPlaylistSource();
+                current_playlist_source = artisan.getPlaylistSource();
             }
 
             setPlayListNames();
@@ -627,7 +627,7 @@ public class aPlaying extends Fragment implements
             current_position = renderer.getPosition();
             current_track = renderer.getTrack();
 
-            current_playlist = new LocalPlaylist();
+            current_playlist = new LocalPlaylist(artisan);
 
             update_playlist((Playlist) data);
             update_track(current_track);
@@ -670,7 +670,7 @@ public class aPlaying extends Fragment implements
                 current_position = renderer.getPosition();
                 current_track = renderer.getTrack();
                 current_playlist = renderer.getPlaylist();
-                current_playlist_source = renderer.getPlaylistSource();
+                current_playlist_source = artisan.getPlaylistSource();
             }
 
             setPlayListNames();

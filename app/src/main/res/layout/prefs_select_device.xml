@@ -2,19 +2,18 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:id="@+id/pref_select_renderer">
+                android:id="@+id/pref_select_device_layout">
 
     <TextView
-        android:id="@+id/pref_select_renderer_label"
+        android:id="@+id/pref_select_device_type"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text = "Selected Renderer"
         android:layout_marginLeft="12dip"
         android:layout_alignParentLeft="true">
     </TextView>
 
     <TextView
-        android:id="@+id/pref_selected_renderer"
+        android:id="@+id/pref_select_device_name"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text = "None"
@@ -23,14 +22,13 @@
     </TextView>
 
     <LinearLayout
-        android:id="@+id/pref_renderer_list"
+        android:id="@+id/pref_select_device_list"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingBottom="12dip"
         android:paddingTop="6dip"
-
-        android:layout_below="@id/pref_select_renderer_label" >
+        android:layout_below="@id/pref_select_device_type" >
     </LinearLayout>
 
 </RelativeLayout>

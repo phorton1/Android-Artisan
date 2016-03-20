@@ -2,7 +2,7 @@
 // UpnpEventManager - manages SUBSCRIPTIONS and EVENTS
 //---------------------------------------------------------
 
-package prh.server.http;
+package prh.server.utils;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
@@ -12,12 +12,10 @@ import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 import prh.server.HTTPServer;
-import prh.server.httpRequestHandler;
 import prh.utils.Utils;
 
 public class UpnpEventManager
@@ -35,6 +33,10 @@ public class UpnpEventManager
 
     private HashMap<String,UpnpEventHandler> handlers = new HashMap<String,UpnpEventHandler>();
     private HashMap<String,UpnpEventSubscriber> clients = new HashMap<String,UpnpEventSubscriber>();
+
+    public class exposerHash extends HashMap<Integer,UpnpEventSubscriber> {}
+    private exposerHash exposer_subscribers = new exposerHash();
+    public exposerHash getExposerSubscribers() {return exposer_subscribers; }
 
 
     public UpnpEventManager(Artisan ma,HTTPServer http)
@@ -115,7 +117,7 @@ public class UpnpEventManager
 
                 UpnpEventHandler handler = getHandler(service);
                 if (handler == null)
-                    Utils.error("Unknown service '" + service + "' in SUBSCRIBE");
+                    Utils.warning(0,0,"Unknown service '" + service + "' in SUBSCRIBE");
                 else
                     subscriber = subscribe(handler,event_url,user_agent);
             }
@@ -171,7 +173,8 @@ public class UpnpEventManager
         String event_url,
         String user_agent )
     {
-        Utils.log(dbg_subscribe,0,"Subscribe(" + handler.getName() + ") " + Utils.ipFromUrl(event_url) + ":" + Utils.portFromUrl(event_url) + " " + user_agent);
+        String name = handler.getName();
+        Utils.log(dbg_subscribe,0,"Subscribe(" + name + ") " + Utils.ipFromUrl(event_url) + ":" + Utils.portFromUrl(event_url) + " " + user_agent);
         Utils.log(dbg_subscribe+2,1,"url=" + event_url);
 
         UpnpEventSubscriber subscriber = new UpnpEventSubscriber(
@@ -180,8 +183,8 @@ public class UpnpEventManager
             user_agent);
 
         Utils.log(dbg_subscribe + 2,1,"got sid=" + subscriber.getSid());
-
         clients.put(subscriber.getSid(),subscriber);
+        handler.notifySubscribed(subscriber,true);
         return subscriber;
     }
 
@@ -192,10 +195,11 @@ public class UpnpEventManager
         UpnpEventSubscriber subscriber = clients.get(sid);
         if (subscriber == null)
         {
-            Utils.error("No subscriber found for UNSUBSCRIBE(" + sid + ")");
+            Utils.warning(0,0,"No subscriber found for UNSUBSCRIBE(" + sid + ")");
         }
         else
         {
+            subscriber.getHandler().notifySubscribed(subscriber,false);
             remove(subscriber);
         }
         return subscriber;
@@ -259,7 +263,7 @@ public class UpnpEventManager
 
                 synchronized (handler)
                 {
-                    content = handler.getEventContent();
+                    content = handler.getEventContent(subscriber);
                 }
 
                 // SEND THE EVENT
@@ -402,6 +406,25 @@ public class UpnpEventManager
         }
 
     }   // class asyncNOTIFY
+
+
+    //---------------------------------------------------------
+    // support for EXPOSE_SCHEME
+    //---------------------------------------------------------
+
+    public UpnpEventSubscriber findOpenPlaylistSubscriber(String ip, String user_agent)
+    {
+        for (UpnpEventSubscriber subscriber : clients.values())
+        {
+            if (subscriber.getHandler().getName().equals("Playlist") &&
+                subscriber.getIp().equals(ip) &&
+                subscriber.getUserAgent().equals(user_agent))
+            {
+                return subscriber;
+            }
+        }
+        return null;
+    }
 
 
 

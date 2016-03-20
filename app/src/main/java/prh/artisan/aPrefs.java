@@ -1,6 +1,5 @@
 package prh.artisan;
 
-import android.app.ActionBar;
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -37,20 +36,10 @@ public class aPrefs extends Fragment implements
     private ListView my_view = null;
     private PrefListAdapter pref_list_adapter = null;
 
-    private TextView selected_renderer_name = null;
-    private LinearLayout select_renderer_list = null;
-    private boolean renderers_open = false;
-
-    private boolean default_renderers_open = false;
-    private RelativeLayout default_renderer_layout = null;
-    private Button set_default_renderer = null;
-
-
-
-    //private int button_id;
-    //private String last_renderer = "";
-
-    public String getName()  { return "Preferences"; }
+    public String getName()
+    {
+        return "Preferences";
+    }
 
 
     //----------------------------------------------
@@ -84,30 +73,25 @@ public class aPrefs extends Fragment implements
         // inflate my_view and set the PrefListAdapater
 
         my_view = (ListView) inflater.inflate(R.layout.activity_preferences, container, false);
-        pref_list_adapter = new PrefListAdapter(this);
+        pref_list_adapter = new PrefListAdapter();
         my_view.setAdapter(pref_list_adapter);
         return my_view;
     }
 
 
+    //-------------------------------------
+    // PrefListAdapter
+    //-------------------------------------
 
     public class PrefListAdapter extends BaseAdapter
         // Fill out the preferences
         // The "VIRTUAL_PREFS" include the Select Renderer Item
     {
-        private static final int NUM_VIRTUAL_PREFS = 1;
         HashMap<Integer, View> items = new HashMap<Integer,View>();
-        aPrefs aprefs;
-
-
-        public PrefListAdapter(aPrefs this_fragment)
-        {
-            aprefs = this_fragment;
-        }
 
         public int getCount()
         {
-            return NUM_VIRTUAL_PREFS + Prefs.id.values().length;
+            return Prefs.id.values().length;
         }
 
         public long getItemId(int position)
@@ -126,75 +110,67 @@ public class aPrefs extends Fragment implements
             if (item == null)
             {
                 LayoutInflater inflater = LayoutInflater.from(artisan);
+                Prefs.id id = Prefs.id.values()[position];
 
-                // create the SelectRendererItem
-                // which is filled out by populateRenderers()
+                // Select Device Preferences
 
-                if (position == 0)
+                if (id == Prefs.id.SELECTED_LIBRARY)
                 {
-                    item = inflater.inflate(R.layout.prefs_select_renderer,view_group,false);
-                    selected_renderer_name = (TextView) item.findViewById(R.id.pref_selected_renderer);
-                    select_renderer_list = (LinearLayout) item.findViewById(R.id.pref_renderer_list);
-                    item.setOnClickListener(aprefs);
-                    populateRenderers();
+                    item = inflater.inflate(R.layout.prefs_select_device,view_group,false);
+                    SelectDevicePref pref = new SelectDevicePref(artisan,item,
+                        "Library",Device.deviceGroup.DEVICE_GROUP_LIBRARY);
+                    item.setTag(pref);
+                }
+                else if (id == Prefs.id.SELECTED_RENDERER)
+                {
+                    item = inflater.inflate(R.layout.prefs_select_device,view_group,false);
+                    SelectDevicePref pref = new SelectDevicePref(artisan,item,
+                        "Renderer",Device.deviceGroup.DEVICE_GROUP_RENDERER);
+                    item.setTag(pref);
+                }
+                else if (id == Prefs.id.SELECTED_PLAYLIST_SOURCE)
+                {
+                    item = inflater.inflate(R.layout.prefs_select_device,view_group,false);
+                    SelectDevicePref pref = new SelectDevicePref(artisan,item,
+                        "PlaylistSource",Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE);
+                    item.setTag(pref);
                 }
 
-                // "Normal" prefs in Prefs.id enum
-                // The "Default Renderer" preference is an openable-relative layout
+                // Default Device Preferences
+
+                else if (id == Prefs.id.DEFAULT_LIBRARY)
+                {
+                    item = inflater.inflate(R.layout.prefs_default_device,view_group,false);
+                    DefaultDevicePref pref = new DefaultDevicePref(artisan,id,item,
+                        "Library",Device.deviceGroup.DEVICE_GROUP_LIBRARY);
+                    item.setTag(pref);
+                }
+                else if (id == Prefs.id.DEFAULT_RENDERER)
+                {
+                    item = inflater.inflate(R.layout.prefs_default_device,view_group,false);
+                    DefaultDevicePref pref = new DefaultDevicePref(artisan,id,item,
+                        "Renderer",Device.deviceGroup.DEVICE_GROUP_RENDERER);
+                    item.setTag(pref);
+                }
+                else if (id == Prefs.id.DEFAULT_PLAYLIST_SOURCE)
+                {
+                    item = inflater.inflate(R.layout.prefs_default_device,view_group,false);
+                    DefaultDevicePref pref = new DefaultDevicePref(artisan,id,item,
+                        "PlaylistSource",Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE);
+                    item.setTag(pref);
+                }
+
+                // Normal Pref List Items
 
                 else
                 {
-                    Prefs.id id = Prefs.id.values()[position-NUM_VIRTUAL_PREFS];
-                    if (id == Prefs.id.DEFAULT_RENDERER)
-                    {
-                        // create it and set pref value like normal
+                    item = inflater.inflate(R.layout.prefs_list_item,view_group,false);
+                    TextView label = (TextView) item.findViewById(R.id.pref_list_item_label);
+                    TextView value = (TextView) item.findViewById(R.id.pref_list_item_value);
+                    label.setText(id.name());
+                    value.setText(Prefs.getString(id));
 
-                        item = inflater.inflate(R.layout.prefs_default_renderer,view_group,false);
-                        item.setOnClickListener(aprefs);
-
-                        String use_cur = Prefs.getString(id);
-                        if (use_cur.isEmpty())
-                            use_cur = "None";
-                        TextView value = (TextView) item.findViewById(R.id.pref_default_renderer_value);
-                        value.setText(use_cur);
-
-                        // setup the dropdown RelativeLayout that lets one clear or set the default
-                        // set the name on the button to the current renderer, if any
-                        // set both click handlers and the initial showing state
-                        // and hide it to start with
-
-                        set_default_renderer = (Button) item.findViewById(R.id.set_default_renderer);
-                        default_renderer_layout = (RelativeLayout) item.findViewById(R.id.pref_default_renderer_layout);
-
-                        String use_name = "None";
-                        Renderer renderer = artisan.getRenderer();
-                        if (renderer != null)
-                            use_name = renderer.getName();
-                        set_default_renderer.setText(use_name);
-
-
-                        Button clear_renderer_button = (Button) item.findViewById(R.id.clear_default_renderer);
-                        Button last_selected_button = (Button) item.findViewById(R.id.set_default_renderer_last_selected);
-                        clear_renderer_button.setOnClickListener(aprefs);
-                        last_selected_button.setOnClickListener(aprefs);
-
-                        set_default_renderer.setOnClickListener(aprefs);
-                        setDefaultRendererLayoutShowing();
-
-                    }
-
-                    // Normal Pref List Items
-
-                    else
-                    {
-                        item = inflater.inflate(R.layout.prefs_list_item,view_group,false);
-                        TextView label = (TextView) item.findViewById(R.id.pref_list_item_label);
-                        TextView value = (TextView) item.findViewById(R.id.pref_list_item_value);
-                        label.setText(id.name());
-                        value.setText(Prefs.getString(id));
-
-                    }   // does not require special handling
-                }   // is a Prefs.id enum item
+                }   // does not require special handling
 
                 items.put(position,item);
 
@@ -207,103 +183,278 @@ public class aPrefs extends Fragment implements
     }   // class PrefListAdapter
 
 
-    private void setDefaultRendererLayoutShowing()
+
+    //------------------------------------------------
+    // onClick
+    //------------------------------------------------
+    // currently not used
+
+    @Override
+    public void onClick(View v)
     {
-        RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams)
-            default_renderer_layout.getLayoutParams();
-        if (default_renderers_open)
-            params.height = -2;
-        else
-            params.height = 0;
-        default_renderer_layout.setLayoutParams(params);
-        pref_list_adapter.notifyDataSetChanged();
+        int id = v.getId();
     }
 
 
-    //-----------------------------------------------------
-    // Populate Selected Renderer ListViewItem
-    //-----------------------------------------------------
-    // Which has a :inearLayout for the list of renderers
+    //-------------------------------------
+    // Select Device
+    //-------------------------------------
 
-    private void populateRenderers()
+    private class SelectDevicePref implements View.OnClickListener
     {
-        // show the currently selected renderer
+        private Artisan artisan;
+        private View item;
+        private String thing;
+        private Device.deviceGroup group;
+        private boolean list_open = false;
 
-        Renderer selected_renderer = artisan.getRenderer();
-        String selected_name = selected_renderer == null ? "" : selected_renderer.getName();
-        selected_renderer_name.setText(selected_name.isEmpty() ? "None" : selected_name);
-
-        // re-build the list of renderers if it's open.
-        // If it's closed, the list is empty
-
-        select_renderer_list.removeAllViews();
-        RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams)
-            select_renderer_list.getLayoutParams();
-
-        if (renderers_open)
+        public void toggleOpen()
         {
-            params.height = -2;
-            DeviceManager device_manager = artisan.getDeviceManager();
-            if (device_manager != null)
+            list_open = !list_open;
+            populateDevices();
+        }
+
+        public SelectDevicePref(Artisan ma, View it,String th,Device.deviceGroup dg)
+        {
+            artisan = ma;
+            item = it;
+            thing = th;
+            group = dg;
+
+            ((TextView) item.findViewById(R.id.pref_select_device_type))
+                .setText("Selected " + thing);
+
+            item.setOnClickListener(this);
+            populateDevices();
+        }
+
+
+        public void populateDevices()
+        {
+            Device current_device = artisan.getCurrentDevice(group);
+            String selected_name = current_device == null ? "None" :
+                current_device.getFriendlyName();
+
+            ((TextView) item.findViewById(R.id.pref_select_device_name))
+                .setText(selected_name);
+
+            LinearLayout device_list = (LinearLayout) item.findViewById(
+                R.id.pref_select_device_list);
+
+            // clear out the list, and fill it back in if it's open
+
+            device_list.removeAllViews();
+            RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams)
+                device_list.getLayoutParams();
+
+            if (list_open)
             {
-                Device renderers[] = device_manager.getDevices(Device.deviceGroup.DEVICE_GROUP_RENDERER);
-                for (Device renderer:renderers)
-                    addRenderer(renderer,selected_name);
+                params.height = -2;
+                DeviceManager device_manager = artisan.getDeviceManager();
+                if (device_manager != null)
+                {
+                    Device devices[] = device_manager.getDevices(group);
+                    for (Device device : devices)
+                        addDevice(device_list,device,selected_name);
+                }
             }
-            Device renderer = (Device) artisan.getLocalRenderer();
-            if (renderer != null)
-                addRenderer(renderer,selected_name);
+            else
+                params.height = 0;
+            device_list.setLayoutParams(params);
+            // pref_list_adapter.notifyDataSetChanged();
         }
-        else
-            params.height = 0;
-        select_renderer_list.setLayoutParams(params);
-
-    }
 
 
+        private void addDevice(LinearLayout device_list, Device device, String selected_name)
+            // exists outside of SelectDevicePref class because of the
+            // reference to "this" .... which can be seen out here
+            // but not in the inner classes ...
+        {
+            LayoutInflater inflater = LayoutInflater.from(artisan);
+            View list_item = inflater.inflate(R.layout.prefs_select_device_item,null,false);
+            list_item.setOnClickListener(this);
 
-    private void addRenderer(Device renderer, String selected_name)
-        // Add a renderer to the list of renderers
+            String name = device.getFriendlyName();
+            TextView list_name = (TextView) list_item.findViewById(R.id.pref_select_device_list_name);
+
+            // set the color to blue if it's the selected renderer
+            // and set the selected name if we just happened to find it
+
+            if (name.equals(selected_name))
+            {
+                ((TextView) item.findViewById(R.id.pref_select_device_name))
+                    .setText(selected_name);
+                list_name.setTextColor(Color.BLUE);
+            }
+            else
+                list_name.setTextColor(Color.WHITE);
+            list_name.setText(name);
+
+            // fire-off asynch task to get the icon
+
+            String icon = device.getIconUrl();
+            if (!icon.isEmpty())
+            {
+                ImageView image_view = (ImageView) list_item.findViewById(
+                    R.id.pref_select_device_list_icon);
+                IconLoader IconLoader = new IconLoader(image_view,icon);
+                Thread icon_thread = new Thread(IconLoader);
+                icon_thread.start();
+            }
+            device_list.addView(list_item);
+        }
+
+
+        public void onClick(View v)
+        {
+            int id = v.getId();
+            TextView selected_name = (TextView) item.findViewById(R.id.pref_default_device_name);
+
+            if (id == R.id.pref_select_device_layout)
+            {
+                list_open = !list_open;
+                populateDevices();
+            }
+
+            // SELECT DEVICE
+            // we will get called back by Artisan if it successfully
+            // changes the currently selected device, so a call here
+            // to populateDevices() should not be needed
+
+            else if (id == R.id.pref_select_device_item)
+            {
+                String name = ((Button) v).getText().toString();
+                if (artisan.setArtisanDevice(thing,name))
+                    artisan.getViewPager().setCurrentItem(1);
+            }
+        }
+
+    }   // class SelectDevicePref
+
+
+
+    //-------------------------------------
+    // Default Device
+    //-------------------------------------
+
+    private class DefaultDevicePref implements View.OnClickListener
     {
-        LayoutInflater inflater = LayoutInflater.from(artisan);
-        View item = inflater.inflate(R.layout.pref_renderer_item,null,false);
-        item.setOnClickListener(this);
-        TextView name = (TextView) item.findViewById(R.id.pref_list_renderer_name);
+        Artisan artisan;
+        aPrefs aprefs;
+        Prefs.id pref_id;
+        View item;
+        String thing;
+        Device.deviceGroup group;
+        boolean default_open = false;
 
-        // set the color to blue if it's the selected renderer
-
-        if (selected_name.equals(renderer.getFriendlyName()))
+        public DefaultDevicePref(Artisan ma,Prefs.id id, View it,String th,Device.deviceGroup dg)
         {
-            set_default_renderer.setText(renderer.getFriendlyName());
-            name.setTextColor(Color.BLUE);
+            artisan = ma;
+            pref_id = id;
+            item = it;
+            thing = th;
+            group = dg;
+
+            ((TextView) item.findViewById(R.id.pref_default_device_type))
+                .setText("Default " + thing);
+
+            populateDefault();
+
+            item.setOnClickListener(this);
+            ((Button) item.findViewById(R.id.pref_clear_default_device))
+                .setOnClickListener(this);
+            ((Button) item.findViewById(R.id.pref_set_default_last_selected))
+                .setOnClickListener(this);
         }
-        else
-            name.setTextColor(Color.WHITE);
-        name.setText(renderer.getFriendlyName());
 
-        // fire-off asynch task to get the icon
 
-        String icon = renderer.getIconUrl();
-        if (!icon.isEmpty())
+        public void populateDefault()
         {
-            IconLoader IconLoader = new IconLoader(item,icon);
-            Thread icon_thread = new Thread(IconLoader);
-            icon_thread.start();
+            // show the current preference
+
+            String use_cur = Prefs.getString(pref_id);
+            if (use_cur.isEmpty())
+                use_cur = "None";
+            ((TextView) item.findViewById(R.id.pref_default_device_name))
+                .setText(use_cur);
+
+            // set the label on the button to the current device
+            // from artisan, and if it's empty, we hide the button
+
+            Device current_device = artisan.getCurrentDevice(group);
+            String selected_name = current_device == null ? "" :
+                current_device.getFriendlyName();
+            Button button = (Button) item.findViewById(R.id.pref_set_default_device);
+            ViewGroup.LayoutParams button_params = button.getLayoutParams();
+            if (selected_name.isEmpty())
+            {
+                button_params.width = 0;
+            }
+            else
+            {
+                button_params.width = -2;
+                button.setText(selected_name);
+            }
+            button.setLayoutParams(button_params);
+
+            // hide or show the whole thing
+
+            RelativeLayout default_layout = (RelativeLayout)
+                item.findViewById(R.id.pref_default_device_layout);
+            RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams)
+                default_layout.getLayoutParams();
+            if (default_open)
+                params.height = -2;
+            else
+                params.height = 0;
+            default_layout.setLayoutParams(params);
+
+            // pref_list_adapter.notifyDataSetChanged();
         }
-        select_renderer_list.addView(item);
-    }
+
+
+        public void onClick(View v)
+        {
+            int id = v.getId();
+            TextView default_name = (TextView) item.findViewById(R.id.pref_default_device_name);
+
+            if (id == R.id.pref_default_device_item)
+            {
+                default_open = !default_open;
+                populateDefault();
+            }
+            else if (id == R.id.pref_set_default_last_selected)
+            {
+                Prefs.putString(pref_id,Prefs.LAST_SELECTED);
+                default_name.setText(Prefs.LAST_SELECTED);
+            }
+            else if (id == R.id.pref_clear_default_device)
+            {
+                Prefs.putString(pref_id,"");
+                default_name.setText("None");
+            }
+            else if (id == R.id.pref_set_default_device)
+            {
+                String name = ((Button) v).getText().toString();
+                Prefs.putString(pref_id,name);
+                default_name.setText(name);
+            }
+        }
+
+    }   // class DefaultDevicePref
+
 
 
     public class IconLoader extends Thread
         // The icon loader must run on a separate thread from the UI
         // but the View must be updated from the UI thread ...
     {
-        View item_view;
+        ImageView image_view;
         String icon_url;
 
-        IconLoader(View item, String icon)
+        IconLoader(ImageView item, String icon)
         {
-            item_view = item;
+            image_view = item;
             icon_url = icon;
         }
 
@@ -325,14 +476,13 @@ public class aPrefs extends Fragment implements
                 // call back to the UI thread
 
                 if (icon_bitmap != null)
-                    setItemIcon(item_view,icon_bitmap);
+                    setItemIcon(image_view,icon_bitmap);
             }
         }
     }
 
 
-
-    private void setItemIcon(final View item, final Bitmap icon_bitmap)
+    private void setItemIcon(final ImageView image_view, final Bitmap icon_bitmap)
         // runOnUiThread() to set bitmap into image view
     {
         artisan.runOnUiThread(new Runnable()
@@ -340,8 +490,7 @@ public class aPrefs extends Fragment implements
             @Override
             public void run()
             {
-                ImageView icon_image = (ImageView) item.findViewById(R.id.pref_list_renderer_icon);
-                icon_image.setImageDrawable(
+                image_view.setImageDrawable(
                     new BitmapDrawable(icon_bitmap));
             }
 
@@ -349,89 +498,6 @@ public class aPrefs extends Fragment implements
     }
 
 
-    //------------------------------------------------
-    // onClick
-    //------------------------------------------------
-
-    @Override
-    public void onClick(View v)
-    {
-        Renderer renderer = artisan.getRenderer();
-        if (renderer == null) return;
-        int id = v.getId();
-
-        //-------------------------------------------
-        // Default Renderer
-        //-------------------------------------------
-        // Open or close the layout that lets you pick the default renderer
-
-        if (id == R.id.pref_default_renderer_item)
-        {
-            default_renderers_open = !default_renderers_open;
-            setDefaultRendererLayoutShowing();
-        }
-
-        else if (id == R.id.set_default_renderer_last_selected)
-        {
-            Prefs.putString(Prefs.id.DEFAULT_RENDERER,Prefs.LAST_SELECTED);
-            TextView value = (TextView) my_view.findViewById(R.id.pref_default_renderer_value);
-            value.setText(Prefs.LAST_SELECTED);
-        }
-
-        else if (id == R.id.clear_default_renderer)
-        {
-            Prefs.putString(Prefs.id.DEFAULT_RENDERER,"");
-            TextView value = (TextView) my_view.findViewById(R.id.pref_default_renderer_value);
-            value.setText("None");
-        }
-
-        else if (id == R.id.set_default_renderer)
-        {
-            String name = set_default_renderer.getText().toString();
-            Prefs.putString(Prefs.id.DEFAULT_RENDERER,name);
-            TextView value = (TextView) my_view.findViewById(R.id.pref_default_renderer_value);
-            value.setText(name);
-        }
-
-
-        //-------------------------------------------
-        // Select Renderer
-        //-------------------------------------------
-        // Open or close the list of Renderers
-
-        else if (id == R.id.pref_select_renderer)
-        {
-            renderers_open = !renderers_open;
-
-            if (false)
-            {
-                // if opening the renderers,
-                // start an SSDP Search if not in progress already
-                if (renderers_open)
-                {
-                    DeviceManager device_manager = artisan.getDeviceManager();
-                    if (device_manager != null)
-                        device_manager.doDeviceSearch();
-                }
-            }
-
-            populateRenderers();
-            pref_list_adapter.notifyDataSetChanged();
-        }
-
-
-        // Select a Renderer
-
-        else if (id == R.id.pref_renderer_item)
-        {
-            TextView name_field = (TextView) v.findViewById(R.id.pref_list_renderer_name);
-            String name = name_field.getText().toString();
-            if (artisan.setRenderer(name))
-                artisan.getViewPager().setCurrentItem(1);
-            populateRenderers();
-        }
-
-    }
 
 
 
@@ -440,24 +506,54 @@ public class aPrefs extends Fragment implements
     //------------------------------------------------
 
     public void handleArtisanEvent( String event_id, Object data )
-        // We basically rebuild the whole list on any events
     {
-        if (event_id.equals(EVENT_RENDERER_CHANGED))
+        // no event handling till there's a view
+
+        if (my_view == null)
+            return;
+
+        // in all these cases, the data is a Device
+        // from which can get it's group, and thus it's preferences
+
+        if (event_id.equals(EVENT_NEW_DEVICE) ||
+            event_id.equals(EVENT_LIBRARY_CHANGED) ||
+            event_id.equals(EVENT_RENDERER_CHANGED) ||
+            event_id.equals(EVENT_PLAYLIST_SOURCE_CHANGED))
         {
-            String display = "";
-            Renderer renderer = (Renderer) data;
-            if (renderer != null)
-                display = renderer.getName();
-            //((TextView)my_view.findViewById(R.id.pref_renderer_selected)).setText(display);
-            // SetupSelectRenderer();
-        }
-        else if (event_id.equals(EVENT_NEW_DEVICE))
-        {
-            // pref_list_adapter.notifyDataSetChanged();
-            populateRenderers();
+            Device device = (Device) data;
+            Device.deviceGroup group = device.getDeviceGroup();
+
+            int select_position;
+            int default_position;
+
+            if (group.equals(Device.deviceGroup.DEVICE_GROUP_LIBRARY))
+            {
+                select_position = Prefs.id.SELECTED_LIBRARY.ordinal();
+                default_position = Prefs.id.DEFAULT_LIBRARY.ordinal();
+            }
+            else if (group.equals(Device.deviceGroup.DEVICE_GROUP_RENDERER))
+            {
+                select_position = Prefs.id.SELECTED_RENDERER.ordinal();
+                default_position = Prefs.id.DEFAULT_RENDERER.ordinal();
+            }
+            else // DEVICE_GROUP_PLAYLIST_SOURCE
+            {
+                select_position = Prefs.id.SELECTED_PLAYLIST_SOURCE.ordinal();
+                default_position = Prefs.id.DEFAULT_PLAYLIST_SOURCE.ordinal();
+            }
+
+            // We basically rebuild the whole list on any events
+
+            SelectDevicePref spref = (SelectDevicePref) pref_list_adapter
+                .getItem(select_position).getTag();
+            DefaultDevicePref dpref = (DefaultDevicePref) pref_list_adapter
+                .getItem(default_position).getTag();
+
+            spref.populateDevices();
+            dpref.populateDefault();
         }
 
-    }
+    }   // handleArtisanEvent()
 
 
 

@@ -1,22 +1,13 @@
 package prh.device;
 
-import android.media.AudioManager;
-import android.media.MediaPlayer;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
-import android.widget.Toast;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-import java.util.HashMap;
-
 import prh.artisan.Artisan;
 import prh.artisan.EventHandler;
-import prh.artisan.LocalPlaylist;
-import prh.artisan.LocalPlaylistSource;
-import prh.artisan.LocalVolume;
 import prh.artisan.Playlist;
 import prh.artisan.PlaylistSource;
 import prh.artisan.Renderer;
@@ -93,14 +84,11 @@ public class MediaRenderer extends Device implements Renderer
         // may be the current track we are playing OVER the playlist,
         // the current track we are playing FROM the playlist,
         // or some other track completely local to the renderer.
-
-    private Playlist current_playlist = new LocalPlaylist();
+    private Playlist current_playlist = null;
         // The playlist, if any, that we are playing.
 
-    // These items are currently "nearly constants"
-    // as there is no way to change them (yet)
+    // pseudo constants
 
-    private PlaylistSource current_playlist_source = null;
     private String play_mode = "";
     private String play_speed = "1";
 
@@ -134,6 +122,8 @@ public class MediaRenderer extends Device implements Renderer
     {
         Utils.log(dbg_mr,0,"MediaRenderer.startRenderer()");
 
+        current_playlist = artisan.createEmptyPlaylist();
+
         // Hit the DLNA Renderer to make sure it is online,
         // Return false if it is not.
 
@@ -146,7 +136,7 @@ public class MediaRenderer extends Device implements Renderer
             // implements the Volume Interface, so set it as the
             // Volume object
 
-            volume = (RenderingControl) getServices().get("RenderingControl");
+            volume = (RenderingControl) getServices().get(Service.serviceType.RenderingControl);
             if (volume != null)
             {
                 volume.start(); // should be boolean start()
@@ -157,13 +147,6 @@ public class MediaRenderer extends Device implements Renderer
                     Utils.warning(0,0,"Turning off volume control with no MAX_VOL");
                 }
             }
-
-            // This DLNA MediaRenderer uses the LocalPlaylistSource
-            // so we can jam Playlists down its throat
-
-            current_playlist_source = new LocalPlaylistSource();
-            current_playlist_source.start();
-            current_playlist = new LocalPlaylist();
 
             // start the update handler on a separate thread
             // not currently working (timer does not advance)
@@ -227,11 +210,8 @@ public class MediaRenderer extends Device implements Renderer
         Utils.log(dbg_mr,2,"Updater() stopped");
 
         // get rid of any references to
-        // extranal objects
+        // external objects
 
-        if (current_playlist_source != null)
-            current_playlist_source.stop();
-        current_playlist_source = null;
         current_playlist = null;
         current_track = null;
 
@@ -270,7 +250,6 @@ public class MediaRenderer extends Device implements Renderer
     public boolean getRepeat()                { return repeat; }
     public int getTotalTracksPlayed()         { return total_tracks_played; }
     public Playlist getPlaylist()             { return current_playlist; }
-    public PlaylistSource getPlaylistSource() { return current_playlist_source; }
     public String getRendererState()          { return renderer_state; }
     public int getPosition()                  { return song_position; }
     public void setRepeat(boolean value)      { repeat = value; }
@@ -298,14 +277,16 @@ public class MediaRenderer extends Device implements Renderer
 
     public void setTrack(Track track, boolean interrupt_playlist)
         // Start playing the given track in "immediate mode"
-        // possibly interrupting the current playlist, if any
+        // possibly interrupting the current playlist, if any,
+        // in which case we substitute a new empty playlist
+        // so as to stop things when the track finishes.
     {
         if (track != null)
         {
             Utils.log(dbg_mr,0,"setTrack(" + track.getTitle() + ") interrupt=" + interrupt_playlist);
             // stop();
             if (interrupt_playlist)
-                current_playlist = new LocalPlaylist();
+                current_playlist = artisan.createEmptyPlaylist();
             current_track = track;
             Utils.log(1,1,"setTrack() calling play()");
             play();
@@ -326,7 +307,7 @@ public class MediaRenderer extends Device implements Renderer
         stop();     // lower level?
 
         current_playlist = playlist != null ? playlist :
-            new LocalPlaylist();
+            artisan.createEmptyPlaylist();
         current_playlist.start();
         artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
 

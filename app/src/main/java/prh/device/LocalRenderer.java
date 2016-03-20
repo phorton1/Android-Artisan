@@ -1,4 +1,4 @@
-package prh.artisan;
+package prh.device;
 
 
 //--------------------------------------------
@@ -29,7 +29,14 @@ import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
 
-import prh.device.Device;
+import prh.artisan.Artisan;
+import prh.artisan.EventHandler;
+import prh.artisan.Playlist;
+import prh.artisan.PlaylistSource;
+import prh.artisan.Renderer;
+import prh.artisan.Track;
+import prh.artisan.Volume;
+import prh.artisan.VolumeControl;
 import prh.server.SSDPServer;
 import prh.utils.Utils;
 import prh.utils.httpUtils;
@@ -88,8 +95,7 @@ public class LocalRenderer extends Device implements
         // on transitions, and updated in updateState()
 
     private Track current_track = null;
-    private Playlist current_playlist = new LocalPlaylist();
-    private PlaylistSource current_playlist_source = null;
+    private Playlist current_playlist = null;
         // what's playing, or playable
 
     private boolean repeat = true;
@@ -125,8 +131,6 @@ public class LocalRenderer extends Device implements
         device_url = Utils.server_uri;
         icon_path = "/icons/artisan.png";
 
-        current_playlist_source = new LocalPlaylistSource();
-        current_playlist_source.start();
         Utils.log(dbg_ren+1,1,"new LocalRenderer()");
     }
 
@@ -144,23 +148,11 @@ public class LocalRenderer extends Device implements
         media_player.setOnCompletionListener(this);
         mp_state = MP_STATE_IDLE;
 
-        current_playlist = new LocalPlaylist();
+        current_playlist = artisan.createEmptyPlaylist();
 
-        // start on a separate thread
-        // not currently working (timer does not advance)
-
-        if (false)
-        {
-            UpdateThread updateThread = new UpdateThread();
-            Thread update_thread = new Thread(updateThread);
-            update_thread.start();
-        }
-        else    // old way
-        {
-            refresh_handler = new Handler();
-            updater = new updateState();
-            refresh_handler.postDelayed(updater,REFRESH_INTERVAL);
-        }
+        refresh_handler = new Handler();
+        updater = new updateState();
+        refresh_handler.postDelayed(updater,REFRESH_INTERVAL);
 
         setRendererState(RENDERER_STATE_STOPPED);
         Utils.log(dbg_ren,0,"LocalRenderer started");
@@ -206,20 +198,6 @@ public class LocalRenderer extends Device implements
         }
         in_refresh = false;
 
-        // the LocalRenderer PlaylistSource is used by the LocalLibrary
-        // select_playlist scheme, so it must remain set here.
-        //
-        // It's expensive enough to create that we don't want to create them
-        // locally in method calls, so it seems Artisan should have a global
-        // LocalPlaylistSource, and other libraries should have remote ones
-
-        if (false)
-        {
-            if (current_playlist_source != null)
-                current_playlist_source.stop();
-            current_playlist_source = null;
-        }
-
         // get rid of any references to external objects
 
         current_playlist = null;
@@ -261,12 +239,6 @@ public class LocalRenderer extends Device implements
     public void setRepeat(boolean value)      { repeat = value; }
     public void setShuffle(boolean value)     { shuffle = value; };
     public Playlist getPlaylist()             { return current_playlist; }
-    public PlaylistSource getPlaylistSource() { return current_playlist_source; }
-
-    // hmmm .. can set a remote playlist source into the local renderer?
-    // otherwise, this method probably used only in the far flung future
-    //
-    // public void setPlaylistSource(PlaylistSource source) { current_playlist_source = source; }
 
 
     public Track getTrack()
@@ -292,7 +264,7 @@ public class LocalRenderer extends Device implements
             Utils.log(dbg_ren,0,"setTrack(" + track.getTitle() + ") interrupt=" + interrupt_playlist);
             // stop();
             if (interrupt_playlist)
-                current_playlist = new LocalPlaylist();
+                current_playlist = artisan.createEmptyPlaylist();
             current_track = track;
             artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
             play();
@@ -312,7 +284,7 @@ public class LocalRenderer extends Device implements
         stop();
         current_track = null;
         current_playlist = playlist != null ? playlist :
-            new LocalPlaylist();
+            artisan.createEmptyPlaylist();
         current_playlist.start();
         artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
         Utils.log(1,1,"setPlaylist() calling incAndPlay(0)");

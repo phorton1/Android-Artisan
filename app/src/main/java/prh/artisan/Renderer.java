@@ -59,9 +59,6 @@ public interface Renderer
     public Playlist getPlaylist();
     public void setPlaylist(Playlist playlist);
 
-    public PlaylistSource getPlaylistSource();
-    // public void setPlaylistSource(PlaylistSource playlistsource);
-
 }   // base class Renderer
 
 

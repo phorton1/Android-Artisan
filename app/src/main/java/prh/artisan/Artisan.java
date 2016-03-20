@@ -115,10 +115,13 @@ import android.widget.Toast;
 
 import prh.device.Device;
 import prh.device.DeviceManager;
+import prh.device.LocalLibrary;
+import prh.device.LocalPlaylistSource;
+import prh.device.LocalRenderer;
 import prh.server.HTTPServer;
 import prh.server.LocalVolumeFixer;
 import prh.server.SSDPServer;
-import prh.server.http.UpnpEventManager;
+import prh.server.utils.UpnpEventManager;
 import prh.utils.Utils;
 
 
@@ -129,6 +132,8 @@ public class Artisan extends FragmentActivity implements
     private static int NUM_PAGER_ACTIVITIES = 5;
 
     // system working variables
+
+    private boolean artisan_created = false;
 
     private int current_page = -1;
     private boolean is_full_screen = false;
@@ -154,27 +159,30 @@ public class Artisan extends FragmentActivity implements
     // Lifetime Local Objects
 
     private Database database = null;
-    private Library local_library = null;
-    private Renderer local_renderer = null;
+    private LocalLibrary local_library = null;
+    private LocalRenderer local_renderer = null;
+    private LocalPlaylistSource local_playlist_source = null;
+
     public Database getDatabase() { return database; }
-    public Library getLocalLibrary() { return local_library; }
-    public Renderer getLocalRenderer() { return local_renderer; }
+    public LocalLibrary getLocalLibrary() { return local_library; }
+    public LocalRenderer getLocalRenderer() { return local_renderer; }
+    public LocalPlaylistSource getLocalPlaylistSource() { return local_playlist_source; }
 
     // The currently selected renderer and library
 
     private Library library = null;
     private Renderer renderer = null;
+    private PlaylistSource playlist_source = null;
     public Library getLibrary() { return library; }
     public Renderer getRenderer() { return renderer; }
+    public PlaylistSource getPlaylistSource() { return playlist_source; }
 
     // servers (no public access)
 
     private HTTPServer http_server = null;
     private LocalVolumeFixer volume_fixer = null;
-
-    // this is only public to allow START_SSDP_IN_HTTP
-
-    public SSDPServer ssdp_server = null;
+    private SSDPServer ssdp_server = null;
+    public HTTPServer getHTTPServer() { return http_server; }
 
     // and finally, the device manager and default renderer and library names
 
@@ -183,8 +191,20 @@ public class Artisan extends FragmentActivity implements
 
     private String default_renderer_name = "";
     private String default_library_name = "";
+    private String default_playlist_source_name = "";
         // if these are non-blank, we have to keep trying until the
         // SSDPSearch finishes to set the correct renderer ...
+
+    private String getDefaultDeviceName(String what, Prefs.id pref_id, Prefs.id selected_id)
+    {
+        String default_name = Prefs.getString(pref_id);
+        if (default_name.equals(Prefs.LAST_SELECTED))
+            default_name = Prefs.getString(selected_id);
+        if (!default_name.isEmpty())
+            Utils.log(0,0,"DEFAULT_" + what + "(" + default_name +")");
+        return default_name;
+    }
+
 
     //--------------------------------------------------------
     // onCreate()
@@ -200,11 +220,13 @@ public class Artisan extends FragmentActivity implements
 
         Utils.static_init(this);
         Prefs.static_init(this);
-        default_renderer_name = Prefs.getString(Prefs.id.DEFAULT_RENDERER);
-        if (default_renderer_name.equals(Prefs.LAST_SELECTED))
-            default_renderer_name = Prefs.getString(Prefs.id.SELECTED_RENDERER);
-        if (!default_renderer_name.isEmpty())
-            Utils.log(0,0,"DEFAULT_RENDERER(" + default_renderer_name +")");
+
+        default_renderer_name = getDefaultDeviceName(
+            "RENDERER",Prefs.id.DEFAULT_RENDERER,Prefs.id.SELECTED_RENDERER);
+        default_library_name = getDefaultDeviceName(
+            "LIBRARY",Prefs.id.DEFAULT_LIBRARY,Prefs.id.SELECTED_LIBRARY);
+        default_playlist_source_name = getDefaultDeviceName(
+            "PLAYLIST_SOURCE",Prefs.id.DEFAULT_PLAYLIST_SOURCE,Prefs.id.SELECTED_PLAYLIST_SOURCE);
 
         // 1 = low level initialization
 
@@ -267,10 +289,14 @@ public class Artisan extends FragmentActivity implements
 
         if (database != null &&
             Prefs.getBoolean(Prefs.id.START_LOCAL_LIBRARY))
+        {
             local_library = new LocalLibrary(this);
+            local_playlist_source = new LocalPlaylistSource(this);
+        }
 
         library = local_library;
         renderer = local_renderer;
+        playlist_source = local_playlist_source;
 
         // start car stereo in now playing, emulator in prefs
 
@@ -282,29 +308,39 @@ public class Artisan extends FragmentActivity implements
         view_pager.setCurrentItem(current_page);
         setCurrentPageTitle();
 
-        // send the initial messages
+        // start the default, local, initial devices
+        // the playlist source must be started before
+        // the renderer, cuz the renderer gets it
+        // in startRenderer()
 
         if (library != null)
         {
             Utils.log(0,0,"Local Library created ");
-            handleArtisanEvent(EventHandler.EVENT_LIBRARY_CHANGED,library);
+            library.start();
+            // handleArtisanEvent(EventHandler.EVENT_LIBRARY_CHANGED,library);
         }
         else
             Utils.warning(0,0,"Local Library not created");
+
+        if (playlist_source != null)
+        {
+            Utils.log(0,0,"Local PlaylistSource created ");
+            playlist_source.start();
+            // handleArtisanEvent(EventHandler.EVENT_PLAYLIST_SOURCE_CHANGED,playlist_source);
+        }
+        else
+            Utils.warning(0,0,"Local PlaylistSource not created");
+
 
         if (renderer != null)
         {
             Utils.log(0,0,"Local Renderer created ");
             renderer.startRenderer();
-
-            // this event is too early
-            // the aPlaying view has not been initallized yet
-            // When the aPlaying view contructs itself, it gets the current renderer
-            //
             // handleArtisanEvent(EventHandler.EVENT_RENDERER_CHANGED,renderer);
         }
         else
             Utils.warning(0,0,"Local Renderer not created");
+
 
 
         // 4 = start servers
@@ -341,7 +377,7 @@ public class Artisan extends FragmentActivity implements
                     http_server.start();
 
                     Utils.log(0,0,"starting ssdp_server ...");
-                    SSDPServer ssdp_server = new SSDPServer(this);
+                    SSDPServer ssdp_server = new SSDPServer(this,http_server);
                     Thread ssdp_thread = new Thread(ssdp_server);
                     ssdp_thread.start();
                     Utils.log(0,0,"ssdp_server started");
@@ -350,37 +386,86 @@ public class Artisan extends FragmentActivity implements
         }
 
 
-        // 5 = finally, construct the DeviceManager and do an SSDP Search
-        // we will be called back via handleArtisanEvent() for any Devices
-        // in the cache, or found in the SSDP Search.
+        // 5 =  construct the DeviceManager and add the
+        // local items to it, then see if we can find the
+        // default items (if they're not local)
 
         device_manager = new DeviceManager(this);
+        device_manager.addDevice(local_library);
+        device_manager.addDevice(local_renderer);
+        device_manager.addDevice(local_playlist_source);
 
-        // see if we can find the default renderer
-        // clear the name, even if it fails to start
-        // so we don't try again ...
+        // see if we can find the default devices and start them
+        // clear the names if found, even if it fails
+        // to start, so we don't try again ... it won't be
+        // the local device (cuz that's ""), so stop the local
+        // devices if they exist before setting the new ones
 
-        if (!default_renderer_name.isEmpty())
-        {
-            Device found = device_manager.getDevice(Device.deviceGroup.DEVICE_GROUP_RENDERER,default_renderer_name);
-            if (found != null)
-            {
-                Utils.log(0,0,"STARTING DEFAULT RENDERER " + default_renderer_name);
-                setRenderer(default_renderer_name);
-                default_renderer_name = "";
-            }
-            else
-            {
-                Utils.log(0,0,"Could not find DEFAULT RENDERER " + default_renderer_name + " in onCreate() ... continuing to look ...");
-            }
-        }
+        if (findAndStartDefaultDevice(Device.deviceGroup.DEVICE_GROUP_LIBRARY,default_library_name))
+            default_library_name = "";
+        if (findAndStartDefaultDevice(Device.deviceGroup.DEVICE_GROUP_RENDERER,default_renderer_name))
+            default_renderer_name = "";
+        if (findAndStartDefaultDevice(Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE,default_playlist_source_name))
+            default_playlist_source_name = "";
 
+        // Do the initial SSDP Search.  Artisan.handleArtisanEvent()
+        // EVENT_NEW_DEVICE will be called for any devices not in
+        // the initial cache.
 
         device_manager.doDeviceSearch();
-
         Utils.log(0,0,"------ Artisan.onCreate() finished ------");
+        artisan_created = true;
 
     }   // onCreate()
+
+
+
+    private boolean findAndStartDefaultDevice(Device.deviceGroup group, String name)
+    {
+        // if the name is empty, we're already done
+
+        if (name.isEmpty())
+            return false;
+
+        // see if the device exists
+
+        String thing = "";
+        if (group.equals(Device.deviceGroup.DEVICE_GROUP_LIBRARY))
+            thing = "Library";
+        if (group.equals(Device.deviceGroup.DEVICE_GROUP_RENDERER))
+            thing = "Renderer";
+        if (group.equals(Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE))
+            thing = "PlaylistSource";
+
+        Device device = device_manager.getDevice(group,default_renderer_name);
+
+        if (device != null)
+        {
+            Utils.log(0,0,"STARTING DEFAULT " + thing +"(" + name + ") artisan_created=" + artisan_created);
+            setArtisanDevice(thing,name);
+                // ignore false=could_not_start return
+            return true;
+        }
+
+        if (!artisan_created)
+            Utils.log(0,0,"Could not find DEFAULT " + thing + "(" + name + ") in onCreate() ... continuing to look ...");
+        return false;
+    }
+
+
+    public Device getCurrentDevice(Device.deviceGroup group)
+    {
+        Device device = null;
+        if (group.equals(Device.deviceGroup.DEVICE_GROUP_LIBRARY))
+            device = (Device) library;
+        if (group.equals(Device.deviceGroup.DEVICE_GROUP_RENDERER))
+            device = (Device) renderer;
+        if (group.equals(Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE))
+            device = (Device) playlist_source;
+        return device;
+    }
+
+
 
 
     @Override
@@ -425,22 +510,31 @@ public class Artisan extends FragmentActivity implements
         volume_fixer = null;
 
 
-        // 3 = stop the current library and renderer
-
-        if (renderer != null)
-            renderer.stopRenderer();
-        renderer = null;
+        // 3 = stop the current and local devices
 
         if (library != null)
             library.stop();
         library = null;
 
-        if (local_renderer != null)
-            local_renderer.stopRenderer();
-
         if (local_library != null)
             local_library.stop();
-        library = null;
+        local_library = null;
+
+        if (renderer != null)
+            renderer.stopRenderer();
+        renderer = null;
+
+        if (local_renderer != null)
+            local_renderer.stopRenderer();
+        local_renderer = null;
+
+        if (playlist_source != null)
+            playlist_source.stop();
+        playlist_source = null;
+
+        if (local_playlist_source != null)
+            local_playlist_source.stop();
+        local_playlist_source = null;
 
 
         // 2 = unwind view pager and fragments
@@ -625,84 +719,150 @@ public class Artisan extends FragmentActivity implements
     // Interactions
     //-------------------------------------------------------
 
-    public boolean setRenderer(String name)
+    public boolean setArtisanDevice(String thing, String name)
+        // Called with a "Library", "Renderer", or "PlaylistSource",
+        // and a name, sets the current Renderer, Library, or PlaylistSource,
+        // stopping the old one if any, and starting the new one.
     {
+        // Setup
+        // the name of local items is "" in prefs
+
+        Prefs.id prefs_id = null;
         String cur_name = "";
-        Utils.log(0,0,"--- setRenderer(" + name + ")");
+        String event_name = "";
+        String prefs_name = name;
+        Device.deviceGroup group = null;
+
+        if (thing.equals("Library") && library != null)
+        {
+            cur_name = library.getName();
+            prefs_id = Prefs.id.SELECTED_LIBRARY;
+            event_name = EventHandler.EVENT_LIBRARY_CHANGED;
+            group = Device.deviceGroup.DEVICE_GROUP_LIBRARY;
+            if (prefs_name.equals(Device.deviceType.LocalLibrary))
+                prefs_name = "";
+        }
+        else if (thing.equals("Renderer") && renderer != null)
+        {
+            cur_name = renderer.getName();
+            prefs_id = Prefs.id.SELECTED_RENDERER;
+            event_name = EventHandler.EVENT_RENDERER_CHANGED;
+            group = Device.deviceGroup.DEVICE_GROUP_RENDERER;
+            if (prefs_name.equals(Device.deviceType.LocalRenderer))
+                prefs_name = "";
+        }
+        else if (thing.equals("PlaylistSource") && playlist_source != null)
+        {
+            cur_name = playlist_source.getName();
+            prefs_id = Prefs.id.SELECTED_PLAYLIST_SOURCE;
+            event_name = EventHandler.EVENT_PLAYLIST_SOURCE_CHANGED;
+            group = Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE;
+            if (prefs_name.equals(Device.deviceType.LocalPlaylistSource))
+                prefs_name = "";
+        }
 
         // bail if its the same renderer
 
-        if (renderer != null)
-            cur_name = renderer.getName();
         if (cur_name.equals(name))
         {
-            Utils.log(0,0,"ignoring attempt to set to same renderer");
+            Utils.log(0,0,"setArtisanDevice(" + thing + "," + name + ") ignoring attempt to set to same " + thing);
             return true;
         }
+        Utils.log(0,0,"--- setArtisanDevice(" + thing + "," + name + ")");
 
-        // find the new renderer
+        // find the new Device
         // bail if it's not found
 
-        Renderer new_renderer = null;
-        if (name.equals(Device.deviceType.LocalRenderer))
-            new_renderer = local_renderer;
-        else
-            new_renderer = (Renderer) device_manager.getDevice(Device.deviceGroup.DEVICE_GROUP_RENDERER,name);
-
-        if (new_renderer == null)
+        Device device = device_manager.getDevice(group,name);
+        if (device == null)
         {
-            Utils.error("Attempt to set Renderer to non-existing Device(" + name + ")");
+            Utils.error("Attempt to set " + thing + " to non-existing Device(" + name + ")");
             return false;
         }
 
-        // try to start the new renderer
+        // try to start the new Device, stop the old one,
+        // and assign the new object if it works
         // bail if it fails.
 
-        if (!new_renderer.startRenderer())
+        boolean started = false;
+
+        if (thing.equals("Library") && ((Library) device).start())
         {
-            Utils.error("Could not start renderer: " + name);
+            if (library != null)
+                library.stop();
+            library = (Library) device;
+            started = true;
+        }
+        if (thing.equals("Renderer") && ((Renderer) device).startRenderer())
+        {
+            if (renderer != null)
+                renderer.stopRenderer();
+            renderer = (Renderer) device;
+            started = true;
+        }
+        if (thing.equals("PlaylistSource") && ((PlaylistSource) device).start())
+        {
+            if (renderer != null)
+                renderer.stopRenderer();
+            renderer = (Renderer) device;
+            started = true;
+        }
+
+        if (!started)
+        {
+            Utils.error("setArtisanDevice(" + name + ") " + thing + ".start() failed");
             return false;
         }
 
-        // if that worked, stop the old one
-        // save the selection to the prefs
-        // and send out the renderer changed event
+        // We started it, and if we are out of Artisan.onCreate(),
+        // we set the selected item into the preferences, and send out
+        // an artisan EVENT_XXX_CHANGED event
 
-        if (renderer != null)
-            renderer.stopRenderer();
-        renderer = new_renderer;
+        if (artisan_created)
+        {
+            Prefs.putString(prefs_id,prefs_name);
+            Utils.log(0,0,"--- set" + thing + "(" + name + ") finishing and dispatching " + event_name + "(" + name + ")");
+            handleArtisanEvent(event_name,device);
+        }
 
-        String use_name = name;
-        if (use_name.equals(Device.deviceType.LocalRenderer))
-            use_name = "";
-        Prefs.putString(Prefs.id.SELECTED_RENDERER,use_name);
-
-        Utils.log(0,0,"--- setRenderer(" + name + ") finishing and dispatching EVENT_RENDERER_CHANGED(" + renderer.getName() + ")");
-        handleArtisanEvent(EVENT_RENDERER_CHANGED,renderer);
         return true;
-
     }
 
+
+    //------------------------------------------------
+    // Playlist Source Support
+    //------------------------------------------------
 
     public void setPlayList(String name)
         // called from station button, we select the new
         // playlist and event it to any interested clients
+        // PRH - this should not be here
     {
         Utils.log(0,0,"setPlaylist(" + name + ")");
-        PlaylistSource playlist_source = renderer.getPlaylistSource();
-        if (playlist_source != null)
-        {
-            // tell the renderer the playlist changed
-            // it will event clients thru us
-            // or directly event clients if there's no renderer
 
-            Playlist playlist = playlist_source.getPlaylist(name);
-            if (renderer != null)
-                renderer.setPlaylist(playlist);
-            else
-                aPlaying.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
-        }
+        // get the playlist
+
+        Playlist playlist = playlist_source.getPlaylist(name);
+        if (playlist == null)
+            Utils.error("Could not get Playlist named '" + name + "'");
+
+        // tell the renderer, and it will send the event
+
+        else if (renderer != null)
+            renderer.setPlaylist(playlist);
+
+        // or send the event ourselves if no renderer
+
+        else
+            aPlaying.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
    }
+
+
+
+    public Playlist createEmptyPlaylist()
+    {
+        return playlist_source.getPlaylist("");
+    }
 
 
 
@@ -779,30 +939,50 @@ public class Artisan extends FragmentActivity implements
                     !event_id.equals(EVENT_IDLE))
                     Utils.log(0,0,"----> " + event_id);
 
-                // check NEW_DEVICES if still looking for a renderer
 
-                if (event_id.equals(EVENT_NEW_DEVICE) &&
-                    !default_renderer_name.isEmpty() )
+                // check NEW_DEVICES if still looking for a Default Devices
+
+                if (event_id.equals(EVENT_NEW_DEVICE))
                 {
                     Device device = (Device) data;
-                    if (device.getDeviceGroup() == Device.deviceGroup.DEVICE_GROUP_RENDERER &&
-                        default_renderer_name.equals(device.getFriendlyName()))
+                    if (device.getDeviceGroup() == Device.deviceGroup.DEVICE_GROUP_LIBRARY &&
+                        default_library_name.equals(device.getFriendlyName()) &&
+                        findAndStartDefaultDevice(device.getDeviceGroup(),default_library_name))
                     {
-                        Utils.log(0,0,"FOUND DEFAULT RENDERER " + default_renderer_name);
-                        setRenderer(default_renderer_name);
+                        default_library_name = "";
+                    }
+                    if (device.getDeviceGroup() == Device.deviceGroup.DEVICE_GROUP_RENDERER &&
+                        default_renderer_name.equals(device.getFriendlyName()) &&
+                        findAndStartDefaultDevice(device.getDeviceGroup(),default_renderer_name))
+                    {
                         default_renderer_name = "";
+                    }
+                    if (device.getDeviceGroup() == Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE &&
+                        default_playlist_source_name.equals(device.getFriendlyName()) &&
+                        findAndStartDefaultDevice(device.getDeviceGroup(),default_playlist_source_name))
+                    {
+                        default_playlist_source_name = "";
                     }
                 }
 
                 // give an error on SSDP_SEARCH_FINISHED if we have not
-                // found the default renderer ...
+                // found the default devices ...
 
-                if (event_id.equals(EVENT_SSDP_SEARCH_FINISHED) &&
-                    !default_renderer_name.isEmpty() )
+                if (event_id.equals(EVENT_SSDP_SEARCH_FINISHED) )
                 {
-                    Utils.error("SSDPSearch could not find DEFAULT RENDERER(" + default_renderer_name + ")");
+                    if (!default_library_name.isEmpty())
+                        Utils.error("SSDPSearch could not find DEFAULT LIBRARY(" + default_library_name + ")");
+                    if (!default_renderer_name.isEmpty())
+                        Utils.error("SSDPSearch could not find DEFAULT RENDERER(" + default_renderer_name + ")");
+                    if (!default_playlist_source_name.isEmpty())
+                        Utils.error("SSDPSearch could not find DEFAULT PLAYLIST_SOURCE(" + default_playlist_source_name + ")");
+
+                    default_library_name = "";
                     default_renderer_name = "";
+                    default_playlist_source_name = "";
                 }
+
+
 
                 // Send all events non-IDLE to all known event handlers
                 // prh = Could use this to get rid of other Timer Loops,
@@ -844,7 +1024,8 @@ public class Artisan extends FragmentActivity implements
                     UpnpEventManager event_manager = http_server.getEventManager();
 
                     if (event_id.equals(EVENT_STATE_CHANGED) ||
-                        event_id.equals(EVENT_PLAYLIST_CHANGED))
+                        event_id.equals(EVENT_PLAYLIST_CHANGED) ||
+                        event_id.equals(EVENT_PLAYLIST_TRACKS_EXPOSED))
                         event_manager.incUpdateCount("Playlist");
 
                     else if (event_id.equals(EVENT_TRACK_CHANGED))

@@ -13,7 +13,10 @@ import prh.artisan.Artisan;
 import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.server.HTTPServer;
-import prh.server.httpRequestHandler;
+import prh.server.utils.UpnpEventSubscriber;
+import prh.server.utils.httpRequestHandler;
+import prh.server.utils.UpdateCounter;
+import prh.server.utils.UpnpEventHandler;
 import prh.utils.httpUtils;
 
 
@@ -41,6 +44,9 @@ public class OpenInfo extends httpRequestHandler implements UpnpEventHandler
     }
 
 
+    public void notifySubscribed(UpnpEventSubscriber subscriber,boolean subscribe)
+    {}
+
 
     public NanoHTTPD.Response response(
         NanoHTTPD.IHTTPSession session,
@@ -48,7 +54,8 @@ public class OpenInfo extends httpRequestHandler implements UpnpEventHandler
         String unused_uri,
         String service,
         String action,
-        Document doc)
+        Document unused_doc,
+        UpnpEventSubscriber unused_subscriber)
     {
         HashMap<String,String> hash = new HashMap<String,String>();
         Renderer renderer = artisan.getRenderer();
@@ -100,7 +107,7 @@ public class OpenInfo extends httpRequestHandler implements UpnpEventHandler
     public int incUpdateCount()  { return update_counter.inc_update_count(); }
     public String getName() { return "Info"; };
 
-    public String getEventContent()
+    public String getEventContent(UpnpEventSubscriber unused_subscriber)
     {
         HashMap<String,String> hash = new HashMap<String,String>();
         Renderer renderer = artisan.getRenderer();

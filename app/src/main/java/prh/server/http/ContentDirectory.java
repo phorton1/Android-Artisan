@@ -20,7 +20,8 @@ import prh.artisan.Record;
 import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.server.HTTPServer;
-import prh.server.httpRequestHandler;
+import prh.server.utils.UpnpEventSubscriber;
+import prh.server.utils.httpRequestHandler;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
@@ -63,7 +64,8 @@ public class ContentDirectory extends httpRequestHandler
         String uri,
         String service,
         String action,
-        Document doc)
+        Document doc,
+        UpnpEventSubscriber unused_subscriber)
     {
         // this is currently the only server that both handles
         // actions AND uris.  Everybody else are just actions
@@ -88,8 +90,8 @@ public class ContentDirectory extends httpRequestHandler
             String name = uri.replace("select_playlist/","");
             name = name.replace(".mp3","");
 
-            Renderer renderer = artisan.getRenderer();
-            PlaylistSource playlist_source = renderer.getPlaylistSource();
+            PlaylistSource playlist_source = artisan.getPlaylistSource();
+                // NEVER NULL
             Playlist playlist = playlist_source.getPlaylist(name);
             if (playlist == null)
             {

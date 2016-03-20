@@ -2,7 +2,7 @@
 // UpnpEventHandler - API called by UpnpEventManager
 //-------------------------------------------------------
 
-package prh.server.http;
+package prh.server.utils;
 
 
 import prh.artisan.EventHandler;
@@ -18,6 +18,8 @@ abstract public interface UpnpEventHandler
     int getUpdateCount();
     int incUpdateCount();
 
-    String getEventContent();
+    String getEventContent(UpnpEventSubscriber subscriber);
+    void notifySubscribed(UpnpEventSubscriber subscriber,boolean subscribe);
+        // subscribe==false means unsubscribe
 
 }   // inteface UpnpEventHandler

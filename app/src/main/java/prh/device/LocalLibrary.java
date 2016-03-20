@@ -1,42 +1,56 @@
-package prh.artisan;
+package prh.device;
 
 
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
+import prh.artisan.Artisan;
+import prh.artisan.Database;
 import prh.artisan.Folder;
 import prh.artisan.Library;
+import prh.artisan.Playlist;
+import prh.artisan.PlaylistSource;
 import prh.artisan.Record;
+import prh.artisan.Renderer;
 import prh.artisan.Track;
+import prh.server.SSDPServer;
 import prh.utils.Utils;
+import prh.utils.httpUtils;
 
 
-public class LocalLibrary extends Library
+public class LocalLibrary extends Device implements Library
 {
     public static int dbg_lib = -1;
 
-    Artisan artisan;
     private SQLiteDatabase db = null;
     public static LocalLibrary local_library = null;
     public static LocalLibrary getLocalLibrary() { return local_library; }
+        // for Artisan-less access by Track and Folder
 
-
-    public LocalLibrary(Artisan ma)
-        // assumes the database is already started
+    public LocalLibrary(Artisan a)
     {
-        artisan = ma;
+        super(a);
+
         db = Database.getDB();
-        local_library = this;
+
+        device_type = deviceType.LocalLibrary;
+        device_group = deviceGroup.DEVICE_GROUP_LIBRARY;
+        device_uuid = SSDPServer.dlna_uuid[SSDPServer.IDX_DLNA_SERVER];
+        device_urn = httpUtils.upnp_urn;
+        friendlyName = deviceType.LocalLibrary.toString();
+        device_url = Utils.server_uri;
+        icon_path = "/icons/artisan.png";
+        Utils.log(dbg_lib+1,1,"new LocalLibrary()");
     }
 
-    public void start()
+
+    public boolean start()
     {
+        return db != null;
     }
 
 
@@ -44,6 +58,11 @@ public class LocalLibrary extends Library
     {
         db = null;
         local_library = null;
+    }
+
+    public String getName()
+    {
+        return getFriendlyName();
     }
 
 
@@ -57,9 +76,8 @@ public class LocalLibrary extends Library
             String name = id.replace("select_playlist_","");
             Utils.log(dbg_lib,0,"VIRTUAL get_track(" + id + ")");
 
-            Renderer local_renderer = artisan.getLocalRenderer();
-            PlaylistSource playlist_source = local_renderer == null ? null :
-                local_renderer.getPlaylistSource();
+            PlaylistSource playlist_source = artisan.getPlaylistSource();
+                // NEVER NULL
             Playlist playlist = playlist_source.getPlaylist(name);
             if (playlist == null)
             {
@@ -126,14 +144,8 @@ public class LocalLibrary extends Library
 
         else if (id.equals("select_playlist"))
         {
-            Renderer local_renderer = artisan.getLocalRenderer();
-            PlaylistSource playlist_source = local_renderer == null ? null :
-                local_renderer.getPlaylistSource();
-            if (playlist_source == null)
-            {
-                Utils.error("Could not get playlist_source");
-                return null;
-            }
+            PlaylistSource playlist_source = artisan.getPlaylistSource();
+                // Never Null
 
             HashMap<String, Object> hash = new HashMap<String, Object>();
             hash.put("id","select_playlist");
@@ -190,14 +202,8 @@ public class LocalLibrary extends Library
 
         if (id.equals("select_playlist"))
         {
-            Renderer local_renderer = artisan.getLocalRenderer();
-            PlaylistSource playlist_source = local_renderer == null ? null :
-                local_renderer.getPlaylistSource();
-            if (playlist_source == null)
-            {
-                Utils.error("Could not get playlist_source");
-                return retval;
-            }
+            PlaylistSource playlist_source = artisan.getPlaylistSource();
+                // NEVER NULL
 
             int position = start;
             location = start;
