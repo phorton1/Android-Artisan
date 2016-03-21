@@ -102,6 +102,7 @@ import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
 
+import android.view.KeyEvent;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
@@ -269,8 +270,7 @@ public class Artisan extends FragmentActivity implements
         view_pager.setAdapter(my_pager_adapter);
         view_pager.addOnPageChangeListener(page_change_listener);
 
-        // set the starging page
-        // startup page == Now Playing
+        // start the volume control and set full page
 
         volume_control = new VolumeControl(this);
         showFullScreen(true);
@@ -303,7 +303,7 @@ public class Artisan extends FragmentActivity implements
         if (Build.ID.equals(Utils.ID_CAR_STEREO))
             current_page = 1;
         else
-            current_page = 1;
+            current_page = 3;
 
         view_pager.setCurrentItem(current_page);
         setCurrentPageTitle();
@@ -917,6 +917,29 @@ public class Artisan extends FragmentActivity implements
     }
 
 
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event)
+    {
+        if (// Integer.parseInt(android.os.Build.VERSION.SDK) > 5 &&
+            keyCode == KeyEvent.KEYCODE_BACK &&
+            event.getRepeatCount() == 0)
+        {
+            Utils.log(0,0,"onKeyDown(KEYCODE_BACK) Called");
+            onBackPressed();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+
+    @Override
+    public void onBackPressed()
+    {
+        if (current_page == 3)
+            aLibrary.doBack();
+    }
+
+
 
     //---------------------------------------------------------------------
     // EVENT HANDLING
@@ -996,6 +1019,10 @@ public class Artisan extends FragmentActivity implements
                     if (aPlaying != null &&
                         aPlaying.getView() != null)
                         aPlaying.handleArtisanEvent(event_id,data);
+
+                    if (aLibrary != null &&
+                        aLibrary.getView() != null)
+                        aLibrary.handleArtisanEvent(event_id,data);
 
                     if (aPrefs != null && aPrefs.getView() != null)
                         aPrefs.handleArtisanEvent(event_id,data);

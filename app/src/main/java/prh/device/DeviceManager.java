@@ -92,7 +92,7 @@ public class DeviceManager
     private static int dbg_dm = 1;
     private static int dbg_cache = 0;
     private static String cache_file_name = "device_cache.txt";
-    public static boolean USE_DEVICE_CACHE = false;
+    public static boolean USE_DEVICE_CACHE = true;
 
     // DeviceHash type - hash of all Devices by uuid
 

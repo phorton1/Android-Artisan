@@ -23,6 +23,7 @@ import java.util.HashMap;
 
 import prh.device.Device;
 import prh.device.DeviceManager;
+import prh.utils.ImageLoader;
 import prh.utils.Utils;
 
 
@@ -292,14 +293,14 @@ public class aPrefs extends Fragment implements
 
             // fire-off asynch task to get the icon
 
-            String icon = device.getIconUrl();
-            if (!icon.isEmpty())
+            String icon_url = device.getIconUrl();
+            if (!icon_url.isEmpty())
             {
                 ImageView image_view = (ImageView) list_item.findViewById(
                     R.id.pref_select_device_list_icon);
-                IconLoader IconLoader = new IconLoader(image_view,icon);
-                Thread icon_thread = new Thread(IconLoader);
-                icon_thread.start();
+                ImageLoader image_loader = new ImageLoader(artisan,image_view,icon_url);
+                Thread image_thread = new Thread(image_loader);
+                image_thread.start();
             }
             device_list.addView(list_item);
         }
@@ -323,7 +324,9 @@ public class aPrefs extends Fragment implements
 
             else if (id == R.id.pref_select_device_item)
             {
-                String name = ((Button) v).getText().toString();
+                TextView text = (TextView) v.findViewById(
+                    R.id.pref_select_device_list_name);
+                String name = text.getText().toString();
                 if (artisan.setArtisanDevice(thing,name))
                     artisan.getViewPager().setCurrentItem(1);
             }
@@ -442,61 +445,6 @@ public class aPrefs extends Fragment implements
         }
 
     }   // class DefaultDevicePref
-
-
-
-    public class IconLoader extends Thread
-        // The icon loader must run on a separate thread from the UI
-        // but the View must be updated from the UI thread ...
-    {
-        ImageView image_view;
-        String icon_url;
-
-        IconLoader(ImageView item, String icon)
-        {
-            image_view = item;
-            icon_url = icon;
-        }
-
-        public void run()   // NOT the ui-thread
-        {
-            synchronized (artisan)
-            {
-                Bitmap icon_bitmap = null;
-                try
-                {
-                    InputStream in = new java.net.URL(icon_url).openStream();
-                    icon_bitmap = BitmapFactory.decodeStream(in);
-                }
-                catch (Exception e)
-                {
-                    Utils.warning(0,0,"Could not load image:" + e.getMessage());
-                }
-
-                // call back to the UI thread
-
-                if (icon_bitmap != null)
-                    setItemIcon(image_view,icon_bitmap);
-            }
-        }
-    }
-
-
-    private void setItemIcon(final ImageView image_view, final Bitmap icon_bitmap)
-        // runOnUiThread() to set bitmap into image view
-    {
-        artisan.runOnUiThread(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                image_view.setImageDrawable(
-                    new BitmapDrawable(icon_bitmap));
-            }
-
-        });
-    }
-
 
 
 

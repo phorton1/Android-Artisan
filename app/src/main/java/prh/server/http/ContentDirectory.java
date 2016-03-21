@@ -342,7 +342,7 @@ public class ContentDirectory extends httpRequestHandler
 
         if (flag.equals("BrowseMetadata"))
         {
-            // set object_id to parentid
+            // this should just get the object itself
 
             id = folder.getParentId();
             folder = local_library.getFolder(id);

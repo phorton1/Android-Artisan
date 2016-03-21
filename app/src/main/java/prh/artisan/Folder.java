@@ -28,7 +28,6 @@ public class Folder extends Record
         super(cursor);
     }
 
-
     /*********************************
         Don't like this ctor
         Since it cannot fail with null
@@ -68,7 +67,7 @@ public class Folder extends Record
     }
 
 
-    public Folder(Boolean dummy, String metadata)
+    public Folder(String uri, String metadata)
         // construct from didl METADATA from a dlna client
         // the dummy boolean is used to give this a different
         // signature than Folder(id)
@@ -161,6 +160,10 @@ public class Folder extends Record
     public String getMetadata()
     // returns the metadata chunk without <didl> wrapper
     {
+        String container = getType().equals("album") ?
+            "object.container.album.musicAlbum" :
+            "container";
+
         return "<container " +
             "id=\"" + getId() + "\" " +
             "parentID=\"" + getParentId() + "\" " +
@@ -168,7 +171,7 @@ public class Folder extends Record
             "restricted=\"1\" " +
             "childCount=\"" + getNumElements() + "\">" +
             "<dc:title>" +  httpUtils.encode_value(getTitle()) + "</dc:title>" +
-            "<upnp:class>object.container</upnp:class>" +
+            "<upnp:class>" + container + "</upnp:class>" +
             "<upnp:artist>" +  httpUtils.encode_value(getArtist()) + "</upnp:artist>" +
             "<upnp:albumArtist>" +  httpUtils.encode_value(getArtist()) + "</upnp:albumArtist>" +
             "<upnp:genre>" +  httpUtils.encode_value(getGenre()) + "</upnp:genre>" +
