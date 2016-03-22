@@ -15,7 +15,7 @@ public class aPlaylist extends Fragment implements ArtisanPage
     static int dbg_aplay = 0;
     private Artisan artisan = null;
 
-    public String getName()  { return "Playlist"; }
+    @Override public String getName()  { return "Playlist"; }
 
     //----------------------------------------------
     // life cycle

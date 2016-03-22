@@ -165,6 +165,7 @@ public class DeviceManager
 
     public boolean writeCache()
         // called at the end of SSDP Search
+        // local devices are not cached
     {
         boolean ok = true;
         String header = "";
@@ -178,9 +179,12 @@ public class DeviceManager
             for (String name : hash.keySet())
             {
                 Device device = hash.get(name);
-                num_devices++;
-                header += device.getDeviceGroup().toString() + "\t";
-                devices += device.toString();
+                if (!device.isLocal())
+                {
+                    num_devices++;
+                    header += device.getDeviceType().toString() + "\t";
+                    devices += device.toString();
+                }
             }
         }
 
@@ -355,7 +359,7 @@ public class DeviceManager
         String icon_path = ssdp_device.getIconPath();
 
         String dbg_msg = "(" + device_group + (device_type.equals(device_group)?"":"("+device_type+")") + " " + friendlyName + ") at " + device_url;
-        Utils.log(0,2,"CREATE_DEVICE" + dbg_msg);
+        Utils.log(0,0,"CREATE_DEVICE" + dbg_msg);
 
         // See if the device already exists.
         // Should not happen, but just in case ...

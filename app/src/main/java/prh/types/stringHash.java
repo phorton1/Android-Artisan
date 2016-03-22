@@ -1,4 +1,4 @@
-package prh.utils;
+package prh.types;
 
 import java.util.HashMap;
 

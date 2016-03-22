@@ -17,7 +17,9 @@ public class Database
 
     // Field Name Cache
 
-    private static HashMap<String,HashMap<String,Integer>> fields = new HashMap<String,HashMap<String,Integer>>();
+    private static class fieldNameHash extends HashMap<String,Integer> {}
+    private static class fieldNameCache extends HashMap<String,fieldNameHash> {}
+    private static fieldNameCache fields = new fieldNameCache();
 
     // The Main Database
 
@@ -72,13 +74,13 @@ public class Database
     // static initialization
     //-------------------------------------------------------------
 
-    public static HashMap<String,Integer> get_fields(String table, Cursor cursor)
+    public static fieldNameHash get_fields(String table, Cursor cursor)
     // initialize the list of fields in the database files if not already done
     {
-        HashMap<String,Integer> rslt = fields.get(table);
+        fieldNameHash rslt = fields.get(table);
         if (rslt == null)
         {
-            rslt = new HashMap<String,Integer>();
+            rslt = new fieldNameHash();
             for (int i = 0; i < cursor.getColumnCount(); i++)
             {
                 String field_name = cursor.getColumnName(i);
@@ -95,7 +97,7 @@ public class Database
         String rslt = "";
         if (cursor != null)
         {
-            HashMap<String,Integer> fields = get_fields(table,cursor);
+            fieldNameHash fields = get_fields(table,cursor);
             rslt = cursor.getString(fields.get(name));
         }
         return rslt;
@@ -106,7 +108,7 @@ public class Database
         int rslt = 0;
         if (cursor != null)
         {
-            HashMap<String,Integer> fields = get_fields(table,cursor);
+            fieldNameHash fields = get_fields(table,cursor);
             rslt = cursor.getInt(fields.get(name));
         }
         return rslt;

@@ -357,20 +357,26 @@ public class ContentDirectory extends httpRequestHandler
 
         if (count == 0) count = 10;
 
-        boolean is_album = folder.getType().equals("album");
-        String table = is_album ? "tracks" : "folders";
-        List<Record> subitems = local_library.getSubItems(table,id,start,count);
+        // assumed to be a non-metadata request for a folder,
+        // not metadata or subitems for a track
+
+        List<Record> subitems = local_library.getSubItems(id,start,count,false);
 
         int num_items = subitems.size();
-        Utils.log(dbg_dlna,1,"building http response for " + num_items + " " + table + "s");
+        Utils.log(dbg_dlna,1,"building http response for " + num_items + " items");
 
         String response_text = httpUtils.action_response_header(urn,"ContentDirectory","Browse");
         response_text += httpUtils.start_didl();
         for (Record rec: subitems)
         {
-            response_text += httpUtils.encode_xml(is_album ?
-                getTrackMetadata((Track) rec) :
-                ((Folder) rec).getMetadata());
+            String part;
+            if (rec instanceof Track)
+                part = getTrackMetadata((Track)rec);
+            else
+                part = ((Folder) rec).getMetadata();
+            if (httpUtils.ENCODE_DIDL)
+                part = httpUtils.encode_xml(part);
+            response_text += part;
         }
         response_text += httpUtils.end_didl();
         response_text += content_response_footer(
@@ -418,17 +424,13 @@ public class ContentDirectory extends httpRequestHandler
         {
             String name = id.replace("select_playlist_","");
             String text =
-                // httpUtils.encode_xml(
-                //httpUtils.start_didl() +
                     "<item id=\"" + id + "\" parentID=\"" + track.getParentId() + "\" restricted=\"1\">" +
                     "<dc:title>" + track.getTitle() + "</dc:title>" +
                     "<upnp:class>object.item.audioItem</upnp:class>" +
-                    // "<upnp:class>object.item.text.photo</upnp:class>" +
                     "<res protocolInfo=\"http-get:*:audio/mpeg:*:\">" +
                     Utils.server_uri + "/dlna_server/select_playlist/" + name + ".mp3" +
                     "</res>" +
                     "</item>";
-                    // +  httpUtils.end_didl());
             Utils.log(dbg_dlna + 1,0,"VIRTUAL xml_item(" + name + ")\n" + text);
             return text;
         }

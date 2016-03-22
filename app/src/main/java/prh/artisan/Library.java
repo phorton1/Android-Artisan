@@ -3,6 +3,8 @@ package prh.artisan;
 
 import java.util.List;
 
+import prh.types.libraryBrowseResult;
+
 public interface Library
     // This is the base class for MediaServers Providers.
     //
@@ -24,6 +26,16 @@ public interface Library
     Track getTrack(String id);
     Folder getFolder(String id);
 
-    List<Record> getSubItems(String table,String id,int start,int count);
+
+    libraryBrowseResult getSubItems(String id,int start,int count, boolean meta_data);
+        // the id is presumed to be the id of a folder
+        // and generally meta_data is false.
+        //
+        // meta_data == true means get the metadata for the single folder by id
+        //      dunno if this is a list of all siblings or not, with total_matches
+        //      for now it should be total_matches=1, num_returned=1
+        //
+        // may need to support rare case of meta_data and id actually being a trackId
+        //      by a second "get" in the implementation
 
 }

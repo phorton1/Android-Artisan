@@ -55,32 +55,31 @@ import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
+import prh.types.intViewHash;
+import prh.types.viewList;
 import prh.utils.Utils;
 
 
 public class aLibrary extends Fragment implements
     ArtisanPage,
     EventHandler,
-    View.OnClickListener
+    AdapterView.OnItemClickListener
 {
     private static int dbg_alib = 0;
 
-    public String getName()  { return "Library"; }
-    public class viewStack extends ArrayList<View> {}
-
+    @Override public String getName()  { return "Library"; }
 
     private Artisan artisan = null;
     private Library library = null;
     private LinearLayout my_view = null;
-    private viewStack view_stack = null;
+    private viewList view_stack = null;
 
     public Artisan getArtisan()  { return artisan; }
     public Library getLibrary()  { return library; }
@@ -99,7 +98,7 @@ public class aLibrary extends Fragment implements
         Utils.log(dbg_alib,0,"aLibrary.onCreateView() called");
         my_view = (LinearLayout) inflater.inflate(R.layout.activity_library, container, false);
 
-        view_stack = new viewStack();
+        view_stack = new viewList();
         library = artisan.getLibrary();
         if (library != null)
             pushViewStack("0");
@@ -162,39 +161,59 @@ public class aLibrary extends Fragment implements
 
         LayoutInflater inflater = LayoutInflater.from(artisan);
         ListView list_view = (ListView) inflater.inflate(R.layout.library_list,null,false);
-        list_view.setAdapter(new libraryListAdapter(this,folder));
+        list_view.setAdapter(new libraryListAdapter(this,list_view,folder));
 
-        view_stack.add(list_view);
+
+        // add the album header
+        // which at least relieves the complexity of keeping track of it in the
+        // adapter, but I am disappointed that it scrolls with the list.
+
+        View main_view = list_view;
+        if (is_album)
+        {
+            main_view = inflater.inflate(R.layout.library_album,null,false);
+
+            ListItem header_view = (ListItem) inflater.inflate(R.layout.list_item_layout,null,false);
+            header_view.setFolder(folder);
+            header_view.setLargeView();
+            header_view.doLayout();
+
+            ((LinearLayout)main_view).addView(header_view);
+            ((LinearLayout)main_view).addView(list_view);
+        }
+
         my_view.removeAllViews();
-        my_view.addView(list_view);
+        my_view.addView(main_view);
+        view_stack.add(main_view);
     }
 
 
     private class libraryListAdapter extends BaseAdapter
+        // only called for folders .. there are no
+        // subitems of tracks
     {
         private Folder folder;
         private boolean is_album;
         private aLibrary a_library;
-        List<Record> sub_items;
-        HashMap<Integer, View> items = new HashMap<Integer,View>();
+        private ListView the_list_view;
+        private List<Record> sub_items;
+        private intViewHash items = new intViewHash();
             // I shouldn't need to cache these
 
 
-        public libraryListAdapter(aLibrary the_a_library, Folder the_folder)
+        public libraryListAdapter(aLibrary the_a_library, ListView parent, Folder the_folder)
         {
             a_library = the_a_library;
             folder = the_folder;
+            sub_items = a_library.getLibrary().getSubItems(folder.getId(),0,999999,false);
             is_album = folder.getType().equals("album");
-            String table = is_album ? "tracks" : "folders";
-            sub_items = a_library.getLibrary().getSubItems(table,folder.getId(),0,999999);
+            the_list_view = parent;
         }
 
 
         public int getCount()
         {
-
-            return sub_items == null ? 0 :
-                sub_items.size() + (is_album ? 1 : 0);
+            return sub_items == null ? 0 : sub_items.size();
         }
 
         public long getItemId(int position)
@@ -204,7 +223,7 @@ public class aLibrary extends Fragment implements
 
         public View getItem(int position)
         {
-            return items.get(position);
+            return getView(position,null,null);     // items.get(position);
         }
 
         public View getView(int position, View parent, ViewGroup view_group)
@@ -212,37 +231,17 @@ public class aLibrary extends Fragment implements
             View item = items.get(position);
             if (item == null)
             {
+                Record rec = sub_items.get(position);
                 LayoutInflater inflater = LayoutInflater.from(artisan);
-                int item_offset = is_album ? 1 : 0;
-                if (is_album && position == 0)
-                {
-                    listItemFolder ifolder = (listItemFolder) inflater.inflate(R.layout.list_item_folder,view_group,false);
-                    ifolder.setFolder(folder);
-                    ifolder.doLayout();
-                    item = ifolder;
-                }
+                ListItem list_item = (ListItem) inflater.inflate(R.layout.list_item_layout,view_group,false);
+                if (rec instanceof Track)
+                    list_item.setTrack((Track) rec);
                 else
-                {
-                    int list_idx = position - item_offset;
-                    Record rec = sub_items.get(list_idx);
-                    if (is_album)   // sub_items are tracks
-                    {
-                        listItemTrack strack = (listItemTrack) inflater.inflate(R.layout.list_item_track,view_group,false);
-                        strack.setTrack((Track) rec);
-                        strack.setAlbumArtist(folder);
-                        strack.doLayout();
-                        item = strack;
-                    }
-                    else    // sub-items are folders
-                    {
-                        listItemFolder sfolder = (listItemFolder) inflater.inflate(R.layout.list_item_folder,view_group,false);
-                        sfolder.setFolder((Folder) rec);
-                        sfolder.doLayout();
-                        item = sfolder;
-                        item.setOnClickListener(a_library);
-                    }
-                }
-                // items.put(position,item);
+                    list_item.setFolder((Folder) rec);
+                list_item.doLayout();
+                item = list_item;
+                the_list_view.setOnItemClickListener(a_library);
+                items.put(position,item);
             }
             return item;
         }
@@ -255,15 +254,15 @@ public class aLibrary extends Fragment implements
     // onClick()
     //--------------------------------------------------------------
 
-    public void onClick(View v)
+    @Override public void onItemClick(AdapterView av, View v, int position, long long_id)
     {
         int id = v.getId();
         switch (id)
         {
-            case R.id.list_item_folder:
-                Folder folder = ((listItemFolder)v).getFolder();
-                String next_id = folder.getId();
-                pushViewStack(next_id);
+            case R.id.list_item_layout:
+                Folder folder = ((ListItem)v).getFolder();
+                if (folder != null)
+                    pushViewStack(folder.getId());
                 break;
 
         }   // switch
@@ -276,7 +275,7 @@ public class aLibrary extends Fragment implements
     // EVENT_LIBRARY_CHANGED
 
 
-    public void handleArtisanEvent(final String event_id,final Object data)
+    @Override public void handleArtisanEvent(final String event_id,final Object data)
     {
         if (event_id.equals(EVENT_LIBRARY_CHANGED))
         {
@@ -286,7 +285,7 @@ public class aLibrary extends Fragment implements
             {
                 library = new_library;
                 my_view.removeAllViews();
-                view_stack = new viewStack();
+                view_stack = new viewList();
                 if (library != null)
                     pushViewStack("0");
             }

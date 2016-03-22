@@ -15,7 +15,7 @@ public class aExplorer extends Fragment implements ArtisanPage
     private static int dbg_exp = 0;
     private Artisan artisan = null;
 
-    public String getName()  { return "Explorer"; }
+    @Override public String getName()  { return "Explorer"; }
 
 
     //----------------------------------------------

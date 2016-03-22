@@ -3,8 +3,14 @@ package prh.artisan;
 //-------------------------------------------------------
 // listItemTrack
 //-------------------------------------------------------
-// The object comes in two different varieties.
-// The default is a single short line of text where the album is implied.
+// The object comes in two different varieties, small and large.
+//
+// Small ones are used in the Library album view, and in the
+// playlist when Albums are showing.
+//
+// Large ones are only used in the Playlist, when Albums aren't showing.
+//
+// The default is a single short line of text:
 //
 //     [artisan_icon] track_num track_title     [artist]    track_time context_menu
 //

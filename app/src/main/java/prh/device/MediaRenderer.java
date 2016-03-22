@@ -16,7 +16,7 @@ import prh.artisan.Volume;
 import prh.artisan.VolumeControl;
 import prh.device.service.RenderingControl;
 import prh.utils.Utils;
-import prh.utils.stringHash;
+import prh.types.stringHash;
 
 
 
@@ -41,7 +41,7 @@ public class MediaRenderer extends Device implements Renderer
     public MediaRenderer(Artisan artisan, SSDPSearch.SSDPDevice ssdp_device)
     {
         super(artisan,ssdp_device);
-        Utils.log(0,0,"new MediaRenderer(" + ssdp_device.getFriendlyName() + "," + ssdp_device.getDeviceType() + "," + ssdp_device.getDeviceUrl());
+        Utils.log(0,1,"new MediaRenderer(" + ssdp_device.getFriendlyName() + "," + ssdp_device.getDeviceType() + "," + ssdp_device.getDeviceUrl());
     }
 
 

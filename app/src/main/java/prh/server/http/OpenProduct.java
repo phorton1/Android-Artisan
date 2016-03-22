@@ -38,22 +38,22 @@ public class OpenProduct extends httpRequestHandler implements UpnpEventHandler
     }
 
 
-    public void start()
+    @Override public void start()
     {
         http_server.getEventManager().RegisterHandler(this);
     }
 
-    public void stop()
+    @Override public void stop()
     {
         http_server.getEventManager().UnRegisterHandler(this);
     }
 
-    public void notifySubscribed(UpnpEventSubscriber subscriber,boolean subscribe)
+    @Override public void notifySubscribed(UpnpEventSubscriber subscriber,boolean subscribe)
     {}
 
 
 
-    public NanoHTTPD.Response response(
+    @Override public NanoHTTPD.Response response(
         NanoHTTPD.IHTTPSession session,
         NanoHTTPD.Response response,
         String unused_uri,
@@ -147,14 +147,14 @@ public class OpenProduct extends httpRequestHandler implements UpnpEventHandler
 
     String sourceXML()
     {
-        return httpUtils.encode_xml(
+        return // httpUtils.encode_xml(
             "<SourceList>\n" +
                 "<Source>\n" +
                 "<Name>Playlist</Name>\n" +
                 "<Type>Playlist</Type>\n" +
                 "<Visible>true</Visible>\n" +
                 "</Source>\n" +
-                "</SourceList>\n");
+                "</SourceList>\n"; // );
     }
 
     //----------------------------------------
@@ -162,12 +162,12 @@ public class OpenProduct extends httpRequestHandler implements UpnpEventHandler
     //----------------------------------------
 
     UpdateCounter update_counter = new UpdateCounter();
-    public int getUpdateCount()  { return update_counter.get_update_count(); }
-    public int incUpdateCount()  { return update_counter.inc_update_count(); }
-    public String getName() { return "Product"; };
+    @Override public int getUpdateCount()  { return update_counter.get_update_count(); }
+    @Override public int incUpdateCount()  { return update_counter.inc_update_count(); }
+    @Override public String getName() { return "Product"; };
 
 
-    public String getEventContent(UpnpEventSubscriber unused_subscriber)
+    @Override public String getEventContent(UpnpEventSubscriber unused_subscriber)
         // Return the XML state table for the UPnP EVENT
         // This is static in my current implementation.
         // I may add multiple Sources (Radio Stations) later.

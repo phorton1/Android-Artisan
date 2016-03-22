@@ -25,6 +25,11 @@ public class httpUtils
     // XML / Soap / Didl
 {
     private static int dbg_dlna_utils = 1;
+    public final static boolean ENCODE_DIDL = true;
+        // if true, everything wrapped in <Didl> tags will
+        // be xml_encoded.  I'm not sure this is necessary or desirable.
+        // if false, it is passed as straight xml.
+        // in all cases the values themselves are encode_value()'d
 
     // I'm not sure if these are really urns,
     // I think they're schema names ...
@@ -186,17 +191,24 @@ public class httpUtils
 
     public static String start_didl()
     {
-        return encode_xml("<DIDL-Lite " +
+        String rslt = "<DIDL-Lite " +
             "xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\" " +
             "xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" " +
             "xmlns:dc=\"http://purl.org/dc/elements/1.1/\" " +
             "xmlns:dlna=\"urn:schemas-dlna-org:metadata-1-0/\" " +
-            "xmlns:sec=\"http://www.sec.co.kr/\" " + ">" );
+            "xmlns:sec=\"http://www.sec.co.kr/\" " + ">";
+        if (ENCODE_DIDL)
+            return encode_xml(rslt);
+        return rslt;
+
     }
 
     public static String end_didl()
     {
-        return encode_xml("</DIDL-Lite>");
+        String rslt = "</DIDL-Lite>";
+        if (ENCODE_DIDL)
+            return encode_xml(rslt);
+        return rslt;
     }
 
 

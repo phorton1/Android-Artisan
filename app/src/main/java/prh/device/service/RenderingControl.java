@@ -26,7 +26,7 @@ import prh.device.Device;
 import prh.device.SSDPSearch;
 import prh.device.Service;
 import prh.utils.Utils;
-import prh.utils.stringHash;
+import prh.types.stringHash;
 
 public class RenderingControl extends Service implements Volume
 {
@@ -58,39 +58,39 @@ public class RenderingControl extends Service implements Volume
     // runtime variables and Volume Interface
     //----------------------------------------------------------------
 
-    int[] max_values = null;
-    int[] current_values = null;
+    private int[] max_values = null;
+    private int[] current_values = null;
 
-    public int[] getMaxValues()
+    @Override public int[] getMaxValues()
     {
         return max_values;
     }
 
-    public int[] getValues()
+    @Override public int[] getValues()
         // return a COPY!
     {
         return current_values.clone();
     }
 
 
-    public void setValue(int idx, int value)
+    @Override public void setValue(int idx, int value)
     {
         doCommand("Set",idx,value);
     }
 
-    public void incDecValue(int idx, int inc)
+    @Override public void incDecValue(int idx, int inc)
     {
         int value = current_values[idx] + inc;
         doCommand("Set",idx,value);
     }
 
 
-    public void stop()
+    @Override public void stop()
     {
         current_values = null;
     }
 
-    public void start()
+    @Override public void start()
     {
         current_values = new int[]{0,0,0,0,0,0,0,0};
         getUpdateValues();
@@ -162,7 +162,7 @@ public class RenderingControl extends Service implements Volume
     }
 
 
-    public String toString()
+    @Override public String toString()
     {
         String result = "";
         for (int i=0; i<NUM_CTRLS; i++)
@@ -171,7 +171,7 @@ public class RenderingControl extends Service implements Volume
         return result;
     }
 
-    public boolean fromString(StringBuffer buffer)
+    @Override public boolean fromString(StringBuffer buffer)
     {
         for (int i = 0; i < NUM_CTRLS; i++)
             max_values[i] = Utils.parseInt(Utils.pullTabPart(buffer));

@@ -38,7 +38,7 @@ public class SSDPSearch implements Runnable
     // and a factory that creates derived Services
     // and notifies Artisan about them.
 {
-    private static int dbg_ssdp_search = 0;
+    private static int dbg_ssdp_search = 1;
     private static int LISTEN_PORT = 8070;
     private static int SEARCH_TIME = 4;
 
@@ -109,7 +109,7 @@ public class SSDPSearch implements Runnable
 
     public void run()
     {
-        Utils.log(dbg_ssdp_search,0,"SSDPSearch.run() started");
+        Utils.log(0,0,"SSDPSearch started");
 
         // create a DeviceListener on LISTEN_PORT
 
@@ -329,7 +329,7 @@ public class SSDPSearch implements Runnable
                 device_manager.writeCache();
             ssdp_search_finished = true;
             artisan.handleArtisanEvent(EventHandler.EVENT_SSDP_SEARCH_FINISHED,null);
-            Utils.log(dbg_ssdp_search + 1,0,"SSDPSearchListener::run() finished");
+            Utils.log(0,0,"SSDPSearch finished");
 
         }   // run()
 
@@ -570,7 +570,7 @@ public class SSDPSearch implements Runnable
                         }
                         catch (Exception e)
                         {
-                            Utils.warning(0,1,"Skipping invalid service type(" + service_type_string + ")");
+                            Utils.warning(dbg_ssdp_search,1,"Skipping invalid service type(" + service_type_string + ")");
                         }
 
                         if (ok)

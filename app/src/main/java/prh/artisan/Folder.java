@@ -8,6 +8,7 @@ import android.database.Cursor;
 
 import java.util.HashMap;
 
+import prh.types.objectHash;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
@@ -55,7 +56,7 @@ public class Folder extends Record
     **************************/
 
 
-    public Folder(HashMap<String,Object> hash)
+    public Folder(objectHash hash)
         // construct from a a hash of the correct
         // fields and types .. all blanks, integers
         // etc, must be provided.
@@ -112,14 +113,8 @@ public class Folder extends Record
     public String getLocalArtUri()
     {
         String rslt = "";
-        if (!getType().equals("album")) return "";
-            // let the client show what it wants for folders
-
-        if (isLocal())
-            if (hasArt())
-                rslt = "file://" + Prefs.mp3s_dir() + "/" + getPath() + "/folder.jpg";
-            else
-                rslt = "no_image.png";
+        if (isLocal() && hasArt())
+            rslt = "file://" + Prefs.mp3s_dir() + "/" + getPath() + "/folder.jpg";
         else   // return the actual member
             rslt = privateGetPublicArtUri();
         return rslt;
@@ -128,14 +123,8 @@ public class Folder extends Record
     public String getPublicArtUri()
     {
         String rslt = "";
-        if (!getType().equals("album")) return "";
-            // let the client show what it wants for folders
-
-        if (isLocal())
-            if (hasArt())
-                rslt = Utils.server_uri + "/ContentDirectory/" + getId() + "/folder.jpg";
-            else
-                rslt = Utils.server_uri + "/icons/no_image.png";
+        if (isLocal() && hasArt())
+            rslt = Utils.server_uri + "/ContentDirectory/" + getId() + "/folder.jpg";
         else   // return the actual member
             rslt = privateGetPublicArtUri();
         return rslt;
@@ -151,10 +140,14 @@ public class Folder extends Record
     // return the remote client didl representation
     // of this item (which always uses public artURI)
     {
+        String rslt = getMetadata();
+        if (httpUtils.ENCODE_DIDL)
+            rslt = httpUtils.encode_xml(rslt);
+
         return
             httpUtils.start_didl() +
-                httpUtils.encode_xml(getMetadata()) +
-                httpUtils.end_didl();
+            rslt +
+            httpUtils.end_didl();
     }
 
     public String getMetadata()

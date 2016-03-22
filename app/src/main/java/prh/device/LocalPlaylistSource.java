@@ -45,15 +45,15 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
         Utils.log(dbg_pls+1,1,"new LocalPlaylistSource()");
     }
 
+    @Override public boolean isLocal() { return true; }
 
-    public String getName()
+    @Override public String getName()
     {
         return getFriendlyName();
     }
 
 
-    @Override
-    public String[] getPlaylistNames()
+    @Override public String[] getPlaylistNames()
     {
         ArrayList<String> names = new ArrayList<String>();
         for (LocalPlaylist playlist : playlists)
@@ -62,8 +62,7 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
     }
 
 
-    @Override
-    public Playlist getPlaylist(String name)
+    @Override public Playlist getPlaylist(String name)
         // this should be the only place that
         // new LocalPlaylist() is called
     {
@@ -74,8 +73,7 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
 
 
 
-    @Override
-    public void stop()
+    @Override public void stop()
     {
         Utils.log(0,0,"LocalPlaylistSource.stop()");
 
@@ -88,8 +86,7 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
     }
 
 
-    @Override
-    public boolean start()
+    @Override public boolean start()
         // The local playlist source NEVER fails to start
         // It just starts up empty if there's no db or
         // playlist.db

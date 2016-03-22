@@ -36,21 +36,21 @@ public class OpenVolume extends httpRequestHandler implements UpnpEventHandler
     }
 
 
-    public void start()
+    @Override public void start()
     {
         http_server.getEventManager().RegisterHandler(this);
     }
 
-    public void stop()
+    @Override public void stop()
     {
         http_server.getEventManager().UnRegisterHandler(this);
     }
 
-    public void notifySubscribed(UpnpEventSubscriber subscriber,boolean subscribe)
+    @Override public void notifySubscribed(UpnpEventSubscriber subscriber,boolean subscribe)
     {}
 
 
-    public NanoHTTPD.Response response(
+    @Override public NanoHTTPD.Response response(
         NanoHTTPD.IHTTPSession session,
         NanoHTTPD.Response response,
         String unused_uri,
@@ -153,11 +153,11 @@ public class OpenVolume extends httpRequestHandler implements UpnpEventHandler
     //----------------------------------------
 
     UpdateCounter update_counter = new UpdateCounter();
-    public int getUpdateCount()  { return update_counter.get_update_count(); }
-    public int incUpdateCount()  { return update_counter.inc_update_count(); }
-    public String getName() { return "Volume"; };
+    @Override public int getUpdateCount()  { return update_counter.get_update_count(); }
+    @Override public int incUpdateCount()  { return update_counter.inc_update_count(); }
+    @Override public String getName() { return "Volume"; };
 
-    public String getEventContent(UpnpEventSubscriber unused_subscriber)
+    @Override public String getEventContent(UpnpEventSubscriber unused_subscriber)
         // maybe would be better called "getStateXML"
     {
         HashMap<String,String> hash = new HashMap<String,String>();

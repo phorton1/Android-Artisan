@@ -8,6 +8,9 @@ import android.os.Build;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.w3c.dom.Document;
@@ -33,6 +36,7 @@ import java.util.regex.Pattern;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import prh.artisan.Artisan;
+import prh.artisan.R;
 
 
 public class Utils {
@@ -795,6 +799,41 @@ public class Utils {
         }
     }
 
+
+
+    //--------------------------------------------------
+    // View Utilities
+    //--------------------------------------------------
+
+    private static int convertDipToPixels(Context context, float dips)
+    {
+        return (int) (dips * context.getResources().getDisplayMetrics().density + 0.5f);
+    }
+
+
+    public static View setViewSize(Context context, View parent, int id, Float height, Float width)
+    // use null to not set one or the other
+    // returns the view
+    {
+        View v = parent.findViewById(id);
+        return setViewSize(context,v,height,width);
+    }
+
+    public static View setViewSize(Context context, View v, Float height, Float width)
+    // use null to not set one or the other
+    // returns the view
+    {
+        ViewGroup.LayoutParams params = v.getLayoutParams();
+        if (height != null) params.height = convertDipToPixels(context,height);
+        if (width != null) params.width = convertDipToPixels(context,width);
+        v.setLayoutParams(params);
+        return v;
+    }
+
+    public static void setText(View parent, int id, String text)
+    {
+        ((TextView) parent.findViewById(id)).setText(text);
+    }
 
 
     //------------------------------------------------

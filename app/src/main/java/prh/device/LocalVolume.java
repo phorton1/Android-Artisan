@@ -31,8 +31,8 @@ public class LocalVolume implements Volume
     private int max_values[];
     private int current_values[];
 
-    public int[] getMaxValues()  { return max_values; }
-    public int[] getValues()     { return current_values.clone(); }
+    @Override public int[] getMaxValues()  { return max_values; }
+    @Override public int[] getValues()     { return current_values.clone(); }
 
 
     public LocalVolume(Artisan a)
@@ -40,7 +40,7 @@ public class LocalVolume implements Volume
         artisan = a;
     }
 
-    public void stop()
+    @Override public void stop()
     {
         Utils.log(0,0,"LocalVolume.stop()");
         am = null;
@@ -48,7 +48,7 @@ public class LocalVolume implements Volume
         current_values = null;
     }
 
-    public void start()
+    @Override public void start()
         // The Volume Object needs access to the AudioManager
         // for most actions, and needs a "ContentResolver" to
         // get/set the Car Stereo Loudness, Balance, and EQ
@@ -72,7 +72,7 @@ public class LocalVolume implements Volume
     }
 
 
-    public void incDecValue(int idx, int inc)
+    @Override  public void incDecValue(int idx, int inc)
         // re-impelmented in each derived Volume class
     {
         int values[] = getValues();
@@ -87,7 +87,7 @@ public class LocalVolume implements Volume
     //---------------------------------
 
 
-    public int[] getUpdateValues()
+    @Override public int[] getUpdateValues()
         // They are gotten as a group
         // Always returns a fresh new copy of the values.
         // We detect if am has "gone away" and just return 0s in that case
@@ -171,7 +171,7 @@ public class LocalVolume implements Volume
     // SET
     //---------------------------------
 
-    public void setValue(int idx, int val)
+    @Override public void setValue(int idx, int val)
         // They are set individually.
         // They are always compared to the actual volume controls.
         // Resets last_values if they changed.

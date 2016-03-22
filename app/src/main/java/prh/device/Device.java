@@ -16,7 +16,7 @@ import prh.device.service.OpenVolume;
 import prh.device.service.RenderingControl;
 import prh.utils.Utils;
 import prh.utils.networkRequest;
-import prh.utils.stringHash;
+import prh.types.stringHash;
 
 
 public abstract class Device implements Comparable<Device>
@@ -148,13 +148,13 @@ public abstract class Device implements Comparable<Device>
     {
         String retval =
             friendlyName + "\t" +
-                device_group.toString() + "\t" +
-                device_uuid + "\t" +
-                device_urn + "\t" +
-                device_type + "\t" +
-                device_url + "\t" +
-                icon_path + "\t" +
-                services.size() + "\t";
+            device_type.toString() + "\t" +
+            device_group.toString() + "\t" +
+            device_uuid + "\t" +
+            device_urn + "\t" +
+            device_url + "\t" +
+            icon_path + "\t" +
+            services.size() + "\t";
         String service_part = "";
         for (Service service : services.values())
         {
@@ -169,8 +169,29 @@ public abstract class Device implements Comparable<Device>
     {
         StringBuffer device_part = Utils.readBufferLine(buffer);
         friendlyName = Utils.pullTabPart(device_part);
-        device_type = deviceType.valueOf(Utils.pullTabPart(device_part));
-        device_group = deviceGroup.valueOf(Utils.pullTabPart(device_part));
+        String s = Utils.pullTabPart(device_part);
+
+        try
+        {
+            device_type = deviceType.valueOf(s);
+        }
+        catch (Exception e)
+        {
+            Utils.error("Illegal device type: " + s);
+            return false;
+        }
+
+        s = Utils.pullTabPart(device_part);
+
+        try
+        {
+            device_group = deviceGroup.valueOf(s);
+        }
+        catch (Exception e)
+        {
+            Utils.error("Illegal device group: " + s);
+            return false;
+        }
         device_uuid = Utils.pullTabPart(device_part);
         device_urn =  Utils.pullTabPart(device_part);
         device_url = Utils.pullTabPart(device_part);

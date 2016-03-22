@@ -18,6 +18,9 @@ import prh.artisan.Record;
 import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.server.SSDPServer;
+import prh.types.libraryBrowseResult;
+import prh.types.objectHash;
+import prh.types.recordList;
 import prh.utils.Utils;
 import prh.utils.httpUtils;
 
@@ -25,6 +28,9 @@ import prh.utils.httpUtils;
 public class LocalLibrary extends Device implements Library
 {
     public static int dbg_lib = -1;
+
+    public final static boolean SHOW_PLAYLISTS = true;
+
 
     private SQLiteDatabase db = null;
     public static LocalLibrary local_library = null;
@@ -44,29 +50,30 @@ public class LocalLibrary extends Device implements Library
         friendlyName = deviceType.LocalLibrary.toString();
         device_url = Utils.server_uri;
         icon_path = "/icons/artisan.png";
-        Utils.log(dbg_lib+1,1,"new LocalLibrary()");
+        Utils.log(dbg_lib+1,2,"new LocalLibrary()");
     }
 
+    @Override public boolean isLocal() { return true; }
 
-    public boolean start()
+    @Override public boolean start()
     {
         return db != null;
     }
 
 
-    public void stop( )
+    @Override public void stop( )
     {
-        db = null;
-        local_library = null;
+        // db = null;
+        // local_library = null;
     }
 
-    public String getName()
+    @Override public String getName()
     {
         return getFriendlyName();
     }
 
 
-    public Track getTrack(String id)
+    @Override public Track getTrack(String id)
         // returns null on error or track not found
     {
         // virtual "select_playlist"  "tracks"
@@ -119,7 +126,7 @@ public class LocalLibrary extends Device implements Library
 
 
 
-    public Folder getFolder(String id)
+    @Override public Folder getFolder(String id)
     {
         // if 0, return a fake root record
         // that represents the the mp3s directory
@@ -127,16 +134,30 @@ public class LocalLibrary extends Device implements Library
 
         if (id.equals("0"))
         {
-            HashMap<String, Object> hash = new HashMap<String, Object>();
-            hash.put("id","0");
-            hash.put("parent_id", "");
-            hash.put("title", "All Artisan Folders");
-            hash.put("dirtype", "root");
-            hash.put("num_elements", 1);
-            hash.put("artist", "");
-            hash.put("genre", "");
-            hash.put("year_str", "");
-            return new Folder(hash);
+            int num_elements = SHOW_PLAYLISTS ? 1 : 0;
+
+            Cursor cursor = null;
+            try
+            {
+                cursor = db.rawQuery("SELECT id FROM folders WHERE parent_id='0'",null);
+            }
+            catch (Exception e)
+            {
+                Utils.error("SQL Error: " + e);
+                return null;
+            }
+            num_elements += cursor.getCount();
+
+            objectHash params = new objectHash();
+            params.put("id","0");
+            params.put("parent_id", "");
+            params.put("title", "All Artisan Folders");
+            params.put("dirtype", "root");
+            params.put("num_elements", num_elements);
+            params.put("artist", "");
+            params.put("genre", "");
+            params.put("year_str", "");
+            return new Folder(params);
         }
 
         // a virtual folder that contains playlist items
@@ -147,16 +168,16 @@ public class LocalLibrary extends Device implements Library
             PlaylistSource playlist_source = artisan.getPlaylistSource();
                 // Never Null
 
-            HashMap<String, Object> hash = new HashMap<String, Object>();
-            hash.put("id","select_playlist");
-            hash.put("parent_ID","1");
-            hash.put("title","Select Playlist");
-            hash.put("dirtype", "album");
-            hash.put("num_elements",playlist_source.getPlaylistNames().length);
-            hash.put("artist", "");
-            hash.put("genre", "");
-            hash.put("year_str", "");
-            return new Folder(hash);
+            objectHash params = new objectHash();
+            params.put("id","select_playlist");
+            params.put("parent_ID","1");
+            params.put("title","Select Playlist");
+            params.put("dirtype", "folder");
+            params.put("num_elements",playlist_source.getPlaylistNames().length);
+            params.put("artist", "");
+            params.put("genre", "");
+            params.put("year_str", "");
+            return new Folder(params);
         }
 
         // return the first record found by the query
@@ -186,13 +207,20 @@ public class LocalLibrary extends Device implements Library
 
 
 
-    public List<Record> getSubItems(String table,String id,int start,int count)
+    @Override public libraryBrowseResult getSubItems(String id,int start,int count, boolean unsupported_meta_data)
     {
         if (count == 0) count = 999999;
 
         int location = 0;
-        List<Record> retval = new LinkedList<Record>();
-        Utils.log(dbg_lib,0,"getSubItems(" + table + "," + id + "," + start + "," + count + ")");
+        int total_found = 0;
+        libraryBrowseResult retval = new libraryBrowseResult();
+        Utils.log(dbg_lib,0,"getSubItems(" + id + "," + start + "," + count + ")");
+
+        if (unsupported_meta_data)
+        {
+            Utils.error("LocalLibrary does not support BrowseMetaData");
+            return retval;
+        }
 
         // request for select_playlists
         // returns items that are of the form /dlna_renderer/select_playlist_blah.jpg
@@ -208,6 +236,7 @@ public class LocalLibrary extends Device implements Library
             int position = start;
             location = start;
             String lists[] = playlist_source.getPlaylistNames();
+            total_found += lists.length;
             while (position < lists.length && retval.size() < count)
             {
                 String name = lists[position++];
@@ -217,10 +246,15 @@ public class LocalLibrary extends Device implements Library
         }
 
         // normal request for database items
+        // currently do not support calls for meta_data,
+        // or sub-items of tracks ...
 
         else
         {
-            String sort_clause = table.equals("folders") ? "dirtype DESC," : "";
+            Folder folder = getFolder(id);
+            boolean is_album = folder.getType().equals("album");
+            String table = is_album ? "tracks" : "folders";
+            String sort_clause = is_album ? "" : "dirtype DESC,";
             String query = "SELECT * FROM " + table + " " +
                 "WHERE parent_id=\"" + id + "\" " +
                 "ORDER BY " + sort_clause + "path";
@@ -243,12 +277,16 @@ public class LocalLibrary extends Device implements Library
             // it contains virtual ids that link back to
             // changing the current playlist in the renderer
 
-            if (id.equals("0"))      // the "mp3s" solitary single non-root node
+            if (SHOW_PLAYLISTS && id.equals("0"))      // the "mp3s" solitary single non-root node
             {
                 Utils.log(dbg_lib,2,"adding virtual folder: select_playlist");
+                total_found ++;
                 location = addItem(retval,start,location,count,
                     getFolder("select_playlist"));
             }
+
+            if (cursor != null)
+                total_found += cursor.getCount();
 
             if (cursor != null && retval.size() < count)
             {
@@ -263,23 +301,25 @@ public class LocalLibrary extends Device implements Library
             }
         }
 
-        Utils.log(dbg_lib,1,"returning " + retval.size() + " subitems");
+        retval.setTotalFound(total_found);
+        Utils.log(dbg_lib,1,"returning " + retval.size() + " of " + total_found + " subitems");
         return retval;
     }
 
 
-    private static int addItem(List<Record> list,int start,int location, int count,Record rec)
+    private static int addItem(libraryBrowseResult list,int start,int location, int count,Record rec)
     {
         if (start <= location && list.size() < count)
         {
             Utils.log(dbg_lib+1,2,rec.get("id") + "  " + rec.get("title"));
             list.add(location-start,rec);
+            list.setNumReturned(list.size());
         }
         location++;
         return location;
     }
 
-    private static int addItemFromCursor(List<Record> list,int start,int location, int count, String table, Cursor cursor)
+    private static int addItemFromCursor(libraryBrowseResult list,int start,int location, int count, String table, Cursor cursor)
     {
         if (start <= location && list.size() < count)
         {

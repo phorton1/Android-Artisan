@@ -34,7 +34,7 @@ public class UpnpEventManager
     private HashMap<String,UpnpEventHandler> handlers = new HashMap<String,UpnpEventHandler>();
     private HashMap<String,UpnpEventSubscriber> clients = new HashMap<String,UpnpEventSubscriber>();
 
-    public class exposerHash extends HashMap<Integer,UpnpEventSubscriber> {}
+    private class exposerHash extends HashMap<Integer,UpnpEventSubscriber> {}
     private exposerHash exposer_subscribers = new exposerHash();
     public exposerHash getExposerSubscribers() {return exposer_subscribers; }
 

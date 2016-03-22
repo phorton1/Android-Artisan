@@ -23,6 +23,7 @@ import java.util.HashMap;
 
 import prh.device.Device;
 import prh.device.DeviceManager;
+import prh.types.intViewHash;
 import prh.utils.ImageLoader;
 import prh.utils.Utils;
 
@@ -37,7 +38,7 @@ public class aPrefs extends Fragment implements
     private ListView my_view = null;
     private PrefListAdapter pref_list_adapter = null;
 
-    public String getName()
+    @Override public String getName()
     {
         return "Preferences";
     }
@@ -88,7 +89,7 @@ public class aPrefs extends Fragment implements
         // Fill out the preferences
         // The "VIRTUAL_PREFS" include the Select Renderer Item
     {
-        HashMap<Integer, View> items = new HashMap<Integer,View>();
+        private intViewHash items = new intViewHash();
 
         public int getCount()
         {
@@ -119,21 +120,21 @@ public class aPrefs extends Fragment implements
                 {
                     item = inflater.inflate(R.layout.prefs_select_device,view_group,false);
                     SelectDevicePref pref = new SelectDevicePref(artisan,item,
-                        "Library",Device.deviceGroup.DEVICE_GROUP_LIBRARY);
+                        "Library",Device.deviceGroup.DEVICE_GROUP_LIBRARY,Artisan.PAGE_LIBRARY);
                     item.setTag(pref);
                 }
                 else if (id == Prefs.id.SELECTED_RENDERER)
                 {
                     item = inflater.inflate(R.layout.prefs_select_device,view_group,false);
                     SelectDevicePref pref = new SelectDevicePref(artisan,item,
-                        "Renderer",Device.deviceGroup.DEVICE_GROUP_RENDERER);
+                        "Renderer",Device.deviceGroup.DEVICE_GROUP_RENDERER,Artisan.PAGE_PLAYING);
                     item.setTag(pref);
                 }
                 else if (id == Prefs.id.SELECTED_PLAYLIST_SOURCE)
                 {
                     item = inflater.inflate(R.layout.prefs_select_device,view_group,false);
                     SelectDevicePref pref = new SelectDevicePref(artisan,item,
-                        "PlaylistSource",Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE);
+                        "PlaylistSource",Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE,Artisan.PAGE_PLAYLIST);
                     item.setTag(pref);
                 }
 
@@ -208,6 +209,7 @@ public class aPrefs extends Fragment implements
         private String thing;
         private Device.deviceGroup group;
         private boolean list_open = false;
+        private int goto_page;
 
         public void toggleOpen()
         {
@@ -215,12 +217,13 @@ public class aPrefs extends Fragment implements
             populateDevices();
         }
 
-        public SelectDevicePref(Artisan ma, View it,String th,Device.deviceGroup dg)
+        public SelectDevicePref(Artisan ma, View it,String th,Device.deviceGroup dg,int page)
         {
             artisan = ma;
             item = it;
             thing = th;
             group = dg;
+            goto_page = page;
 
             ((TextView) item.findViewById(R.id.pref_select_device_type))
                 .setText("Selected " + thing);
@@ -328,7 +331,7 @@ public class aPrefs extends Fragment implements
                     R.id.pref_select_device_list_name);
                 String name = text.getText().toString();
                 if (artisan.setArtisanDevice(thing,name))
-                    artisan.getViewPager().setCurrentItem(1);
+                    artisan.getViewPager().setCurrentItem(goto_page);
             }
         }
 
@@ -367,6 +370,8 @@ public class aPrefs extends Fragment implements
             ((Button) item.findViewById(R.id.pref_clear_default_device))
                 .setOnClickListener(this);
             ((Button) item.findViewById(R.id.pref_set_default_last_selected))
+                .setOnClickListener(this);
+            ((Button) item.findViewById(R.id.pref_set_default_device))
                 .setOnClickListener(this);
         }
 
@@ -430,17 +435,23 @@ public class aPrefs extends Fragment implements
             {
                 Prefs.putString(pref_id,Prefs.LAST_SELECTED);
                 default_name.setText(Prefs.LAST_SELECTED);
+                default_open = !default_open;
+                populateDefault();
             }
             else if (id == R.id.pref_clear_default_device)
             {
                 Prefs.putString(pref_id,"");
                 default_name.setText("None");
+                default_open = !default_open;
+                populateDefault();
             }
             else if (id == R.id.pref_set_default_device)
             {
                 String name = ((Button) v).getText().toString();
                 Prefs.putString(pref_id,name);
                 default_name.setText(name);
+                default_open = !default_open;
+                populateDefault();
             }
         }
 
@@ -453,7 +464,7 @@ public class aPrefs extends Fragment implements
     // Artisan Event Handling
     //------------------------------------------------
 
-    public void handleArtisanEvent( String event_id, Object data )
+    @Override public void handleArtisanEvent( String event_id, Object data )
     {
         // no event handling till there's a view
 

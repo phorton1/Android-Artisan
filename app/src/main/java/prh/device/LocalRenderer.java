@@ -114,6 +114,8 @@ public class LocalRenderer extends Device implements
     private boolean in_refresh = false;
     int last_position = 0;
 
+    @Override public boolean isLocal() { return true; }
+
 
     //--------------------------------------------
     // construct, start, and stop
@@ -135,7 +137,7 @@ public class LocalRenderer extends Device implements
     }
 
 
-    public boolean startRenderer()
+    @Override public boolean startRenderer()
     {
         Utils.log(dbg_ren,0,"LocalRenderer.startRenderer()");
 
@@ -178,7 +180,7 @@ public class LocalRenderer extends Device implements
 
 
 
-    public void stopRenderer()
+    @Override public void stopRenderer()
         // parent is responsible for sending out RENDERER_CHANGED event
     {
         Utils.log(dbg_ren,1,"LocalRenderer.stopRenderer()");
@@ -226,22 +228,22 @@ public class LocalRenderer extends Device implements
     // Renderer API
     //----------------------------------------
 
-    public String getName()                   { return friendlyName; };
-    public Volume getVolume()                 { return local_volume; }
-    public String getRendererStatus()         { return "OK"; }
-    public String getPlayMode()               { return ""; }
-    public String getPlaySpeed()              { return "1"; }
-    public boolean getShuffle()               { return shuffle; }
-    public boolean getRepeat()                { return repeat; }
-    public int getTotalTracksPlayed()         { return total_tracks_played; }
-    public String getRendererState()          { return renderer_state; }
-    public int getPosition()                  { return song_position; }
-    public void setRepeat(boolean value)      { repeat = value; }
-    public void setShuffle(boolean value)     { shuffle = value; };
-    public Playlist getPlaylist()             { return current_playlist; }
+    @Override public String getName()                   { return friendlyName; };
+    @Override public Volume getVolume()                 { return local_volume; }
+    @Override public String getRendererStatus()         { return "OK"; }
+    @Override public String getPlayMode()               { return ""; }
+    @Override public String getPlaySpeed()              { return "1"; }
+    @Override public boolean getShuffle()               { return shuffle; }
+    @Override public boolean getRepeat()                { return repeat; }
+    @Override public int getTotalTracksPlayed()         { return total_tracks_played; }
+    @Override public String getRendererState()          { return renderer_state; }
+    @Override public int getPosition()                  { return song_position; }
+    @Override public void setRepeat(boolean value)      { repeat = value; }
+    @Override public void setShuffle(boolean value)     { shuffle = value; };
+    @Override public Playlist getPlaylist()             { return current_playlist; }
 
 
-    public Track getTrack()
+    @Override public Track getTrack()
         // all DLNA stuff and accessors to the
         // current track playing in the renderer
         // are thru this method.
@@ -254,7 +256,7 @@ public class LocalRenderer extends Device implements
     }
 
 
-    public void setTrack(Track track, boolean interrupt_playlist)
+    @Override public void setTrack(Track track, boolean interrupt_playlist)
         // start playing the given track, possibly
         // interrupting the current playlist if from DLNA
         // call with null does nothing
@@ -272,7 +274,7 @@ public class LocalRenderer extends Device implements
     }
 
 
-    public void setPlaylist(Playlist playlist)
+    @Override public void setPlaylist(Playlist playlist)
         // it is assumed that artisan will save the previous
         // playlist as necessary, and call start() on the new one.
         // This just sets it and starts playing it.
@@ -293,7 +295,7 @@ public class LocalRenderer extends Device implements
 
 
 
-    public void incAndPlay(int inc)
+    @Override public void incAndPlay(int inc)
         // does nothing if no playlist
     {
         Utils.log(dbg_ren,0,"incAndPlay(" + inc + ")");
@@ -328,7 +330,7 @@ public class LocalRenderer extends Device implements
     }
 
 
-    public void seekTo(int position)
+    @Override public void seekTo(int position)
     {
         if (mp_state != MP_STATE_ERROR &&
             mp_state != MP_STATE_IDLE &&
@@ -341,7 +343,7 @@ public class LocalRenderer extends Device implements
     }
 
 
-    public void stop()
+    @Override public void stop()
     {
         Utils.log(dbg_ren,0,"stop() mp=" + getMediaPlayerState() + " rend=" + getRendererState());
         media_player.reset();
@@ -352,7 +354,7 @@ public class LocalRenderer extends Device implements
     }
 
 
-    public void pause()
+    @Override public void pause()
     {
         Utils.log(dbg_ren,0,"pause() mp=" + getMediaPlayerState() + " rend=" + getRendererState());
         if (mp_state == MP_STATE_STARTED)
@@ -364,7 +366,7 @@ public class LocalRenderer extends Device implements
     }
 
 
-    public void play()
+    @Override public void play()
     {
         Utils.log(dbg_ren,0,"play() mp=" + getMediaPlayerState() + " rend=" + getRendererState());
         Track track = current_track;

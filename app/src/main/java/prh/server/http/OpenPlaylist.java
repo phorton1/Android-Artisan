@@ -57,8 +57,8 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
     // until it finds a number for which there is no bitmask.
 
 
-    public class exposerHash extends HashMap<Integer,PlaylistExposer> {}
-    public class exposersByIpUA extends HashMap<String,PlaylistExposer> {}
+    private class exposerHash extends HashMap<Integer,PlaylistExposer> {}
+    private class exposersByIpUA extends HashMap<String,PlaylistExposer> {}
 
     exposerHash exposers_by_mask = null;
     exposersByIpUA exposers_by_ipua = null;
@@ -82,7 +82,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
     }
 
 
-    public void start()
+    @Override public void start()
     {
         next_exposer_bit_mask = 1;
         exposers_by_mask = new exposerHash();
@@ -91,7 +91,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         delayed_event = new Handler();
     }
 
-    public void stop()
+    @Override public void stop()
     {
         http_server.getEventManager().UnRegisterHandler(this);
         exposers_by_mask = null;
@@ -100,7 +100,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
             delayed_event.removeCallbacks(delayed_sender);
     }
 
-    public void notifySubscribed(UpnpEventSubscriber subscriber,boolean subscribe)
+    @Override public void notifySubscribed(UpnpEventSubscriber subscriber,boolean subscribe)
     {
         String ip = subscriber.getIp();
         String user_agent = subscriber.getUserAgent();
@@ -226,7 +226,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
     }
 
 
-    public NanoHTTPD.Response response(
+    @Override public NanoHTTPD.Response response(
         NanoHTTPD.IHTTPSession session,
         NanoHTTPD.Response response,
         String unused_uri,
@@ -581,9 +581,9 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
     //----------------------------------------
 
     UpdateCounter update_counter = new UpdateCounter();
-    public int getUpdateCount()  { return update_counter.get_update_count(); }
-    public int incUpdateCount()  { return update_counter.inc_update_count(); }
-    public String getName() { return "Playlist"; }
+    @Override public int getUpdateCount()  { return update_counter.get_update_count(); }
+    @Override public int incUpdateCount()  { return update_counter.inc_update_count(); }
+    @Override public String getName() { return "Playlist"; }
 
 
     String DLNAStateToOpenHomeState(String dlna_state)
@@ -596,7 +596,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
     }
 
 
-    public String getEventContent(UpnpEventSubscriber subscriber)
+    @Override public String getEventContent(UpnpEventSubscriber subscriber)
     {
         HashMap<String,String> hash = new HashMap<>();
         LocalRenderer local_renderer = artisan.getLocalRenderer();

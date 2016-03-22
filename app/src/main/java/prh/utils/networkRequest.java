@@ -21,6 +21,8 @@ import java.util.Map;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import prh.types.stringHash;
+
 
 public class networkRequest extends Thread
 {

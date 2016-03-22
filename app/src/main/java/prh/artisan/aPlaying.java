@@ -37,7 +37,7 @@ public class aPlaying extends Fragment implements
     View.OnClickListener
 {
     private static int dbg_anp = 0;
-    public String getName()  { return "Now Playing"; }
+    @Override public String getName()  { return "Now Playing"; }
 
     // only good while attached
 
@@ -591,7 +591,7 @@ public class aPlaying extends Fragment implements
 
 
 
-    public void handleArtisanEvent(String event_id,Object data)
+    @Override public void handleArtisanEvent(String event_id,Object data)
     // handle changes ...
     // in order of most minor, to most major changes
     // where major changes require more updating.

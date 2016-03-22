@@ -5,7 +5,9 @@ import android.database.Cursor;
 import java.sql.Blob;
 import java.util.HashMap;
 
-public class Record extends HashMap<String,Object>
+import prh.types.objectHash;
+
+public class Record extends objectHash
     // Class that should already exist
     // Maps a cursor to a Hash of Typed Objects by field name.
 {

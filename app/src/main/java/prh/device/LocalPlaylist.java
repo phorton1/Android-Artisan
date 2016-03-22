@@ -142,13 +142,13 @@ public class LocalPlaylist implements Playlist
     // accessors (Playlist interface)
     //-------------------------------------------------------------
 
-    public String getName()         { return name; }
-    public int getNum()             { return num; }
-    public int getNumTracks()       { return num_tracks; }
-    public int getCurrentIndex()    { return track_index; }
-    public int getMyShuffle()       { return my_shuffle; }
+    @Override public String getName()         { return name; }
+    @Override public int getNum()             { return num; }
+    @Override public int getNumTracks()       { return num_tracks; }
+    @Override public int getCurrentIndex()    { return track_index; }
+    @Override public int getMyShuffle()       { return my_shuffle; }
 
-    public void start()
+    @Override public void start()
     {
         tracks_by_open_id = new HashMap<Integer,Track>();
         tracks_by_position = new LinkedList<Track>();
@@ -190,7 +190,7 @@ public class LocalPlaylist implements Playlist
     }   // LocalPlaylist.start()
 
 
-    public void stop()
+    @Override public void stop()
     {
         is_started = false;
 
@@ -218,14 +218,14 @@ public class LocalPlaylist implements Playlist
     }
 
 
-    public Track getCurrentTrack()
+    @Override public Track getCurrentTrack()
         // could return null
     {
         return getTrack(track_index);
     }
 
 
-    public Track getTrack(int index)
+    @Override public Track getTrack(int index)
         // get a track from the playlist
         // return null on error
     {
@@ -276,7 +276,7 @@ public class LocalPlaylist implements Playlist
     }
 
 
-    public Track incGetTrack(int inc)
+    @Override public Track incGetTrack(int inc)
         // loop thru tracks till we find a playable
         // return null on errors or none found
     {

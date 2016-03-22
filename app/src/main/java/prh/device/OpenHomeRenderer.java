@@ -14,7 +14,7 @@ public class OpenHomeRenderer extends Device implements Renderer
     public OpenHomeRenderer(Artisan artisan, SSDPSearch.SSDPDevice ssdp_device)
     {
         super(artisan,ssdp_device);
-        Utils.log(0,0,"new OpenHomeRenderer(" + ssdp_device.getFriendlyName() + "," + ssdp_device.getDeviceType() + "," + ssdp_device.getDeviceUrl());
+        Utils.log(0,1,"new OpenHomeRenderer(" + ssdp_device.getFriendlyName() + "," + ssdp_device.getDeviceType() + "," + ssdp_device.getDeviceUrl());
     }
 
     public OpenHomeRenderer(Artisan artisan)
@@ -22,31 +22,28 @@ public class OpenHomeRenderer extends Device implements Renderer
         super(artisan);
     }
 
-    public String getName() { return getFriendlyName(); }
-    public boolean startRenderer() { return false; }
-
-    public void stopRenderer()  {  }
-    public Volume getVolume()   { return null; }
-    public String getRendererState()    { return null; }
-    public String getRendererStatus()   { return null; }
-    public String getPlayMode() { return null; }
-    public String getPlaySpeed()    { return null; }
-    public int getTotalTracksPlayed()   { return 0; }
-    public boolean getShuffle() { return false; }
-    public boolean getRepeat()  { return false; }
-    public void setRepeat(boolean value)    {  }
-    public void setShuffle(boolean value)   {  }
-    public void pause() {  }
-    public void play()  {  }
-    public void stop()  {  }
-    public void incAndPlay(int offset)  {  }
-    public int getPosition()    { return 0;  }
-    public void seekTo(int progress)    {  }
-    public Track getTrack() { return null; }
-    public void setTrack(Track track, boolean interrupt_playlist)   {  }
-    public void setPlaylist(Playlist playlist)  { ; }
-    public void setPlaylistSource(PlaylistSource playlistsource) {  }
-    public Playlist getPlaylist() { return null; }
-    public PlaylistSource getPlaylistSource() { return null; }
+    @Override public String getName() { return getFriendlyName(); }
+    @Override public boolean startRenderer() { return false; }
+    @Override public void stopRenderer()  {  }
+    @Override public Volume getVolume()   { return null; }
+    @Override public String getRendererState()    { return null; }
+    @Override public String getRendererStatus()   { return null; }
+    @Override public String getPlayMode() { return null; }
+    @Override public String getPlaySpeed()    { return null; }
+    @Override public int getTotalTracksPlayed()   { return 0; }
+    @Override public boolean getShuffle() { return false; }
+    @Override public boolean getRepeat()  { return false; }
+    @Override public void setRepeat(boolean value)    {  }
+    @Override public void setShuffle(boolean value)   {  }
+    @Override public void pause() {  }
+    @Override public void play()  {  }
+    @Override public void stop()  {  }
+    @Override public void incAndPlay(int offset)  {  }
+    @Override public int getPosition()    { return 0;  }
+    @Override public void seekTo(int progress)    {  }
+    @Override public Track getTrack() { return null; }
+    @Override public void setTrack(Track track, boolean interrupt_playlist)   {  }
+    @Override public void setPlaylist(Playlist playlist)  { ; }
+    @Override public Playlist getPlaylist() { return null; }
 
 }

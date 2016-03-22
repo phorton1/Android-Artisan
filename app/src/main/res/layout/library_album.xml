@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+
+<!-- a leaf node for an "album" that contains the header as a separate
+     non-scolling region -->
+
+
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
               android:id="@+id/library_album"
               android:orientation="vertical"
               android:layout_width="match_parent"
               android:layout_height="match_parent">
+
+    <!-- the header and list items are added manually via code -->
 
 </LinearLayout>

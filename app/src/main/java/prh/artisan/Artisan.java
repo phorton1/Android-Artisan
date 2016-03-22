@@ -131,6 +131,14 @@ public class Artisan extends FragmentActivity implements
     EventHandler
 {
     private static int NUM_PAGER_ACTIVITIES = 5;
+    public final static int PAGE_PREFS = 0;
+    public final static int PAGE_PLAYING = 1;
+    public final static int PAGE_PLAYLIST = 2;
+    public final static int PAGE_LIBRARY = 3;
+    public final static int PAGE_EXPLORER = 4;
+
+    public final static int START_PAGE = Build.ID.equals(Utils.ID_CAR_STEREO) ?
+        PAGE_PLAYING : PAGE_LIBRARY;
 
     // system working variables
 
@@ -298,14 +306,9 @@ public class Artisan extends FragmentActivity implements
         renderer = local_renderer;
         playlist_source = local_playlist_source;
 
-        // start car stereo in now playing, emulator in prefs
+        // set the start page
 
-        if (Build.ID.equals(Utils.ID_CAR_STEREO))
-            current_page = 1;
-        else
-            current_page = 3;
-
-        view_pager.setCurrentItem(current_page);
+        view_pager.setCurrentItem(START_PAGE);
         setCurrentPageTitle();
 
         // start the default, local, initial devices
@@ -437,7 +440,7 @@ public class Artisan extends FragmentActivity implements
         if (group.equals(Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE))
             thing = "PlaylistSource";
 
-        Device device = device_manager.getDevice(group,default_renderer_name);
+        Device device = device_manager.getDevice(group,name);
 
         if (device != null)
         {
@@ -582,11 +585,14 @@ public class Artisan extends FragmentActivity implements
         @Override public int getCount()                 { return NUM_PAGER_ACTIVITIES; }
         @Override public Fragment getItem(int position)
         {
-            if (position==0) return aPrefs;
-            if (position==1) return aPlaying;
-            if (position==2) return aPlaylist;
-            if (position==3) return aLibrary;
-            if (position==4) return aExplorer;
+            switch (position)
+            {
+                case PAGE_PREFS : return aPrefs;
+                case PAGE_PLAYING : return aPlaying;
+                case PAGE_PLAYLIST : return aPlaylist;
+                case PAGE_LIBRARY : return aLibrary;
+                case PAGE_EXPLORER : return aExplorer;
+            }
             return null;
         }
     }
@@ -617,7 +623,7 @@ public class Artisan extends FragmentActivity implements
     {
         myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
         ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
-        if (page.getName().equals("Now Playing"))
+        if (current_page == PAGE_PLAYING)
             aPlaying.update_whats_playing_message();
         else
             SetMainMenuText(page.getName(),page.getName());
@@ -945,6 +951,7 @@ public class Artisan extends FragmentActivity implements
     // EVENT HANDLING
     //---------------------------------------------------------------------
 
+    @Override
     public void handleArtisanEvent(final String event_id,final Object data)
     // run on UI async task to pass events to UI clients
     {

@@ -145,7 +145,7 @@ public class Track extends Record
     }
 
 
-    private static String extractType(String didl)
+    public static String extractType(String didl)
     {
         String type = "mp3";
         if (!Utils.extract_re("(audio/x-ms-wma)",didl).equals("")) type = "wma";
