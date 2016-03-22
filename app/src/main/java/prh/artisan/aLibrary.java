@@ -50,6 +50,7 @@ package prh.artisan;
 // the list items are all implemented in separate java files.
 
 import android.app.Activity;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
@@ -70,7 +71,8 @@ import prh.utils.Utils;
 public class aLibrary extends Fragment implements
     ArtisanPage,
     EventHandler,
-    AdapterView.OnItemClickListener
+    AdapterView.OnItemClickListener,
+    AdapterView.OnItemLongClickListener
 {
     private static int dbg_alib = 0;
 
@@ -98,13 +100,19 @@ public class aLibrary extends Fragment implements
         Utils.log(dbg_alib,0,"aLibrary.onCreateView() called");
         my_view = (LinearLayout) inflater.inflate(R.layout.activity_library, container, false);
 
-        view_stack = new viewList();
-        library = artisan.getLibrary();
-        if (library != null)
-            pushViewStack("0");
+        init(artisan.getLibrary());
         return my_view;
     }
 
+
+    private void init(Library lib)
+    {
+        library = lib;
+        view_stack = new viewList();
+        my_view.removeAllViews();
+        if (library != null)
+            pushViewStack("0");
+    }
 
 
     @Override
@@ -162,7 +170,7 @@ public class aLibrary extends Fragment implements
         LayoutInflater inflater = LayoutInflater.from(artisan);
         ListView list_view = (ListView) inflater.inflate(R.layout.library_list,null,false);
         list_view.setAdapter(new libraryListAdapter(this,list_view,folder));
-
+        // list_view.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
 
         // add the album header
         // which at least relieves the complexity of keeping track of it in the
@@ -241,6 +249,7 @@ public class aLibrary extends Fragment implements
                 list_item.doLayout();
                 item = list_item;
                 the_list_view.setOnItemClickListener(a_library);
+                the_list_view.setOnItemLongClickListener(a_library);
                 items.put(position,item);
             }
             return item;
@@ -256,17 +265,29 @@ public class aLibrary extends Fragment implements
 
     @Override public void onItemClick(AdapterView av, View v, int position, long long_id)
     {
-        int id = v.getId();
-        switch (id)
-        {
-            case R.id.list_item_layout:
-                Folder folder = ((ListItem)v).getFolder();
-                if (folder != null)
-                    pushViewStack(folder.getId());
-                break;
+        // int id = v.getId();
+        // case R.id.list_item_layout:
 
-        }   // switch
-    }   // onClick()
+        Folder folder = ((ListItem)v).getFolder();
+        if (folder != null)
+            pushViewStack(folder.getId());
+
+    }   // onItemClick()
+
+
+
+    @Override public boolean onItemLongClick(AdapterView av, View v, int position, long long_id)
+    {
+        // int id = v.getId();
+        // case R.id.list_item_layout:
+
+        ListItem item = (ListItem) v;
+        item.setSelected(!item.getSelected());
+        v.setBackgroundColor(item.getSelected()?0xff773333: Color.BLACK);
+        return true;
+
+    }   // onItemLongClick()
+
 
 
     //--------------------------------------------------------------
@@ -283,11 +304,7 @@ public class aLibrary extends Fragment implements
             if (new_library == null || library == null ||
                 !new_library.getName().equals(library.getName()))
             {
-                library = new_library;
-                my_view.removeAllViews();
-                view_stack = new viewList();
-                if (library != null)
-                    pushViewStack("0");
+                init(new_library);
             }
         }
     }

@@ -3,9 +3,11 @@ package prh.artisan;
 import android.content.Context;
 import android.graphics.Color;
 import android.util.AttributeSet;
+import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -15,7 +17,7 @@ import prh.utils.ImageLoader;
 import prh.utils.Utils;
 
 
-public class ListItem extends RelativeLayout
+public class ListItem extends RelativeLayout implements View.OnClickListener
     // Implements a do-all list item for use in the Library and Playlist.
     //
     // Takes a Track or a Folder and comes in two sizes for each.
@@ -33,6 +35,9 @@ public class ListItem extends RelativeLayout
     // Folder Large is 5 lines of text and a larger image, shown
     // at the top of the Library album view, or as Album breaks
     // in the playlist.
+    //
+    // Usage: contruct, setFolder or Track, maybe setLargeView(),
+    // and then call doLayout() before handing off to adapter
 {
     Artisan artisan;
     private Track track = null;
@@ -40,10 +45,11 @@ public class ListItem extends RelativeLayout
     private boolean is_album = false;
     private boolean is_track = false;
     private boolean large = false;
+    private boolean selected = false;
     private boolean open = false;
     private boolean visited = false;
-    private OnClickListener click_listener = null;
 
+    // accessors
 
     public Folder getFolder()
     {
@@ -55,6 +61,16 @@ public class ListItem extends RelativeLayout
         return track;
     }
 
+    public boolean getSelected()
+    {
+        return selected;
+    }
+
+    public void setSelected(boolean b)
+    {
+        selected = b;
+    }
+
 
     //-------------------------------------------------
     // post-inflate configuration
@@ -64,7 +80,6 @@ public class ListItem extends RelativeLayout
     {
         large = true;
     }
-
 
     public boolean setTrack(Track the_track)
     {
@@ -84,6 +99,7 @@ public class ListItem extends RelativeLayout
     //------------------------------------------
     // construction, onFinishInflate()
     //------------------------------------------
+    // Constructor called by inflate()
 
     public ListItem(Context context,AttributeSet attrs)
         // called when inflated from the layout
@@ -94,17 +110,11 @@ public class ListItem extends RelativeLayout
 
     public void onFinishInflate()
         // called when the inflate is finished
-        // set the default (small, non-artisan, view)
-        // sets the onClick handler for the item
     {
         artisan = (Artisan) getContext();
-        // this.setOnClickListener(this);
     }
 
-    public void mySetOnClickListener(OnClickListener listener)
-    {
-        click_listener = listener;
-    }
+
 
     //---------------------------------------------
     // doLayout()
@@ -112,6 +122,18 @@ public class ListItem extends RelativeLayout
 
     public void doLayout()
     {
+        // get sub views
+
+        ImageView image = (ImageView) findViewById(R.id.list_item_icon);
+        TextView line1 = (TextView) findViewById(R.id.list_item_line1);
+        TextView line2 = (TextView) findViewById(R.id.list_item_line2);
+        TextView line3 = (TextView) findViewById(R.id.list_item_line3);
+        TextView line4 = (TextView) findViewById(R.id.list_item_line4);
+        TextView line5 = (TextView) findViewById(R.id.list_item_line5);
+        TextView item_left = (TextView) findViewById(R.id.list_item_left);
+        RelativeLayout item_right = (RelativeLayout) findViewById(R.id.list_item_right);
+        TextView item_right_text = (TextView) findViewById(R.id.list_item_right_text);
+
         // set background color
 
         if (large && !is_track)
@@ -137,8 +159,6 @@ public class ListItem extends RelativeLayout
         if (!is_track || large)
         {
             String art_uri = folder.getLocalArtUri();
-            ImageView image = (ImageView) findViewById(R.id.list_item_icon);
-
             if (!art_uri.isEmpty())
             {
                 float image_size = container_height - (large ? 0 : 4);
@@ -158,13 +178,12 @@ public class ListItem extends RelativeLayout
         }
 
 
-        // 1st line - TITLE
+        // TITLE (First Line)
 
         String title = is_track ? track.getTitle() : folder.getTitle();
-        Utils.setText(this,R.id.list_item_line1,title);
+        line1.setText(title);
 
-        // if not in large folder view
-        // Show the num_tracks, or track_time to the right
+        // NUM_TRACKS OR TRACK_TIME
 
         if (is_track || !large)
         {
@@ -172,23 +191,32 @@ public class ListItem extends RelativeLayout
             String num = is_track ?
                 track.getDurationString(Utils.how_precise.FOR_DISPLAY) :
                 n > 0 ? "(" + n + ")" : "";
-            Utils.setText(this,R.id.list_item_right,num);
+            item_right.setOnClickListener(this);
+            Utils.setViewSize(artisan,item_right,container_height,null);
+            item_right_text.setText(num);
+        }
+        else
+        {
+            Utils.setViewSize(artisan,item_right,0F,0F);
         }
 
+
+        // TRACK_NUM
         // only in small track view, show the track num,
         // if it exists, to the left. disappear it otherwise
 
         if (!is_track || large)
-            Utils.setViewSize(artisan,this,R.id.list_item_left,null,0F);
+            Utils.setViewSize(artisan,item_left,null,0F);
         else
         {
             String track_num = track.getTrackNum();
             if (!track_num.isEmpty())
                 track_num += ".";
-            Utils.setText(this,R.id.list_item_left,track_num);
+            item_left.setText(track_num);
         }
 
-        // 2nd-line - ARTIST
+
+        // ARTIST (Second Line)
         // get the artist to the one from the record
         // except for small tracks or folders that are not albums
         // then set it if it is not empty, or even in the
@@ -197,7 +225,6 @@ public class ListItem extends RelativeLayout
         String artist = is_track ?
             large ? track.getArtist() : "" :
             is_album ? folder.getArtist() : "";
-        TextView line2 = (TextView) findViewById(R.id.list_item_line2);
 
         if (!artist.isEmpty() || (large && !is_track))
             line2.setText(artist);
@@ -207,9 +234,6 @@ public class ListItem extends RelativeLayout
 
         // LINES 3-5 are only for large albums
 
-        TextView line3 = (TextView) findViewById(R.id.list_item_line3);
-        TextView line4 = (TextView) findViewById(R.id.list_item_line4);
-        TextView line5 = (TextView) findViewById(R.id.list_item_line5);
         if (is_track || !large)
         {
             Utils.setViewSize(artisan,line3,0F,null);
@@ -244,15 +268,41 @@ public class ListItem extends RelativeLayout
             s5 += "id:" + folder.getId();
             s5 += "   parent_id:" + folder.getParentId();
 
-
             line3.setText(s3);
             line4.setText(s4);
             line5.setText(s5);
-
         }
 
+
+        // FINISHING UP
+        // Shrink the text size of line1, line2, and right
+        // when its a track.  There's probably a way to do this
+        // with a style or class.
+
+        if (is_track)
+        {
+            line1.setTextSize(TypedValue.COMPLEX_UNIT_DIP,12);
+            line2.setTextSize(TypedValue.COMPLEX_UNIT_DIP,10);
+            //item_left.setTextSize(TypedValue.COMPLEX_UNIT_DIP,10);
+            item_right_text.setTextSize(TypedValue.COMPLEX_UNIT_DIP,10);
+        }
     }   // listItem.doLayout()
 
+
+
+    //------------------------------------------
+    // onClick()
+    //------------------------------------------
+
+    public void onClick(View v)
+        // implements the context menu for this item
+        // attached to the LIST_ITEM_RIGHT (number items
+        // or track duration) view ...
+    {
+        int id = v.getId();
+        if (id == 0)
+            Utils.error("bljds");
+    }
 
 
 }   // class listItemFolder
