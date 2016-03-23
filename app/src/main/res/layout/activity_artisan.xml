@@ -6,8 +6,10 @@
      android:background="#000000"
      tools:context=".ArtisanActivity">
 
-    <!-- the application is a linear layout consisting of
-         the main_menu and the horizontally scolling artisan_content views -->
+    <!--
+        The application is a linear layout consisting of
+        the main_menu linear layout and a viewPager content area.
+    -->
 
     <LinearLayout
         android:id="@+id/artisan_main_layout"
@@ -16,11 +18,15 @@
         android:layout_width="fill_parent"
         android:layout_height="fill_parent">
 
+        <!--
+            the main_menu is a relative layout with the icon,
+            a left toolbar, a text area, and a right toolbar.
+            The toolbar buttons are added in code.
+         -->
 
-        <!-- the main_menu is a linear layout with an icon and a string of text -->
 
         <RelativeLayout
-            android:id="@+id/artisan_main_menu"
+            android:id="@+id/artisan_title_bar"
             xmlns:android="http://schemas.android.com/apk/res/android"
             android:orientation="horizontal"
             android:layout_width="fill_parent"
@@ -28,50 +34,68 @@
             android:gravity="center_vertical"
             android:alpha="1.0"
             android:background="#444444">
-            <!--android:paddingLeft="5dip"-->
+
 
             <ImageView
-                android:id="@+id/main_menu_icon"
+                android:id="@+id/artisan_title_bar_icon"
                 android:src="@drawable/artisan"
+                android:layout_alignParentLeft="true"
                 android:layout_width="38dip"
                 android:layout_height="wrap_content"
-                android:onClick="onMainMenuNavigation"/>
+                android:onClick="onClick"/>
+
+            <LinearLayout
+                android:id="@+id/artisan_title_bar_left"
+                android:orientation="horizontal"
+                android:layout_toRightOf="@id/artisan_title_bar_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"/>
+
+            <LinearLayout
+                android:id="@+id/artisan_title_bar_right"
+                android:orientation="horizontal"
+                android:layout_alignParentRight="true"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"/>
 
             <TextView
-                android:id="@+id/main_menu_text"
-                android:text="Howdy Doody"
+                android:id="@+id/artisan_title_bar_text"
                 android:layout_centerVertical="true"
-                android:layout_toRightOf="@id/main_menu_icon"
-                android:layout_width="wrap_content"
+                android:layout_toRightOf="@id/artisan_title_bar_left"
+                android:layout_toLeftOf="@id/artisan_title_bar_right"
+                android:singleLine="true"
+                android:text="Howdy Doody"
                 android:textSize="18dip"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"/>
 
-            <ImageView
-                android:id="@+id/main_menu_context_button"
-                android:src="@drawable/my_ic_menu_more_light"
-                android:layout_alignParentRight="true"
-                android:layout_width="38dip"
-                android:layout_height="wrap_content"
-                android:onClick="onMainMenuNavigation"/>
-            <!-- @drawable/abc_ic_menu_moreoverflow_mtrl_alph -->
+        </RelativeLayout>   <!-- end the menu bar -->
 
-            <ImageView
-                android:id="@+id/main_menu_home_button"
-                android:src="@drawable/my_ic_menu_home"
-                android:layout_toLeftOf="@id/main_menu_context_button"
-                android:layout_width="38dip"
-                android:layout_height="wrap_content"
-                android:onClick="onMainMenuNavigation"/>
 
+        <!-- THE CONTENT AREA -->
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+
+            <!-- THE CONTENT AREA HORIZONTAL PAGER  -->
+
+            <android.support.v4.view.ViewPager
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:id="@+id/artisan_content"/>
+
+            <!-- THE MAIN DROP DOWN MENU is normally empty -->
+
+            <LinearLayout
+                android:id="@+id/artisan_menu_area"
+                android:orientation="vertical"
+                android:layout_alignParentLeft="true"
+                android:layout_width="320dip"
+                android:layout_height="match_parent"/>
 
         </RelativeLayout>
-
-        <!-- the content area -->
-
-        <android.support.v4.view.ViewPager
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:id="@+id/artisan_content"/>
 
 
     </LinearLayout>

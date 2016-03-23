@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<prh.artisan.SelectDeviceItem
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:focusable="false"
+    android:id = "@+id/select_device_item_layout">
+
+    <ImageView
+        android:id="@+id/select_device_item_icon"
+        android:layout_alignParentLeft="true"
+        android:layout_marginLeft="@dimen/SelectDeviceIndentDevice"
+        android:layout_width="@dimen/SelectDeviceIconSize"
+        android:layout_height="@dimen/SelectDeviceIconSize"/>
+
+    <!-- android:src="@drawable/artisan" -->
+
+    <TextView
+        android:id="@+id/select_device_item_name"
+        android:layout_toRightOf="@id/select_device_item_icon"
+        android:textSize="@dimen/MainMenuTextSize"
+        android:textColor="#000000"
+        android:singleLine="true"
+        android:layout_marginLeft="12dip"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+</prh.artisan.SelectDeviceItem>

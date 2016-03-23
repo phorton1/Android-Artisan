@@ -1,2 +1,6 @@
 <resources>
+    <color name="MainMenuColor">#ffffff</color>
+    <color name="MainMenuDividerColor">#aaaaaa</color>
+    <color name="MainMenuTextColor">#000000</color>
+    <color name="MainMenuSubTextColor">#444444</color>
 </resources>

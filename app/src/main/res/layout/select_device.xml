@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<prh.artisan.SelectDevice
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/select_device_layout"
+    android:minHeight="@dimen/MainMenuItemHeight"
+    android:paddingLeft="@dimen/MainMenuItemPadding"
+    android:paddingRight="@dimen/MainMenuItemPadding"
+    android:paddingTop="@dimen/MainMenuItemPaddingTop"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <!--
+        android:layout_marginLeft="12dip"
+    -->
+
+    <TextView
+        android:id="@+id/select_device_type"
+        android:layout_alignParentLeft="true"
+        android:textSize="@dimen/MainMenuTextSize"
+        android:textColor="@color/MainMenuTextColor"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+    <TextView
+        android:id="@+id/select_device_name"
+        android:layout_alignParentRight="true"
+        android:text = "None"
+        android:textSize="@dimen/MainMenuTextSize"
+        android:textColor="@color/MainMenuSubTextColor"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+    <LinearLayout
+        android:id="@+id/select_device_list"
+        android:layout_below="@id/select_device_type"
+        android:orientation="vertical"
+        android:paddingTop="6dip"
+        android:paddingBottom="@dimen/MainMenuItemPadding"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+</prh.artisan.SelectDevice>

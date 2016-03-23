@@ -317,6 +317,13 @@ public class DeviceManager
     }
 
 
+    public boolean searchInProgress()
+    {
+        return
+            ssdp_search != null &&
+                !ssdp_search.finished();
+    }
+
     public boolean canDoDeviceSearch()
     {
         return
@@ -325,13 +332,23 @@ public class DeviceManager
     }
 
 
-    public void doDeviceSearch()
+    public void doDeviceSearch(boolean clear_cache)
     {
         if (ssdp_search != null &&
             !ssdp_search.finished())
         {
             Utils.error("There is already a device search under way");
             return;
+        }
+
+        if (clear_cache)
+        {
+            artisan.restartDeviceSearch();
+            devices = new DeviceHash();
+            devices_by_group = new DeviceGroupHash();
+            addDevice(artisan.getLocalLibrary());
+            addDevice(artisan.getLocalRenderer());
+            addDevice(artisan.getLocalPlaylistSource());
         }
         ssdp_search = new SSDPSearch(this,artisan);
         Thread search_thread = new Thread(ssdp_search);

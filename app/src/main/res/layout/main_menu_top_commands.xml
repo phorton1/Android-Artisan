@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/MainMenuItemHeight">
+
+    <TextView
+        android:id="@+id/menu_exit"
+        android:layout_alignParentLeft="true"
+        android:text="Exit"
+        android:background="#ccccff"
+        android:paddingLeft="26dip"
+        android:paddingTop="6dip"
+        android:textColor="@color/MainMenuTextColor"
+        android:textSize="@dimen/MainMenuTextSize"
+        android:textAlignment="center"
+        android:layout_width="80dip"
+        android:layout_height="32dip"/>
+
+    <!--
+       android:visibility="gone"
+       -->
+
+    <RelativeLayout
+        android:id="@+id/ssdp_progress_container"
+        android:layout_width="60dip"
+        android:layout_alignParentRight="true"
+        android:layout_height="@dimen/MainMenuItemHeight">
+        <ProgressBar
+            android:id="@+id/ssdp_progress"
+            style="?android:attr/progressBarStyle"
+            android:paddingLeft="6dip"
+            android:layout_centerVertical="true"
+            android:layout_centerHorizontal="true"
+            android:layout_gravity="center_vertical|center_horizontal"
+            android:layout_width="40dip"
+            android:layout_height="40dip" />
+    </RelativeLayout>
+
+    <TextView
+        android:id="@+id/refresh_devices"
+        android:layout_toLeftOf="@id/ssdp_progress_container"
+        android:text="   add\ndevices"
+        android:background="#ccccff"
+        android:textColor="@color/MainMenuTextColor"
+        android:textSize="12dip"
+        android:paddingLeft="12dip"
+        android:textAlignment="center"
+        android:layout_width="60dip"
+        android:layout_height="32dip"/>
+
+    <TextView
+        android:id="@+id/dummy_divider"
+        android:layout_toLeftOf="@id/refresh_devices"
+        android:layout_width="12dip"
+        android:layout_height="@dimen/MainMenuItemHeight"/>
+
+    <TextView
+        android:id="@+id/clear_devices"
+        android:layout_toLeftOf="@id/dummy_divider"
+        android:text=" reload\ndevices"
+        android:background="#ccccff"
+        android:textColor="@color/MainMenuTextColor"
+        android:textSize="12dip"
+        android:paddingLeft="12dip"
+        android:textAlignment="center"
+        android:layout_width="60dip"
+        android:layout_height="32dip"/>
+
+
+</RelativeLayout>

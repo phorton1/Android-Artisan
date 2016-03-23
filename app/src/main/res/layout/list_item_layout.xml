@@ -46,6 +46,7 @@
     <!-- the entire item serves as the button -->
     <!-- height gets set by code -->
     <!-- RelativeLayout container needed for proper horizontal centering -->
+    <!-- time for tracks or number of items for folders  -->
 
     <RelativeLayout
         android:id="@+id/list_item_right"
@@ -56,8 +57,6 @@
         android:layout_width="60dip"
         android:layout_height="wrap_content">
 
-        <!-- time for tracks or number of items for folders  -->
-
         <TextView
             android:id = "@+id/list_item_right_text"
             android:textSize="12dip"
@@ -67,6 +66,7 @@
             android:layout_centerHorizontal="true"
             android:layout_width = "wrap_content"
             android:layout_height = "wrap_content" />
+
     </RelativeLayout>
 
 

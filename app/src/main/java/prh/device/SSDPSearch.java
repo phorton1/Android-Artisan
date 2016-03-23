@@ -110,6 +110,7 @@ public class SSDPSearch implements Runnable
     public void run()
     {
         Utils.log(0,0,"SSDPSearch started");
+        artisan.handleArtisanEvent(EventHandler.EVENT_SSDP_SEARCH_STARTED,null);
 
         // create a DeviceListener on LISTEN_PORT
 

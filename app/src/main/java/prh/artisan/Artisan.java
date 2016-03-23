@@ -103,12 +103,15 @@ import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
 
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -128,6 +131,7 @@ import prh.utils.Utils;
 
 
 public class Artisan extends FragmentActivity implements
+    View.OnClickListener,
     EventHandler
 {
     private static int NUM_PAGER_ACTIVITIES = 5;
@@ -137,15 +141,17 @@ public class Artisan extends FragmentActivity implements
     public final static int PAGE_LIBRARY = 3;
     public final static int PAGE_EXPLORER = 4;
 
+
     public final static int START_PAGE = Build.ID.equals(Utils.ID_CAR_STEREO) ?
         PAGE_PLAYING : PAGE_LIBRARY;
 
     // system working variables
 
-    private boolean artisan_created = false;
-
     private int current_page = -1;
     private boolean is_full_screen = false;
+    private boolean artisan_created = false;
+
+    private MainMenu main_menu = null;
     private ViewPager view_pager = null;
     private pageChangeListener page_change_listener = null;
     private WifiManager.WifiLock wifi_lock = null;
@@ -209,6 +215,8 @@ public class Artisan extends FragmentActivity implements
         String default_name = Prefs.getString(pref_id);
         if (default_name.equals(Prefs.LAST_SELECTED))
             default_name = Prefs.getString(selected_id);
+        if (default_name.startsWith("Local"))
+            default_name = "";
         if (!default_name.isEmpty())
             Utils.log(0,0,"DEFAULT_" + what + "(" + default_name +")");
         return default_name;
@@ -219,6 +227,23 @@ public class Artisan extends FragmentActivity implements
     // onCreate()
     //--------------------------------------------------------
 
+/***
+    <ImageView
+    android:id="@+id/main_menu_context_button"
+    android:src="@drawable/my_ic_menu_more_light"
+    android:layout_alignParentRight="true"
+    android:layout_width="38dip"
+    android:layout_height="wrap_content"
+    android:onClick="onClick"/>
+
+    <ImageView
+    android:id="@+id/main_menu_home_button"
+    android:src="@drawable/my_ic_menu_home"
+    android:layout_toLeftOf="@id/main_menu_context_button"
+    android:layout_width="38dip"
+    android:layout_height="wrap_content"
+    android:onClick="onClick"/>
+****/
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -259,9 +284,10 @@ public class Artisan extends FragmentActivity implements
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.activity_artisan);
 
-        View.OnClickListener show_listener = new View.OnClickListener()
-        { public void onClick(View view) { showFullScreen(!is_full_screen); }};
-        findViewById(R.id.artisan_main_menu).setOnClickListener(show_listener);
+        // setup for Full Page behavior
+
+        initTitleBarHeight();
+        findViewById(R.id.artisan_title_bar).setOnClickListener(this);
 
         // create the main "activity" fragments
         // and the pager, listener, and adapter
@@ -277,6 +303,14 @@ public class Artisan extends FragmentActivity implements
         view_pager = (ViewPager) findViewById(R.id.artisan_content);
         view_pager.setAdapter(my_pager_adapter);
         view_pager.addOnPageChangeListener(page_change_listener);
+
+        // create the main menu
+
+        LayoutInflater inflater = LayoutInflater.from(this);
+        main_menu = (MainMenu) inflater.inflate(R.layout.main_menu,null,false);
+        LinearLayout menu_area = (LinearLayout) findViewById(R.id.artisan_menu_area);
+        menu_area.addView(main_menu);
+        main_menu.setVisibility(View.GONE);
 
         // start the volume control and set full page
 
@@ -415,60 +449,11 @@ public class Artisan extends FragmentActivity implements
         // EVENT_NEW_DEVICE will be called for any devices not in
         // the initial cache.
 
-        device_manager.doDeviceSearch();
+        device_manager.doDeviceSearch(false);
         Utils.log(0,0,"------ Artisan.onCreate() finished ------");
         artisan_created = true;
 
     }   // onCreate()
-
-
-
-    private boolean findAndStartDefaultDevice(Device.deviceGroup group, String name)
-    {
-        // if the name is empty, we're already done
-
-        if (name.isEmpty())
-            return false;
-
-        // see if the device exists
-
-        String thing = "";
-        if (group.equals(Device.deviceGroup.DEVICE_GROUP_LIBRARY))
-            thing = "Library";
-        if (group.equals(Device.deviceGroup.DEVICE_GROUP_RENDERER))
-            thing = "Renderer";
-        if (group.equals(Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE))
-            thing = "PlaylistSource";
-
-        Device device = device_manager.getDevice(group,name);
-
-        if (device != null)
-        {
-            Utils.log(0,0,"STARTING DEFAULT " + thing +"(" + name + ") artisan_created=" + artisan_created);
-            setArtisanDevice(thing,name);
-                // ignore false=could_not_start return
-            return true;
-        }
-
-        if (!artisan_created)
-            Utils.log(0,0,"Could not find DEFAULT " + thing + "(" + name + ") in onCreate() ... continuing to look ...");
-        return false;
-    }
-
-
-    public Device getCurrentDevice(Device.deviceGroup group)
-    {
-        Device device = null;
-        if (group.equals(Device.deviceGroup.DEVICE_GROUP_LIBRARY))
-            device = (Device) library;
-        if (group.equals(Device.deviceGroup.DEVICE_GROUP_RENDERER))
-            device = (Device) renderer;
-        if (group.equals(Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE))
-            device = (Device) playlist_source;
-        return device;
-    }
-
-
 
 
     @Override
@@ -579,6 +564,17 @@ public class Artisan extends FragmentActivity implements
     // Paging
     //-------------------------------------------------------
 
+    private void setCurrentPageTitle()
+    {
+        myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
+        ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
+        if (current_page == PAGE_PLAYING)
+            aPlaying.update_whats_playing_message();
+        else
+            SetMainMenuText(page.getName(),page.getName());
+    }
+
+
     private class myPagerAdapter extends FragmentPagerAdapter
     {
         public myPagerAdapter(FragmentManager fm)       { super(fm);  }
@@ -606,31 +602,85 @@ public class Artisan extends FragmentActivity implements
         @Override
         public void onPageSelected(int index)
         {
-            if (!is_full_screen && current_page >= 0)
-                setCurrentPageFullscreenClickHandler(false);
+            setBodyClickListener(false);
             current_page = index;
-            if (!is_full_screen && current_page >= 0)
-                setCurrentPageFullscreenClickHandler(true);
-
+            setBodyClickListener(true);
             if (current_page >= 0)
                 setCurrentPageTitle();
-
         }
     }
 
 
-    private void setCurrentPageTitle()
+
+    //-------------------------------------------------------
+    // FullScreen Behavior
+    //-------------------------------------------------------
+    // Our title bar gets a regular onClick() handler.
+    //
+    // All page fragments get a generic onBodyClicked() handler.
+    // The click handlers have to be set on the paged activities
+    // each time the come into view, and removed when they go out
+    // of view, presumably because the View Pager removes
+    // onClickHandlers when changing pages.
+    //
+    // Additionally, most fragment and other onClick() handlers
+    // should call back to onBodyClicked().
+    //
+    // To begin with, we are full screen, our title bar shows at 0,0;
+    //
+    // When our title bar is clicked we stop being full screen,
+    // disappear the title bar, and let the Android status bar show.
+    //
+    // When they click on the body of a fragment, or a properly
+    // implemented control, it calls back to onBodyClicked(), which
+    // changes us back to full screen, and shows our title bar.
+    //
+    // The onBodyClicked() handler also hides the main menu,
+    // and returns TRUE if it did either, so that the event
+    // can be eaten by the particular onClick() handler
+
+
+    private void initTitleBarHeight()
+        // The whole scheme hinges on having our title bar
+        // exactly replace the status bar.  This code sets
+        // our title bar's height to that of the Android
+        // system StatusBar
     {
-        myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
-        ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
-        if (current_page == PAGE_PLAYING)
-            aPlaying.update_whats_playing_message();
+        View title_bar = findViewById(R.id.artisan_title_bar);
+        ViewGroup.LayoutParams params = title_bar.getLayoutParams();
+        int id = getResources().getIdentifier("status_bar_height","dimen","android");
+        if (id > 0)
+            params.height = getResources().getDimensionPixelSize(id);
         else
-            SetMainMenuText(page.getName(),page.getName());
+            params.height = 60; // bogus fallback
+        title_bar.setLayoutParams(params);
     }
 
 
-    private void setCurrentPageFullscreenClickHandler(boolean setit)
+    private void showFullScreen(boolean full)
+        // if fullscreen, then our title bar disappears and
+        // the system StatusBar is allowed to show, otherwise
+        // we show our title bar over the system StatusBar
+    {
+        // set Window Mode
+
+        getWindow().setFlags(full ?
+            WindowManager.LayoutParams.FLAG_FULLSCREEN : 0,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
+        // display or hide the title bar
+        // title bar shows when full
+
+        View title_bar = findViewById(R.id.artisan_title_bar);
+        title_bar.setVisibility(full ? View.VISIBLE : View.GONE );
+        is_full_screen = full;
+    }
+
+
+    private void setBodyClickListener(boolean setit)
+        // The current_page is coming into view (setit),
+        // or going out of view (!setit). Remove or
+        // set the onBodyClicked() listener.
     {
         if (current_page >= 0)
         {
@@ -639,11 +689,41 @@ public class Artisan extends FragmentActivity implements
             View view = fragment.getView();
             if (view != null)
                 fragment.getView().setOnClickListener( !setit ? null :
-                    new View.OnClickListener()
-                    {
-                        public void onClick(View view) { showFullScreen(!is_full_screen); }
-                    });
+                    createBodyClickListener());
         }
+    }
+
+
+    private View.OnClickListener createBodyClickListener()
+        // Return a new instance of a fullPageClickListener,
+    {
+        View.OnClickListener show_listener = new View.OnClickListener()
+        {
+            public void onClick(View view)
+            {
+                onBodyClicked();
+            }
+        };
+        return show_listener;
+    }
+
+
+    public boolean onBodyClicked()
+        // Hide the main menu if it's showing, and/or
+        // switch back to full screen mode if we're not.
+        // Return true in either case so clients can skip
+        // the event.
+        //
+        // called liberally throughout the code by controls
+        // within pages (that don't call have a onBodyClickListener()
+    {
+        boolean retval = hideMainMenu();
+        if (!is_full_screen)
+        {
+            retval = true;
+            showFullScreen(true);
+        }
+        return retval;
     }
 
 
@@ -671,61 +751,105 @@ public class Artisan extends FragmentActivity implements
         ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
         if (page != null && page.getName().equals(from))
         {
-            TextView title = (TextView) findViewById(R.id.main_menu_text);
+            TextView title = (TextView) findViewById(R.id.artisan_title_bar_text);
             title.setText(text);
         }
     }
 
 
-    private void showFullScreen(boolean full)
-        // if fullscreen, then our menu disappears and
-        // is replaced by the system StatusBar ..
-        // otherwise, we show our menu as the same
-        // height as the system StatusBar.
+    public void doVolumeControl()
     {
-        // show the status bar itself
-
-        getWindow().setFlags(
-            full ? WindowManager.LayoutParams.FLAG_FULLSCREEN : 0,
-            WindowManager.LayoutParams.FLAG_FULLSCREEN);
-
-        // display or hide the main_menu
-        // main_menu shows when full
-        // we get the status bar height
-        // otherwise, set menu height to 0
-
-        View main_menu = findViewById(R.id.artisan_main_menu);
-        LinearLayout.LayoutParams params =
-            (LinearLayout.LayoutParams) main_menu.getLayoutParams();
-
-        params.height = 0;
-        if (full)
+        Utils.log(0,0,"doVolumeControl()");
+        if (volume_control != null &&
+            renderer != null &&
+            renderer.getVolume() != null)
         {
-            int id = getResources().getIdentifier("status_bar_height", "dimen", "android");
-            if (id > 0)
-                params.height = getResources().getDimensionPixelSize(id);
-            else
-                params.height = 60; // bogus fallback
+            volume_control.show();
         }
-        main_menu.setLayoutParams(params);
-
-        // set/remove click listeners on the content view
-
-        if (true)
-        {
-            setCurrentPageFullscreenClickHandler(!full);
-        }
-
-        is_full_screen = full;
     }
 
 
 
+    //------------------------------------------------
+    // Playlist
+    //------------------------------------------------
+
+
+    public Playlist createEmptyPlaylist()
+    {
+        return playlist_source.getPlaylist("");
+    }
+
+
+    public void setPlaylist(String name)
+    // called from station button, we select the new
+    // playlist and event it to any interested clients
+    // PRH - this should not be here
+    {
+        Utils.log(0,0,"setPlaylist(" + name + ")");
+
+        // get the playlist
+
+        Playlist playlist = playlist_source.getPlaylist(name);
+        if (playlist == null)
+            Utils.error("Could not get Playlist named '" + name + "'");
+
+            // tell the renderer, and it will send the event
+
+        else if (renderer != null)
+            renderer.setPlaylist(playlist);
+
+            // or send the event ourselves if no renderer
+
+        else
+            aPlaying.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
+    }
+
+
+
+
     //-------------------------------------------------------
-    // Interactions
+    // Device Management
     //-------------------------------------------------------
 
-    public boolean setArtisanDevice(String thing, String name)
+    public Device getCurrentDevice(Device.deviceGroup group)
+    {
+        Device device = null;
+        if (group.equals(Device.deviceGroup.DEVICE_GROUP_LIBRARY))
+            device = (Device) library;
+        if (group.equals(Device.deviceGroup.DEVICE_GROUP_RENDERER))
+            device = (Device) renderer;
+        if (group.equals(Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE))
+            device = (Device) playlist_source;
+        return device;
+    }
+
+
+    private boolean findAndStartDefaultDevice(Device.deviceGroup group, String name)
+    {
+        // if the name is empty, we're already done
+
+        if (name.isEmpty())
+            return false;
+
+        Device device = device_manager.getDevice(group,name);
+
+        if (device != null)
+        {
+            Utils.log(0,0,"STARTING DEFAULT " + group +"(" + name + ") artisan_created=" + artisan_created);
+            setArtisanDevice(group,name);
+                // ignore false == could_not_start function value
+            return true;
+        }
+
+        if (!artisan_created)
+            Utils.log(0,0,"Could not find DEFAULT " + group + "(" + name + ") in onCreate() ... continuing to look ...");
+        return false;
+    }
+
+
+
+    public boolean setArtisanDevice(Device.deviceGroup group, String name)
         // Called with a "Library", "Renderer", or "PlaylistSource",
         // and a name, sets the current Renderer, Library, or PlaylistSource,
         // stopping the old one if any, and starting the new one.
@@ -734,40 +858,43 @@ public class Artisan extends FragmentActivity implements
         // the name of local items is "" in prefs
 
         Prefs.id prefs_id = null;
+        String thing = "";
         String cur_name = "";
         String event_name = "";
         String prefs_name = name;
-        Device.deviceGroup group = null;
 
-        if (thing.equals("Library") && library != null)
+        if (library != null &&
+            group == Device.deviceGroup.DEVICE_GROUP_LIBRARY)
         {
+            thing = "Library";
             cur_name = library.getName();
             prefs_id = Prefs.id.SELECTED_LIBRARY;
             event_name = EventHandler.EVENT_LIBRARY_CHANGED;
-            group = Device.deviceGroup.DEVICE_GROUP_LIBRARY;
             if (prefs_name.equals(Device.deviceType.LocalLibrary))
                 prefs_name = "";
         }
-        else if (thing.equals("Renderer") && renderer != null)
+        else if (renderer != null &&
+            group == Device.deviceGroup.DEVICE_GROUP_RENDERER)
         {
+            thing = "Renderer";
             cur_name = renderer.getName();
             prefs_id = Prefs.id.SELECTED_RENDERER;
             event_name = EventHandler.EVENT_RENDERER_CHANGED;
-            group = Device.deviceGroup.DEVICE_GROUP_RENDERER;
             if (prefs_name.equals(Device.deviceType.LocalRenderer))
                 prefs_name = "";
         }
-        else if (thing.equals("PlaylistSource") && playlist_source != null)
+        else if (playlist_source != null &&
+            group == Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE )
         {
+            thing = "PlaylistSource";
             cur_name = playlist_source.getName();
             prefs_id = Prefs.id.SELECTED_PLAYLIST_SOURCE;
             event_name = EventHandler.EVENT_PLAYLIST_SOURCE_CHANGED;
-            group = Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE;
             if (prefs_name.equals(Device.deviceType.LocalPlaylistSource))
                 prefs_name = "";
         }
 
-        // bail if its the same renderer
+        // bail if its the same device
 
         if (cur_name.equals(name))
         {
@@ -835,80 +962,53 @@ public class Artisan extends FragmentActivity implements
     }
 
 
-    //------------------------------------------------
-    // Playlist Source Support
-    //------------------------------------------------
+    //----------------------------------------------------
+    // onClick
+    //----------------------------------------------------
+    // Handles MainMenu and MainToolBars
 
-    public void setPlayList(String name)
-        // called from station button, we select the new
-        // playlist and event it to any interested clients
-        // PRH - this should not be here
+    private boolean hideMainMenu()
     {
-        Utils.log(0,0,"setPlaylist(" + name + ")");
-
-        // get the playlist
-
-        Playlist playlist = playlist_source.getPlaylist(name);
-        if (playlist == null)
-            Utils.error("Could not get Playlist named '" + name + "'");
-
-        // tell the renderer, and it will send the event
-
-        else if (renderer != null)
-            renderer.setPlaylist(playlist);
-
-        // or send the event ourselves if no renderer
-
-        else
-            aPlaying.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
-   }
-
-
-
-    public Playlist createEmptyPlaylist()
-    {
-        return playlist_source.getPlaylist("");
-    }
-
-
-
-    public void doVolumeControl()
-    {
-        Utils.log(0,0,"doVolumeControl()");
-        if (volume_control != null &&
-            renderer != null &&
-            renderer.getVolume() != null)
+        boolean retval = false;
+        if (main_menu.getVisibility() == View.VISIBLE)
         {
-            volume_control.show();
+            main_menu.setVisibility(View.GONE);
+            retval = true;
         }
+        return retval;
     }
 
 
-    public void onMainMenuNavigation(View v)
+    public void onClick(View v)
     {
-        switch (v.getId())
-        {
-            case R.id.main_menu_icon:
+        int id = v.getId();
 
-                Utils.log(0,0,"onClickBack()");
-                ImageView artisan_icon = (ImageView) findViewById(R.id.main_menu_icon);
-                PopupMenu popup = new PopupMenu(this,artisan_icon);
-                popup.getMenuInflater().inflate(R.menu.main_menu_left,popup.getMenu());
-                popup.setOnMenuItemClickListener(
-                    new PopupMenu.OnMenuItemClickListener()
-                    {
-                        public boolean onMenuItemClick(MenuItem item)
-                        {
-                            if (item.getItemId() == R.id.main_menu_exit)
-                            {
-                                finish();
-                            }
-                            return true;
-                        }
-                    } );
-                popup.show();
+        if (id != R.id.artisan_title_bar &&
+            id != R.id.artisan_title_bar_icon)
+            onBodyClicked();
+
+
+        switch (id)
+        {
+            case R.id.artisan_title_bar:
+                hideMainMenu();
+                showFullScreen(false);
                 break;
 
+            case R.id.artisan_title_bar_icon:
+
+                if (main_menu.getVisibility() == View.VISIBLE)
+                {
+                    hideMainMenu();
+                }
+                else
+                {
+                    main_menu.setVisibility(View.VISIBLE);
+                    main_menu.init();
+                }
+                break;
+
+            /**
             case R.id.main_menu_home_button:
                 Utils.log(0,0,"onClickHome()");
                 Intent i = new Intent();
@@ -919,7 +1019,22 @@ public class Artisan extends FragmentActivity implements
 
             case R.id.main_menu_context_button:
                 break;
+                 ***/
         }
+    }
+
+
+
+    //--------------------------------------------------
+    // Support (and disabling) of Hardware Back Button
+    //--------------------------------------------------
+
+    @Override
+    public void onBackPressed()
+    {
+        // do whatever is needed here
+        if (current_page == 3)
+            aLibrary.doBack();
     }
 
 
@@ -938,18 +1053,50 @@ public class Artisan extends FragmentActivity implements
     }
 
 
-    @Override
-    public void onBackPressed()
-    {
-        if (current_page == 3)
-            aLibrary.doBack();
-    }
-
-
 
     //---------------------------------------------------------------------
     // EVENT HANDLING
     //---------------------------------------------------------------------
+
+
+    public void restartDeviceSearch()
+    {
+        if (library != null && !((Device)library).isLocal())
+        {
+            library.stop();
+            library = local_library;
+            if (library != null)
+                library.start();
+            handleArtisanEvent(EVENT_LIBRARY_CHANGED,library);
+        }
+        if (renderer != null && !((Device)renderer).isLocal())
+        {
+            Playlist playlist = renderer.getPlaylist();
+            if (playlist != null)
+                playlist.stop();
+            renderer.stopRenderer();
+            renderer = local_renderer;
+            if (renderer != null)
+                renderer.startRenderer();
+            handleArtisanEvent(EVENT_RENDERER_CHANGED,renderer);
+        }
+        if (playlist_source != null && !((Device)playlist_source).isLocal())
+        {
+            playlist_source.stop();
+            playlist_source = local_playlist_source;
+            if (playlist_source != null)
+                playlist_source.start();
+            handleArtisanEvent(EVENT_PLAYLIST_SOURCE_CHANGED,playlist_source);
+        }
+
+        default_renderer_name = getDefaultDeviceName(
+            "RENDERER",Prefs.id.DEFAULT_RENDERER,Prefs.id.SELECTED_RENDERER);
+        default_library_name = getDefaultDeviceName(
+            "LIBRARY",Prefs.id.DEFAULT_LIBRARY,Prefs.id.SELECTED_LIBRARY);
+        default_playlist_source_name = getDefaultDeviceName(
+            "PLAYLIST_SOURCE",Prefs.id.DEFAULT_PLAYLIST_SOURCE,Prefs.id.SELECTED_PLAYLIST_SOURCE);
+    }
+
 
     @Override
     public void handleArtisanEvent(final String event_id,final Object data)
@@ -970,6 +1117,9 @@ public class Artisan extends FragmentActivity implements
                     Utils.log(0,0,"----> " + event_id);
 
 
+                //----------------------------------------------------------
+                // Device Events
+                //----------------------------------------------------------
                 // check NEW_DEVICES if still looking for a Default Devices
 
                 if (event_id.equals(EVENT_NEW_DEVICE))
@@ -1014,11 +1164,26 @@ public class Artisan extends FragmentActivity implements
 
 
 
+                //----------------------------------------------------------
+                // Global Events to main Views
+                //----------------------------------------------------------
                 // Send all events non-IDLE to all known event handlers
                 // prh = Could use this to get rid of other Timer Loops,
                 // i.e. to hit LocalVolumeFixer and polling Volume objects.
                 // Note the selective dispatch to the volumeControl only
                 // if it's showing
+
+                if (//main_menu.getVisibility() == View.VISIBLE && (
+                    event_id.equals(EVENT_NEW_DEVICE) ||
+                    event_id.equals(EVENT_LIBRARY_CHANGED) ||
+                    event_id.equals(EVENT_RENDERER_CHANGED) ||
+                    event_id.equals(EVENT_SSDP_SEARCH_STARTED) ||
+                    event_id.equals(EVENT_SSDP_SEARCH_FINISHED) ||
+                    event_id.equals(EVENT_PLAYLIST_SOURCE_CHANGED)) //)
+                {
+                    main_menu.handleArtisanEvent(event_id,data);
+                }
+
 
                 if (!event_id.equals(EVENT_IDLE) &&
                     !event_id.equals(EVENT_VOLUME_CHANGED))
@@ -1048,10 +1213,13 @@ public class Artisan extends FragmentActivity implements
                     }
                 }
 
-                // UPnP Event dispatching .. if there's an http_server
-                // it means therer are UPnP Services ... we bump the
-                // use counts on the underlying objects, and dispatch
-                // the UPnP events on EVENT_IDLE ..
+
+                //-----------------------------------------------------
+                // UPnP Event dispatching
+                //------------------------------------------------
+                // if there's an http_server it means therer are UPnP
+                // Services ... we bump the use counts on the underlying
+                // objects, and dispatch the UPnP events on EVENT_IDLE ..
 
                 if (http_server != null)
                 {

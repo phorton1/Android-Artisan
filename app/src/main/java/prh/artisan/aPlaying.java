@@ -1,11 +1,8 @@
 package prh.artisan;
 
 import android.app.Activity;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
-import android.os.AsyncTask;
 import android.os.Bundle;
 
 import android.support.v4.app.Fragment;
@@ -25,9 +22,9 @@ import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.InputStream;
 
 import prh.device.LocalPlaylist;
+import prh.utils.ImageLoader;
 import prh.utils.Utils;
 
 
@@ -62,9 +59,6 @@ public class aPlaying extends Fragment implements
     // working vars
 
     private boolean in_slider = false;
-
-
-
 
 
 
@@ -160,7 +154,18 @@ public class aPlaying extends Fragment implements
     @Override
     public void onClick(View v)
     {
-        if (renderer == null) return;
+        // Control click handlers call back to Artisan
+        // onBodyClicked() and eat the click if it returns true.
+
+        if (artisan.onBodyClicked())
+            return;
+
+        // Can't do anything if there's no renderer
+
+        if (renderer == null)
+            return;
+
+        // Handle the button click
 
         switch (v.getId())
         {
@@ -237,39 +242,6 @@ public class aPlaying extends Fragment implements
         if (btn instanceof ImageButton)
             ((ImageButton)btn).setImageAlpha(enable?255:100);
         btn.setEnabled(enable);
-    }
-
-
-    private class DownloadImageTask extends AsyncTask<String, Void, Bitmap>
-        // display the now playing image asynchronously
-    {
-        ImageView bmImage;
-
-        public DownloadImageTask(ImageView bmImage)
-        {
-            this.bmImage = bmImage;
-        }
-
-        protected Bitmap doInBackground(String... urls)
-        {
-            String urldisplay = urls[0];
-            Bitmap mIcon11 = null;
-            try
-            {
-                InputStream in = new java.net.URL(urldisplay).openStream();
-                mIcon11 = BitmapFactory.decodeStream(in);
-            }
-            catch (Exception e)
-            {
-                Utils.error("Could not load image:" + e.getMessage());
-            }
-            return mIcon11;
-        }
-
-        protected void onPostExecute(Bitmap result)
-        {
-            bmImage.setImageBitmap(result);
-        }
     }
 
 
@@ -386,7 +358,7 @@ public class aPlaying extends Fragment implements
                     // tell artisan that the playlist has changed
                     // it will event the change back to us
 
-                    artisan.setPlayList(name);
+                    artisan.setPlaylist(name);
 
                 }
             });
@@ -546,16 +518,9 @@ public class aPlaying extends Fragment implements
                 {
                     img.setImageResource(R.drawable.no_image);
                 }
-                else if (art_uri.startsWith("file://"))
-                {
-                    String art_path = art_uri.replace("file://","");
-                    FileInputStream fis = new FileInputStream(new File(art_path));
-                    Drawable d = Drawable.createFromStream(fis,null);
-                    img.setImageDrawable(d);
-                }
                 else
                 {
-                    new DownloadImageTask(img).execute(art_uri);
+                    ImageLoader.loadImage(artisan,img,art_uri);
                 }
             }
             catch(Exception e)
@@ -611,9 +576,8 @@ public class aPlaying extends Fragment implements
             // current_position = 0;
             current_state = renderer.getRendererState();
             current_position = renderer.getPosition();
-            current_track = (Track) data;
 
-            update_track(current_track);
+            update_track((Track) data);
             update_position(current_position);
             update_state(current_state);
             update_whats_playing_message();
@@ -626,8 +590,7 @@ public class aPlaying extends Fragment implements
             current_state = renderer.getRendererState();
             current_position = renderer.getPosition();
             current_track = renderer.getTrack();
-
-            current_playlist = new LocalPlaylist(artisan);
+            // current_playlist = new LocalPlaylist(artisan);
 
             update_playlist((Playlist) data);
             update_track(current_track);
@@ -679,6 +642,15 @@ public class aPlaying extends Fragment implements
             update_position(current_position);
             update_state(current_state);
             update_whats_playing_message();
+        }
+
+        else if (event_id.equals(COMMAND_EVENT_PLAY_TRACK))
+        {
+            if (renderer != null)
+            {
+                Track track = (Track) data;
+                renderer.setTrack(track,false);
+            }
         }
     }
 

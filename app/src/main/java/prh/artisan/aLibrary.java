@@ -60,6 +60,7 @@ import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.Toast;
 
 import java.util.List;
 
@@ -71,8 +72,8 @@ import prh.utils.Utils;
 public class aLibrary extends Fragment implements
     ArtisanPage,
     EventHandler,
-    AdapterView.OnItemClickListener,
-    AdapterView.OnItemLongClickListener
+    View.OnClickListener,
+    View.OnLongClickListener
 {
     private static int dbg_alib = 0;
 
@@ -85,9 +86,7 @@ public class aLibrary extends Fragment implements
 
     public Artisan getArtisan()  { return artisan; }
     public Library getLibrary()  { return library; }
-    public LinearLayout getMyView()  { return my_view; }
-
-
+    // public LinearLayout getMyView()  { return my_view; }
 
 
     //----------------------------------------------
@@ -139,7 +138,9 @@ public class aLibrary extends Fragment implements
         view_stack.clear();
         view_stack = null;
         library = null;
+        super.onDestroy();
     }
+
 
     //--------------------------------------------------------------
     // Traversal
@@ -165,27 +166,24 @@ public class aLibrary extends Fragment implements
     {
         Folder folder = library.getFolder(id);
         boolean is_album = folder.getType().equals("album");
-        String table = is_album ? "tracks" : " folders";
+
+        // inflate a new list/adapter for the children of the folder
 
         LayoutInflater inflater = LayoutInflater.from(artisan);
         ListView list_view = (ListView) inflater.inflate(R.layout.library_list,null,false);
-        list_view.setAdapter(new libraryListAdapter(this,list_view,folder));
-        // list_view.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
+        list_view.setAdapter(new libraryListAdapter(this,folder));
+        list_view.setItemsCanFocus(true);
 
         // add the album header
-        // which at least relieves the complexity of keeping track of it in the
-        // adapter, but I am disappointed that it scrolls with the list.
 
         View main_view = list_view;
         if (is_album)
         {
             main_view = inflater.inflate(R.layout.library_album,null,false);
-
             ListItem header_view = (ListItem) inflater.inflate(R.layout.list_item_layout,null,false);
             header_view.setFolder(folder);
             header_view.setLargeView();
-            header_view.doLayout();
-
+            header_view.doLayout(this,this);
             ((LinearLayout)main_view).addView(header_view);
             ((LinearLayout)main_view).addView(list_view);
         }
@@ -201,23 +199,20 @@ public class aLibrary extends Fragment implements
         // subitems of tracks
     {
         private Folder folder;
-        private boolean is_album;
+            // the parent folder for the list that this
+            // adapter is associated with
         private aLibrary a_library;
-        private ListView the_list_view;
         private List<Record> sub_items;
-        private intViewHash items = new intViewHash();
-            // I shouldn't need to cache these
+        // private intViewHash items = new intViewHash();
+            // if I attempt to cache these, I lose clickHandlers
 
 
-        public libraryListAdapter(aLibrary the_a_library, ListView parent, Folder the_folder)
+        public libraryListAdapter(aLibrary the_a_library, Folder the_folder)
         {
             a_library = the_a_library;
             folder = the_folder;
             sub_items = a_library.getLibrary().getSubItems(folder.getId(),0,999999,false);
-            is_album = folder.getType().equals("album");
-            the_list_view = parent;
         }
-
 
         public int getCount()
         {
@@ -236,9 +231,10 @@ public class aLibrary extends Fragment implements
 
         public View getView(int position, View parent, ViewGroup view_group)
         {
-            View item = items.get(position);
-            if (item == null)
-            {
+            //View item = items.get(position);
+            //if (item == null)
+            //{
+
                 Record rec = sub_items.get(position);
                 LayoutInflater inflater = LayoutInflater.from(artisan);
                 ListItem list_item = (ListItem) inflater.inflate(R.layout.list_item_layout,view_group,false);
@@ -246,14 +242,39 @@ public class aLibrary extends Fragment implements
                     list_item.setTrack((Track) rec);
                 else
                     list_item.setFolder((Folder) rec);
-                list_item.doLayout();
-                item = list_item;
-                the_list_view.setOnItemClickListener(a_library);
-                the_list_view.setOnItemLongClickListener(a_library);
-                items.put(position,item);
-            }
-            return item;
+
+                // OnClickHandlers are set in doLayout()
+
+                list_item.doLayout(a_library,a_library);
+                return list_item;
+
+                // If I attempt to cache these, I lose the click listener
+                // item = list_item;
+                // items.put(position,item);
+           //}
+           //return item;
         }
+
+
+        // implementing these two methods disables
+        // view recycling by the ListView which
+        // allows the cached items to work, by
+        // essentially telling the list view that
+        // all objects are of unique types and cannot
+        // be recycled.
+
+        @Override
+        public int getViewTypeCount()
+        {
+            return getCount();
+        }
+
+        @Override
+        public int getItemViewType(int position)
+        {
+            return position;
+        }
+
 
     }   // class libraryListAdapter
 
@@ -263,30 +284,66 @@ public class aLibrary extends Fragment implements
     // onClick()
     //--------------------------------------------------------------
 
-    @Override public void onItemClick(AdapterView av, View v, int position, long long_id)
+
+    @Override public void onClick(View v)
+        // traverse to child node, or
+        // popup context menu
     {
-        // int id = v.getId();
-        // case R.id.list_item_layout:
+        int id = v.getId();
 
-        Folder folder = ((ListItem)v).getFolder();
-        if (folder != null)
-            pushViewStack(folder.getId());
+        // Control click handlers call back to Artisan
+        // onBodyClicked() and eat the click if it returns true.
 
-    }   // onItemClick()
+        if (artisan.onBodyClicked())
+            return;
+
+        // Otherwise, handle the click to a Folder or Track
+
+        ListItem list_item;
+        switch (id)
+        {
+            case R.id.list_item_layout :
+                list_item = (ListItem) v;
+                Folder folder = list_item.getFolder();
+                if (folder != null)
+                    pushViewStack(folder.getId());
+                break;
+
+            case R.id.list_item_right :
+            case R.id.list_item_right_text :
+                String msg = "ListItem ContextMenu ";
+                View item = (View) v.getParent();
+                if (id == R.id.list_item_right_text)
+                    item = (View) item.getParent();
+                list_item = (ListItem) item;
+                if (list_item.getFolder() != null)
+                    msg += "Folder:" + list_item.getFolder().getTitle();
+                else
+                    msg += "Track:" + list_item.getTrack().getTitle();
+                Toast.makeText(artisan,msg,Toast.LENGTH_LONG).show();
+                break;
+        }
+    }
 
 
 
-    @Override public boolean onItemLongClick(AdapterView av, View v, int position, long long_id)
+    @Override public boolean onLongClick(View v)
     {
-        // int id = v.getId();
-        // case R.id.list_item_layout:
+        if (artisan.onBodyClicked())
+            return true;
 
-        ListItem item = (ListItem) v;
-        item.setSelected(!item.getSelected());
-        v.setBackgroundColor(item.getSelected()?0xff773333: Color.BLACK);
-        return true;
-
-    }   // onItemLongClick()
+        if (v.getId() == R.id.list_item_layout)
+        {
+            ListItem list_item = (ListItem) v;
+            list_item.setSelected(!list_item.getSelected());
+            if (list_item.getSelected())
+                list_item.setBackgroundColor(0xFF332200);
+            else
+                list_item.setBackgroundColor(Color.BLACK);
+            return true;
+        }
+        return false;
+    }
 
 
 

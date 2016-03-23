@@ -1,2 +1,13 @@
 <resources>
+
+    <!-- interesting, but unused, example of how to pass typed params -->
+    <!-- from XML to the inflate constructor of a derived View -->
+
+    <declare-styleable name="SelectDeviceItem">
+        <attr name="deviceGroupName" format="string" />
+        <attr name="onSelectedPage" format="integer" />
+        <attr name="deviceGroup" format="string" />
+    </declare-styleable>
+
+
 </resources>

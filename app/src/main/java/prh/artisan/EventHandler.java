@@ -17,7 +17,13 @@ public interface EventHandler
     public static String EVENT_RENDERER_CHANGED        = "RENDERER_CHANGED";           // data = New Renderer
     public static String EVENT_PLAYLIST_SOURCE_CHANGED = "PLAYLIST_SOURCE_CHANGED";    // data = New PlaylistSource
     public static String EVENT_NEW_DEVICE              = "NEW_DEVICE";                 // data = New Device found in SSDP Search
+    public static String EVENT_SSDP_SEARCH_STARTED     = "SSDP_SEARCH_STARTED";        // data = null
     public static String EVENT_SSDP_SEARCH_FINISHED    = "SSDP_SEARCH_FINISHED";       // data = null
+
+    // control commands
+
+    public static String COMMAND_EVENT_PLAY_TRACK      = "COMMAND_PLAY_TRACK";          // data = null
+
 
     void handleArtisanEvent(
         String event_id,

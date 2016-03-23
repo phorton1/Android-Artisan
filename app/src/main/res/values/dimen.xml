@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <dimen name="MainMenuPadding">6dip</dimen>
+    <dimen name="MainMenuItemHeight">36dip</dimen>
+    <dimen name="MainMenuItemPaddingTop">4dip</dimen>
+        <!-- top padding -->
+    <dimen name="MainMenuItemPadding">12dip</dimen>
+        <!-- left and right -->
+    <dimen name="MainMenuTextSize">14dip</dimen>
+
+    <dimen name="SelectDeviceIconSize">24dip</dimen>
+    <dimen name="SelectDeviceIndentDevice">40dip</dimen>
+
+</resources>

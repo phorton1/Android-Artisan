@@ -17,7 +17,7 @@ import prh.utils.ImageLoader;
 import prh.utils.Utils;
 
 
-public class ListItem extends RelativeLayout implements View.OnClickListener
+public class ListItem extends RelativeLayout
     // Implements a do-all list item for use in the Library and Playlist.
     //
     // Takes a Track or a Folder and comes in two sizes for each.
@@ -36,7 +36,7 @@ public class ListItem extends RelativeLayout implements View.OnClickListener
     // at the top of the Library album view, or as Album breaks
     // in the playlist.
     //
-    // Usage: contruct, setFolder or Track, maybe setLargeView(),
+    // Usage: inflate, setFolder or Track, maybe setLargeView(),
     // and then call doLayout() before handing off to adapter
 {
     Artisan artisan;
@@ -120,8 +120,16 @@ public class ListItem extends RelativeLayout implements View.OnClickListener
     // doLayout()
     //---------------------------------------------
 
-    public void doLayout()
+    public void doLayout(OnClickListener click_listener,
+                         OnLongClickListener long_click_listener)
     {
+        // set the main item click listener
+        // these should be combined into a new interface
+        // ArtisanListItemListener
+
+        setOnClickListener(click_listener);
+        setOnLongClickListener(long_click_listener);
+
         // get sub views
 
         ImageView image = (ImageView) findViewById(R.id.list_item_icon);
@@ -163,9 +171,7 @@ public class ListItem extends RelativeLayout implements View.OnClickListener
             {
                 float image_size = container_height - (large ? 0 : 4);
                 Utils.setViewSize(artisan,image,image_size,image_size);
-                ImageLoader image_loader = new ImageLoader(artisan,image,art_uri);
-                Thread image_thread = new Thread(image_loader);
-                image_thread.start();
+                ImageLoader.loadImage(artisan,image,art_uri);
             }
             else if (is_album)
             {
@@ -183,7 +189,9 @@ public class ListItem extends RelativeLayout implements View.OnClickListener
         String title = is_track ? track.getTitle() : folder.getTitle();
         line1.setText(title);
 
+
         // NUM_TRACKS OR TRACK_TIME
+        // sets the right side onClickListener if displayed
 
         if (is_track || !large)
         {
@@ -191,7 +199,9 @@ public class ListItem extends RelativeLayout implements View.OnClickListener
             String num = is_track ?
                 track.getDurationString(Utils.how_precise.FOR_DISPLAY) :
                 n > 0 ? "(" + n + ")" : "";
-            item_right.setOnClickListener(this);
+
+            item_right.setOnClickListener(click_listener);
+            item_right_text.setOnClickListener(click_listener);
             Utils.setViewSize(artisan,item_right,container_height,null);
             item_right_text.setText(num);
         }
@@ -287,22 +297,5 @@ public class ListItem extends RelativeLayout implements View.OnClickListener
             item_right_text.setTextSize(TypedValue.COMPLEX_UNIT_DIP,10);
         }
     }   // listItem.doLayout()
-
-
-
-    //------------------------------------------
-    // onClick()
-    //------------------------------------------
-
-    public void onClick(View v)
-        // implements the context menu for this item
-        // attached to the LIST_ITEM_RIGHT (number items
-        // or track duration) view ...
-    {
-        int id = v.getId();
-        if (id == 0)
-            Utils.error("bljds");
-    }
-
 
 }   // class listItemFolder
