@@ -23,19 +23,35 @@ public class ImageLoader extends Thread
     private ImageView image_view;
     private Artisan artisan;
 
-    private static HashMap<String,Bitmap> image_cache = new HashMap<>();
-
-
     // STATIC PUBLIC API
+
+    private class NullableBitmap
+    {
+        private Bitmap bitmap = null;
+
+        public Bitmap getBitMap() { return bitmap; }
+
+        public NullableBitmap(Bitmap bm)
+        {
+            bitmap = bm;
+        }
+    }
+
+    private static HashMap<String,NullableBitmap> image_cache = new HashMap<>();
+
+
+
 
     public static void loadImage(Artisan ma, ImageView image, String url)
         // if the file is local, load it directly, otherwise,
         // create a thread to load it.
     {
-        Bitmap found = image_cache.get(url);
+        NullableBitmap found = image_cache.get(url);
         if (found != null)
         {
-            setImage(ma,image,found);
+            Bitmap bitmap = found.getBitMap();
+            if (bitmap != null)
+                setImage(ma,image,bitmap);
         }
         else if (url.startsWith("http://"))
         {
@@ -45,8 +61,8 @@ public class ImageLoader extends Thread
         }
         else
         {
-            String use_url = url.replace("file://","");
             Bitmap bitmap = null;
+            String use_url = url.replace("file://","");
             try
             {
                 InputStream in = new FileInputStream(use_url);
@@ -83,16 +99,14 @@ public class ImageLoader extends Thread
             }
             catch (Exception e)
             {
-                Utils.warning(0,0,"Could not load image:" + e.getMessage());
+                Utils.warning(1,0,"Could not load image:" + e.getMessage());
             }
 
             // call back to the UI thread
 
+            image_cache.put(image_url,new NullableBitmap(bitmap));
             if (bitmap != null)
-            {
                 setImage(artisan,image_view,bitmap);
-                image_cache.put(image_url,bitmap);
-            }
         }
     }
 

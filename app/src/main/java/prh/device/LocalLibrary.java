@@ -31,7 +31,6 @@ public class LocalLibrary extends Device implements Library
 
     public final static boolean SHOW_PLAYLISTS = true;
 
-
     private SQLiteDatabase db = null;
     public static LocalLibrary local_library = null;
     public static LocalLibrary getLocalLibrary() { return local_library; }
@@ -54,6 +53,9 @@ public class LocalLibrary extends Device implements Library
     }
 
     @Override public boolean isLocal() { return true; }
+
+    @Override public void setCurrentFolder(Folder folder) {}
+        // prefetch scheme not used in local library
 
     @Override public boolean start()
     {

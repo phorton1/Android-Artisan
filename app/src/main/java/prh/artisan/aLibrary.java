@@ -64,6 +64,7 @@ import android.widget.Toast;
 
 import java.util.List;
 
+import prh.device.Device;
 import prh.types.intViewHash;
 import prh.types.viewList;
 import prh.utils.Utils;
@@ -77,12 +78,28 @@ public class aLibrary extends Fragment implements
 {
     private static int dbg_alib = 0;
 
+    private boolean USE_VIEW_CACHE = false;
+        // If true, the libraryListAdapter keeps a cache of the
+        // views it has created.  Has to be false right now because,
+        // apparently view recycling is invalidating the onClick()
+        // pointers and everything goes to hell when I try to cache em.
+        // Similar problem occurs in the MainMenu, for which I just
+        // resorted to keeping it around all the time.
+        //
+        // Because of this, at a minimum, I must keep a scroll position
+        // in the stack of views, so that when a user returns to a view,
+        // it shows the same stuff (we at least don't rebuild the adapter)
+
     @Override public String getName()  { return "Library"; }
 
     private Artisan artisan = null;
     private Library library = null;
     private LinearLayout my_view = null;
     private viewList view_stack = null;
+        // The view_stack needs to be of objects that have a view
+        // along with an integer for the top record showing in the view,
+        // so that the scroll position can be reset on popping when
+        // !USE_VIEW_CACHE
 
     public Artisan getArtisan()  { return artisan; }
     public Library getLibrary()  { return library; }
@@ -154,10 +171,24 @@ public class aLibrary extends Fragment implements
     {
         if (view_stack.size() > 1)
         {
-            view_stack.remove(view_stack.size()-1);
-            View list_view = view_stack.get(view_stack.size()-1);
+            view_stack.remove(view_stack.size() - 1);
+            View view = view_stack.get(view_stack.size()-1);
             my_view.removeAllViews();
-            my_view.addView(list_view);
+            my_view.addView(view);
+
+            ListView list_view;
+            if (view instanceof ListView)
+            {
+                list_view = (ListView) view;
+            }
+            else
+            {
+                list_view = (ListView) view.findViewById(R.id.library_list);
+            }
+
+            libraryListAdapter adapter = (libraryListAdapter) list_view.getAdapter();
+            Folder current_folder = adapter.getFolder();
+            library.setCurrentFolder(current_folder);
         }
     }
 
@@ -166,6 +197,7 @@ public class aLibrary extends Fragment implements
     {
         Folder folder = library.getFolder(id);
         boolean is_album = folder.getType().equals("album");
+        library.setCurrentFolder(folder);
 
         // inflate a new list/adapter for the children of the folder
 
@@ -195,28 +227,42 @@ public class aLibrary extends Fragment implements
 
 
     private class libraryListAdapter extends BaseAdapter
-        // only called for folders .. there are no
-        // subitems of tracks
+        // only called for folders ..
+        // there are no subitems of tracks.
+        //
+        // DONT LIKE IT ..
+        //
+        // if I attempt to cache these, I lose clickHandlers
+        // So, I don't cache em, which means I need to keep
+        // a scroll position for popping the stack.
+        //
+        // The whole "polling" scheme for remote servers, where
+        // we call getSubItems() until it gives us what we want,
+        // is also bothersome.  Seems like it should be event driven,
+        // with new items getting added to the list as they show up,
+        // and the adapter only using the ones that have shown up.
     {
         private Folder folder;
             // the parent folder for the list that this
             // adapter is associated with
+        public Folder getFolder()  { return folder; }
         private aLibrary a_library;
         private List<Record> sub_items;
-        // private intViewHash items = new intViewHash();
-            // if I attempt to cache these, I lose clickHandlers
+        private intViewHash items = new intViewHash();
 
 
         public libraryListAdapter(aLibrary the_a_library, Folder the_folder)
         {
             a_library = the_a_library;
             folder = the_folder;
-            sub_items = a_library.getLibrary().getSubItems(folder.getId(),0,999999,false);
+
+            int count = ((Device) library).isLocal() ? 999999 : 0;
+            sub_items = a_library.getLibrary().getSubItems(folder.getId(),0,count,false);
         }
 
         public int getCount()
         {
-            return sub_items == null ? 0 : sub_items.size();
+            return sub_items == null ? 0 : folder.getNumElements();
         }
 
         public long getItemId(int position)
@@ -231,9 +277,48 @@ public class aLibrary extends Fragment implements
 
         public View getView(int position, View parent, ViewGroup view_group)
         {
-            //View item = items.get(position);
-            //if (item == null)
-            //{
+            View item = items.get(position);
+            if (item == null)
+            {
+                // we may need to do another get subItems call ...
+                // must be larger than wait time in mediaServer
+
+                int WAIT_TIME = 500;
+                int WAIT_NUM = 30;
+
+                int wait_count = 0;
+                while (position < folder.getNumElements() &&
+                       position >= sub_items.size() &&
+                        wait_count++ <= WAIT_NUM )
+                {
+                    Utils.log(0,0,"aLibrary.listAdapter calling getSubItems(" + sub_items.size() + ",0) position=" + position);
+                    List<Record> new_subitems = library.getSubItems(folder.getId(),sub_items.size(),0,false);
+                    Utils.log(0,1,"aLibrary.listAdapter call to getSubItems() returned " + new_subitems.size() + " items");
+                    if (new_subitems.size() > 0)
+                    {
+                        Utils.log(0,1,"aLibrary.listAdapter adding " + new_subitems.size() + " elements to existing array of " + sub_items.size() + " records");
+                        sub_items.addAll(new_subitems);
+                        Utils.log(0,2,"now have " + sub_items.size() + " records");
+                    }
+
+                    if (position < folder.getNumElements() && position >= sub_items.size())
+                    {
+                        Utils.log(0,0,"aLibrary.listAdapter NOT SATISFIED!! sleeping for " + WAIT_TIME + " millis and trying again");
+                        Utils.sleep(WAIT_TIME);
+                    }
+                }
+
+                if (wait_count == WAIT_NUM && position >= sub_items.size())
+                {
+                    Utils.error("aLibrary.listAdapter.getView("+position+") timed out calling getSubItems() sub_items.size()=" + sub_items.size());
+                    return null;
+                }
+
+                if (position >= sub_items.size())
+                {
+                    Utils.error("aLibrary.listAdapter().getView("+position+") wait_count="+wait_count+" is OUT OF BOUNDS sub_items.size()=" + sub_items.size());
+                    return null;
+                }
 
                 Record rec = sub_items.get(position);
                 LayoutInflater inflater = LayoutInflater.from(artisan);
@@ -246,13 +331,15 @@ public class aLibrary extends Fragment implements
                 // OnClickHandlers are set in doLayout()
 
                 list_item.doLayout(a_library,a_library);
-                return list_item;
+                // return list_item;
 
                 // If I attempt to cache these, I lose the click listener
-                // item = list_item;
-                // items.put(position,item);
-           //}
-           //return item;
+                item = list_item;
+
+                if (USE_VIEW_CACHE)
+                    items.put(position,item);
+           }
+           return item;
         }
 
 

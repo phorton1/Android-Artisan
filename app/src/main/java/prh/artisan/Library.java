@@ -38,4 +38,10 @@ public interface Library
         // may need to support rare case of meta_data and id actually being a trackId
         //      by a second "get" in the implementation
 
+    void setCurrentFolder(Folder folder);
+        // support for pre-fetching scheme on device.MediaServer.
+        // clients tell us when they are BACKING DOWN THE STACK to
+        // stop prefetching above the TOS, and re-start fetching
+        // at the new TOS.
+
 }

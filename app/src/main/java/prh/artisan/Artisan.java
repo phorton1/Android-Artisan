@@ -210,6 +210,7 @@ public class Artisan extends FragmentActivity implements
         // if these are non-blank, we have to keep trying until the
         // SSDPSearch finishes to set the correct renderer ...
 
+
     private String getDefaultDeviceName(String what, Prefs.id pref_id, Prefs.id selected_id)
     {
         String default_name = Prefs.getString(pref_id);
