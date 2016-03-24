@@ -57,15 +57,19 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import prh.device.Device;
+import prh.device.MediaServer;
 import prh.types.intViewHash;
+import prh.types.recordList;
 import prh.types.viewList;
 import prh.utils.Utils;
 
@@ -92,10 +96,12 @@ public class aLibrary extends Fragment implements
 
     @Override public String getName()  { return "Library"; }
 
+    class ViewStack extends ArrayList<viewStackElement> {}
+
     private Artisan artisan = null;
     private Library library = null;
     private LinearLayout my_view = null;
-    private viewList view_stack = null;
+    private ViewStack view_stack = null;
         // The view_stack needs to be of objects that have a view
         // along with an integer for the top record showing in the view,
         // so that the scroll position can be reset on popping when
@@ -104,6 +110,38 @@ public class aLibrary extends Fragment implements
     public Artisan getArtisan()  { return artisan; }
     public Library getLibrary()  { return library; }
     // public LinearLayout getMyView()  { return my_view; }
+
+
+    private class viewStackElement
+    {
+        private View view;
+        private int scroll_position = -1;
+
+        public viewStackElement(View v) {view = v;}
+        public View getView() {return view;}
+
+        public void setScrollPosition(int p) { scroll_position = p;}
+        public int getScrollPosition() { return scroll_position; }
+
+        public ListView getListView()
+        {
+            if (view instanceof ListView)
+                return (ListView) view;
+            return (ListView) view.findViewById(R.id.library_list);
+        }
+
+        public libraryListAdapter getAdapter()
+        {
+            ListView list_view = getListView();
+            libraryListAdapter adapter = (libraryListAdapter) list_view.getAdapter();
+            return adapter;
+        }
+
+        public Folder getFolder()
+        {
+            return getAdapter().getFolder();
+        }
+    }
 
 
     //----------------------------------------------
@@ -124,7 +162,7 @@ public class aLibrary extends Fragment implements
     private void init(Library lib)
     {
         library = lib;
-        view_stack = new viewList();
+        view_stack = new ViewStack();
         my_view.removeAllViews();
         if (library != null)
             pushViewStack("0");
@@ -171,24 +209,12 @@ public class aLibrary extends Fragment implements
     {
         if (view_stack.size() > 1)
         {
-            view_stack.remove(view_stack.size() - 1);
-            View view = view_stack.get(view_stack.size()-1);
             my_view.removeAllViews();
-            my_view.addView(view);
 
-            ListView list_view;
-            if (view instanceof ListView)
-            {
-                list_view = (ListView) view;
-            }
-            else
-            {
-                list_view = (ListView) view.findViewById(R.id.library_list);
-            }
-
-            libraryListAdapter adapter = (libraryListAdapter) list_view.getAdapter();
-            Folder current_folder = adapter.getFolder();
-            library.setCurrentFolder(current_folder);
+            view_stack.remove(view_stack.size() - 1);
+            viewStackElement stack_ele = view_stack.get(view_stack.size() - 1);
+            my_view.addView(stack_ele.getView());
+            library.setCurrentFolder(stack_ele.getFolder());
         }
     }
 
@@ -203,7 +229,12 @@ public class aLibrary extends Fragment implements
 
         LayoutInflater inflater = LayoutInflater.from(artisan);
         ListView list_view = (ListView) inflater.inflate(R.layout.library_list,null,false);
-        list_view.setAdapter(new libraryListAdapter(this,folder));
+
+        int count = ((Device) library).isLocal() ? 999999 : 0;
+        recordList initial_items = library.getSubItems(folder.getId(),0,count,false);
+        libraryListAdapter adapter = new libraryListAdapter(this,folder,initial_items);
+
+        list_view.setAdapter(adapter);
         list_view.setItemsCanFocus(true);
 
         // add the album header
@@ -222,47 +253,53 @@ public class aLibrary extends Fragment implements
 
         my_view.removeAllViews();
         my_view.addView(main_view);
-        view_stack.add(main_view);
+        view_stack.add(new viewStackElement(main_view));
     }
 
 
-    private class libraryListAdapter extends BaseAdapter
+
+    private class libraryListAdapter extends ArrayAdapter<Record>
         // only called for folders ..
         // there are no subitems of tracks.
         //
-        // DONT LIKE IT ..
+        // Calls getSubItems(0,999999) for local folders, and
+        // getSubItems(0,0) for external folders. Local usage
+        // is not complicated, so what follows is only for external
+        // usage in conjunction with Device.MediaServer.
         //
-        // if I attempt to cache these, I lose clickHandlers
-        // So, I don't cache em, which means I need to keep
-        // a scroll position for popping the stack.
+        // The initial call to getSubItems(0,0) will happen
+        // synchronously, so the adapter can start displaying views.
+        // The adapter only sees the records that have been found
+        // by the MediaServer.
         //
-        // The whole "polling" scheme for remote servers, where
-        // we call getSubItems() until it gives us what we want,
-        // is also bothersome.  Seems like it should be event driven,
-        // with new items getting added to the list as they show up,
-        // and the adapter only using the ones that have shown up.
+        // Meanwhile, the MediaServer plugs away and sends EVENT_ADDL_FOLDERS_AVAILABLE
+        // to us when it gets some records, in which case we add them to our array,
+        // and notify the adapter that the dataset has changed, and away the user
+        // goes, scrolling like mad.
     {
         private Folder folder;
-            // the parent folder for the list that this
-            // adapter is associated with
-        public Folder getFolder()  { return folder; }
         private aLibrary a_library;
-        private List<Record> sub_items;
+        private int num_items = 0;
+        private recordList sub_items;
         private intViewHash items = new intViewHash();
+        public Folder getFolder()  { return folder; }
 
 
-        public libraryListAdapter(aLibrary the_a_library, Folder the_folder)
+        public libraryListAdapter(aLibrary the_a_library, Folder the_folder, recordList initial_records)
         {
+            super(artisan,-1,initial_records);
             a_library = the_a_library;
             folder = the_folder;
-
-            int count = ((Device) library).isLocal() ? 999999 : 0;
-            sub_items = a_library.getLibrary().getSubItems(folder.getId(),0,count,false);
+            sub_items = initial_records;
+            num_items = sub_items.size();
+            //hasStableIds();
         }
+
+        /*
 
         public int getCount()
         {
-            return sub_items == null ? 0 : folder.getNumElements();
+            return num_items;
         }
 
         public long getItemId(int position)
@@ -275,51 +312,13 @@ public class aLibrary extends Fragment implements
             return getView(position,null,null);     // items.get(position);
         }
 
-        public View getView(int position, View parent, ViewGroup view_group)
+        */
+
+        public View getView(int position, View re_use, ViewGroup view_group)
         {
             View item = items.get(position);
             if (item == null)
             {
-                // we may need to do another get subItems call ...
-                // must be larger than wait time in mediaServer
-
-                int WAIT_TIME = 500;
-                int WAIT_NUM = 30;
-
-                int wait_count = 0;
-                while (position < folder.getNumElements() &&
-                       position >= sub_items.size() &&
-                        wait_count++ <= WAIT_NUM )
-                {
-                    Utils.log(0,0,"aLibrary.listAdapter calling getSubItems(" + sub_items.size() + ",0) position=" + position);
-                    List<Record> new_subitems = library.getSubItems(folder.getId(),sub_items.size(),0,false);
-                    Utils.log(0,1,"aLibrary.listAdapter call to getSubItems() returned " + new_subitems.size() + " items");
-                    if (new_subitems.size() > 0)
-                    {
-                        Utils.log(0,1,"aLibrary.listAdapter adding " + new_subitems.size() + " elements to existing array of " + sub_items.size() + " records");
-                        sub_items.addAll(new_subitems);
-                        Utils.log(0,2,"now have " + sub_items.size() + " records");
-                    }
-
-                    if (position < folder.getNumElements() && position >= sub_items.size())
-                    {
-                        Utils.log(0,0,"aLibrary.listAdapter NOT SATISFIED!! sleeping for " + WAIT_TIME + " millis and trying again");
-                        Utils.sleep(WAIT_TIME);
-                    }
-                }
-
-                if (wait_count == WAIT_NUM && position >= sub_items.size())
-                {
-                    Utils.error("aLibrary.listAdapter.getView("+position+") timed out calling getSubItems() sub_items.size()=" + sub_items.size());
-                    return null;
-                }
-
-                if (position >= sub_items.size())
-                {
-                    Utils.error("aLibrary.listAdapter().getView("+position+") wait_count="+wait_count+" is OUT OF BOUNDS sub_items.size()=" + sub_items.size());
-                    return null;
-                }
-
                 Record rec = sub_items.get(position);
                 LayoutInflater inflater = LayoutInflater.from(artisan);
                 ListItem list_item = (ListItem) inflater.inflate(R.layout.list_item_layout,view_group,false);
@@ -331,10 +330,9 @@ public class aLibrary extends Fragment implements
                 // OnClickHandlers are set in doLayout()
 
                 list_item.doLayout(a_library,a_library);
-                // return list_item;
+                item = list_item;
 
                 // If I attempt to cache these, I lose the click listener
-                item = list_item;
 
                 if (USE_VIEW_CACHE)
                     items.put(position,item);
@@ -343,12 +341,167 @@ public class aLibrary extends Fragment implements
         }
 
 
+        // called by ARTISAN_EVENT when MediaServer adds more
+        // subitems to this adapter's folder ...
+
+        public void addItems(MediaServer.FolderPlus folder_plus)
+        {
+            recordList new_records = folder_plus.getRecords();
+            int first = sub_items.size();
+            int last = new_records.size() - 1;
+            if (last >= first)
+            {
+                Utils.log(0,4,"adding " + (last-first+1) + " items to existing " + first + " records");
+
+                for (int i = first; i <= last; i++)
+                    sub_items.add(new_records.get(i));
+
+                Utils.log(0,4,"changing num_items to " + sub_items.size() + " and calling notify DataSet changed()");
+                num_items = sub_items.size();
+                notifyDataSetChanged();
+                //notifyDataSetInvalidated();
+
+            }
+        }
+
+
+
         // implementing these two methods disables
-        // view recycling by the ListView which
-        // allows the cached items to work, by
-        // essentially telling the list view that
-        // all objects are of unique types and cannot
-        // be recycled.
+        // view recycling by the ListView which is supposed
+        // to allow the cached items to work, by telling the
+        // list view that all objects are of unique types and
+        // cannot be recycled. It don't (work).
+
+        /*
+        @Override
+        public int getViewTypeCount()
+        {
+            return getCount();
+        }
+
+        @Override
+        public int getItemViewType(int position)
+        {
+            return position;
+        }
+
+        */
+
+    }   // class libraryListAdapter
+
+
+
+
+    private class old_libraryListAdapter extends BaseAdapter
+        // only called for folders ..
+        // there are no subitems of tracks.
+        //
+        // Calls getSubItems(0,999999) for local folders, and
+        // getSubItems(0,0) for external folders. Local usage
+        // is not complicated, so what follows is only for external
+        // usage in conjunction with Device.MediaServer.
+        //
+        // The initial call to getSubItems(0,0) will happen
+        // synchronously, so the adapter can start displaying views.
+        // The adapter only sees the records that have been found
+        // by the MediaServer.
+        //
+        // Meanwhile, the MediaServer plugs away and sends EVENT_ADDL_FOLDERS_AVAILABLE
+        // to us when it gets some records, in which case we add them to our array,
+        // and notify the adapter that the dataset has changed, and away the user
+        // goes, scrolling like mad.
+    {
+        private Folder folder;
+        private aLibrary a_library;
+        private int num_items = 0;
+        private recordList sub_items;
+        private intViewHash items = new intViewHash();
+
+        public Folder getFolder()  { return folder; }
+
+
+        public old_libraryListAdapter(aLibrary the_a_library, Folder the_folder)
+        {
+            super();
+            a_library = the_a_library;
+            folder = the_folder;
+            int count = ((Device) library).isLocal() ? 999999 : 0;
+            sub_items = a_library.getLibrary().getSubItems(folder.getId(),0,count,false);
+            num_items = sub_items.size();
+            hasStableIds();
+        }
+
+        public int getCount()
+        {
+            return num_items;
+        }
+
+        public long getItemId(int position)
+        {
+            return position;
+        }
+
+        public View getItem(int position)
+        {
+            return getView(position,null,null);     // items.get(position);
+        }
+
+        public View getView(int position, View re_use, ViewGroup view_group)
+        {
+            View item = items.get(position);
+            if (item == null)
+            {
+                Record rec = sub_items.get(position);
+                LayoutInflater inflater = LayoutInflater.from(artisan);
+                ListItem list_item = (ListItem) inflater.inflate(R.layout.list_item_layout,view_group,false);
+                if (rec instanceof Track)
+                    list_item.setTrack((Track) rec);
+                else
+                    list_item.setFolder((Folder) rec);
+
+                // OnClickHandlers are set in doLayout()
+
+                list_item.doLayout(a_library,a_library);
+                item = list_item;
+
+                // If I attempt to cache these, I lose the click listener
+
+                if (USE_VIEW_CACHE)
+                    items.put(position,item);
+            }
+            return item;
+        }
+
+
+        // called by ARTISAN_EVENT when MediaServer adds more
+        // subitems to this adapter's folder ...
+
+        public void addItems(MediaServer.FolderPlus folder_plus)
+        {
+            recordList new_records = folder_plus.getRecords();
+            int first = sub_items.size();
+            int last = new_records.size() - 1;
+            if (last >= first)
+            {
+                Utils.log(0,4,"adding " + (last-first+1) + " items to existing " + first + " records");
+
+                for (int i = first; i <= last; i++)
+                    sub_items.add(new_records.get(i));
+
+                Utils.log(0,4,"changing num_items to " + sub_items.size() + " and calling notify DataSet changed()");
+                num_items = sub_items.size();
+                notifyDataSetChanged();
+                //notifyDataSetInvalidated();
+
+            }
+        }
+
+        // implementing these two methods disables
+        // view recycling by the ListView which is supposed
+        // to allow the cached items to work, by telling the
+        // list view that all objects are of unique types and
+        // cannot be recycled. It don't (work).
+
 
         @Override
         public int getViewTypeCount()
@@ -364,6 +517,11 @@ public class aLibrary extends Fragment implements
 
 
     }   // class libraryListAdapter
+
+
+
+
+
 
 
 
@@ -451,10 +609,30 @@ public class aLibrary extends Fragment implements
                 init(new_library);
             }
         }
+        else if (event_id.equals(EVENT_ADDL_FOLDERS_AVAILABLE))
+        {
+            // Assumes that if we get this event, we are (still) hooked to
+            // a remote MediaServer.  If not, the folders wont match ..
+            // should only be for the TOS but we need to add
+            // any for any other folders in the stack, in case
+            // it's a lingering call.
+
+            MediaServer.FolderPlus event_folder = (MediaServer.FolderPlus) data;
+            for (int stack_pos = view_stack.size() - 1; stack_pos >= 0; stack_pos--)
+            {
+                viewStackElement stack_ele = view_stack.get(stack_pos);
+                Folder folder = stack_ele.getFolder();
+                MediaServer.FolderPlus stack_folder = (folder instanceof MediaServer.FolderPlus) ?
+                    (MediaServer.FolderPlus) folder : null;
+
+                if (stack_folder != null && stack_folder.equals(event_folder))
+                {
+                    stack_ele.getAdapter().addItems(event_folder);
+                    return;
+                }
+            }
+        }
     }
-
-
-    // otherwise, add the subfolders
 
 
 }   // class aLibrary
