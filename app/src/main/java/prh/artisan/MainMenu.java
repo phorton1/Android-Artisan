@@ -30,7 +30,6 @@ public class MainMenu extends ListView implements
     private final static int LAST_DEVICE = 3;
 
     private Artisan artisan;
-    private MainMenu self = this;
     private intViewHash items = new intViewHash();
 
 
@@ -38,7 +37,6 @@ public class MainMenu extends ListView implements
     {
         super(context,attrs);
         artisan = (Artisan) getContext();
-        self = this;
     }
 
     @Override public void onFinishInflate()
@@ -112,11 +110,11 @@ public class MainMenu extends ListView implements
                         inflater = LayoutInflater.from(artisan);
                         item = inflater.inflate(R.layout.main_menu_top_commands,view_group,false);
                         ((TextView)item.findViewById(R.id.menu_exit)).
-                            setOnClickListener(self);
+                            setOnClickListener(MainMenu.this);
                         ((TextView)item.findViewById(R.id.clear_devices)).
-                            setOnClickListener(self);
+                            setOnClickListener(MainMenu.this);
                         ((TextView)item.findViewById(R.id.refresh_devices)).
-                            setOnClickListener(self);
+                            setOnClickListener(MainMenu.this);
                         ((ProgressBar)item.findViewById(R.id.ssdp_progress)).
                             setVisibility( artisan.getDeviceManager().searchInProgress() ?
                                 View.VISIBLE : View.GONE );
@@ -133,7 +131,7 @@ public class MainMenu extends ListView implements
                     case (4):
                         inflater = LayoutInflater.from(artisan);
                         item = inflater.inflate(R.layout.main_menu_settings_button,view_group,false);
-                        item.setOnClickListener(self);
+                        item.setOnClickListener(MainMenu.this);
                         break;
                 }
                 items.put(position,item);

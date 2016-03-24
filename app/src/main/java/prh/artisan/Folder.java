@@ -155,7 +155,7 @@ public class Folder extends Record
     {
         String container = getType().equals("album") ?
             "object.container.album.musicAlbum" :
-            "container";
+            "object.container";
 
         return "<container " +
             "id=\"" + getId() + "\" " +

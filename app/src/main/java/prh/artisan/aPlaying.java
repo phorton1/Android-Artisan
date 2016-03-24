@@ -59,7 +59,6 @@ public class aPlaying extends Fragment implements
     private Playlist current_playlist = null;
     private PlaylistSource current_playlist_source = null;
 
-
     // working vars
 
     private boolean in_slider = false;
@@ -93,33 +92,12 @@ public class aPlaying extends Fragment implements
 
         // not sufficient to just set members
         // also need to update the ui in case
-        // renderer selected at startup
+        // renderer selected at startup, so we
+        // call our own event handler to set
+        // everything up
 
-        if (true)
-        {
-            handleArtisanEvent(EventHandler.EVENT_RENDERER_CHANGED,
-                artisan.getRenderer());
-        }
-        else
-        {
-            current_state = "";
-            current_position = 0;
-            current_track = null;
-            current_playlist = null;
-            current_playlist_source = null;
-
-            renderer = artisan.getRenderer();
-            if (renderer != null)
-            {
-                current_state = renderer.getRendererState();
-                current_position = renderer.getPosition();
-                current_track = renderer.getTrack();
-                current_playlist = renderer.getPlaylist();
-                current_playlist_source = artisan.getPlaylistSource();
-            }
-
-            setPlayListNames();
-        }
+        handleArtisanEvent(EventHandler.EVENT_RENDERER_CHANGED,
+            artisan.getRenderer());
 
         return my_view;
     }
@@ -520,11 +498,11 @@ public class aPlaying extends Fragment implements
 
             try
             {
-                if (art_uri.equals(""))
+                if (track == null)
                 {
                     img.setImageResource(R.drawable.artisan);
                 }
-                else if (art_uri.equals("no_image.png"))
+                else if (art_uri.isEmpty())
                 {
                     img.setImageResource(R.drawable.no_image);
                 }

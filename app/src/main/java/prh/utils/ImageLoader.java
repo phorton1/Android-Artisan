@@ -22,6 +22,8 @@ public class ImageLoader extends Thread
     private String image_url;
     private ImageView image_view;
     private Artisan artisan;
+    private int num_threads = 0;
+
 
     // STATIC PUBLIC API
 
@@ -38,6 +40,25 @@ public class ImageLoader extends Thread
     }
 
     private static HashMap<String,NullableBitmap> image_cache = new HashMap<>();
+
+
+    public static void loadImage(Artisan ma, ImageView image, int res_id)
+        // local cache of resource bitmaps
+    {
+        NullableBitmap found = image_cache.get("res/" + res_id);
+        Bitmap bitmap = null;
+        if (found != null)
+        {
+            bitmap = found.getBitMap();
+        }
+        else
+        {
+            bitmap = BitmapFactory.decodeResource(ma.getResources(),res_id);
+            image_cache.put("res/" + res_id,new NullableBitmap(bitmap));
+        }
+        // if (bitmap != null)
+        setImage(ma,image,bitmap);
+    }
 
 
 
@@ -74,7 +95,7 @@ public class ImageLoader extends Thread
             }
 
             image_cache.put(url,new NullableBitmap(bitmap));
-            if (bitmap != null)
+            if (image != null && bitmap != null)
                 setImage(ma,image,bitmap);
         }
     }
@@ -93,6 +114,10 @@ public class ImageLoader extends Thread
     {
         //synchronized (artisan)
         {
+            if ((num_threads % 10) == 0)
+                Utils.log(0,6,"num_image_threads=" + num_threads);
+            num_threads++;
+
             Bitmap bitmap = null;
             try
             {
@@ -107,8 +132,9 @@ public class ImageLoader extends Thread
             // call back to the UI thread
 
             image_cache.put(image_url,new NullableBitmap(bitmap));
-            if (bitmap != null)
+            if (image_view != null && bitmap != null)
                 setImage(artisan,image_view,bitmap);
+            num_threads--;
         }
     }
 

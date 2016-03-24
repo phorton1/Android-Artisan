@@ -1126,6 +1126,17 @@ public class Artisan extends FragmentActivity implements
                     !event_id.equals(EVENT_IDLE))
                     Utils.log(0,0,"----> " + event_id);
 
+                //----------------------------------------------
+                // Command Events
+                //----------------------------------------------
+
+                if (event_id.equals(COMMAND_EVENT_PLAY_TRACK))
+                {
+                    Track track = (Track) data;
+                    if (renderer != null)
+                        renderer.setTrack(track,false);
+                    return;
+                }
 
                 //----------------------------------------------------------
                 // Device Events

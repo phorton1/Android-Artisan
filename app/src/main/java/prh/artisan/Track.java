@@ -238,11 +238,11 @@ public class Track extends Record
     {
         String rslt = "";
         if (isLocal())
+        {
             if (hasFolderArt())
                 rslt = "file://" + Prefs.mp3s_dir() + "/" + Utils.pathOf(getPath()) + "/folder.jpg";
-            else
-                rslt = "no_image.png";
-        else   // return the actual member
+        }
+        else
             rslt = privateGetPublicArtUri();
         return rslt;
     }
@@ -251,10 +251,10 @@ public class Track extends Record
     {
         String rslt = "";
         if (isLocal())
+        {
             if (hasFolderArt())
                 rslt = Utils.server_uri + "/ContentDirectory/" + getParentId() + "/folder.jpg";
-            else
-                rslt = Utils.server_uri + "/icons/no_image.png";
+        }
         else   // return the actual member
             rslt = privateGetPublicArtUri();
         return rslt;

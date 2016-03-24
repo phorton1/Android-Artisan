@@ -19,6 +19,7 @@ import prh.artisan.Track;
 import prh.types.libraryBrowseResult;
 import prh.types.objectHash;
 import prh.types.recordList;
+import prh.utils.ImageLoader;
 import prh.utils.Utils;
 import prh.types.stringHash;
 
@@ -229,13 +230,11 @@ public class MediaServer extends Device implements Library
         private Fetcher fetcher = null;
         public Fetcher getFetcher() { return fetcher; }
         public recordList getRecords() { return records; }
-        private FolderPlus self;
-        
+
 
         public FolderPlus(objectHash params)
         {
             super(params);
-            self = this;
         }
 
 
@@ -544,6 +543,12 @@ public class MediaServer extends Device implements Library
                         folders.put(item_id,add_folder);
                     }
 
+
+                    // start pre-fetching the image
+
+                    if (!art_uri.isEmpty())
+                        ImageLoader.loadImage(artisan,null,art_uri);
+
                     // next record
 
                     node = node.getNextSibling();
@@ -629,7 +634,7 @@ public class MediaServer extends Device implements Library
 
                 if (state == 1 && fromFetcher && records.size() > cur_num_items)
                 {
-                    artisan.handleArtisanEvent(EventHandler.EVENT_ADDL_FOLDERS_AVAILABLE,self);
+                    artisan.handleArtisanEvent(EventHandler.EVENT_ADDL_FOLDERS_AVAILABLE,FolderPlus.this);
                 }
 
                 return true;

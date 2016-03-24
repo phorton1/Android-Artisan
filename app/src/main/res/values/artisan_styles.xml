@@ -1,2 +1,22 @@
 <resources>
+    <!--
+
+    <style name="ListItemScrollBarStyle">
+        <item name="android:fastScrollThumbDrawable">@drawable/my_ic_menu_home</item>
+    </style>
+
+    <style name="unused2_ListItemScrollBarStyle">
+        <item name="android:scrollbarAlwaysDrawVerticalTrack">true</item>
+        <item name="android:scrollbarStyle">outsideOverlay</item>
+        <item name="android:scrollbars">vertical</item>
+        <item name="android:fadeScrollbars">true</item>
+        <item name="android:scrollbarThumbVertical">@drawable/my_ic_menu_home</item>
+        <item name="android:scrollbarTrackVertical">@drawable/my_ic_menu_home</item>
+        <item name="android:scrollbarSize">12dp</item>
+        <item name="android:scrollbarFadeDuration">2000</item>
+        <item name="android:scrollbarDefaultDelayBeforeFade">1000</item>
+    </style>
+
+    -->
+
 </resources>
