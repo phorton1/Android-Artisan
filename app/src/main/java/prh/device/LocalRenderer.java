@@ -285,8 +285,9 @@ public class LocalRenderer extends Device implements
             current_playlist.stop();
         stop();
         current_track = null;
-        current_playlist = playlist != null ? playlist :
-            artisan.createEmptyPlaylist();
+        current_playlist = playlist == null ?
+            artisan.createEmptyPlaylist() :
+            playlist;
         current_playlist.start();
         artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
         Utils.log(1,1,"setPlaylist() calling incAndPlay(0)");

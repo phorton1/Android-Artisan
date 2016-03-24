@@ -25,7 +25,7 @@ public class ImageLoader extends Thread
 
     // STATIC PUBLIC API
 
-    private class NullableBitmap
+    private static class NullableBitmap
     {
         private Bitmap bitmap = null;
 
@@ -72,6 +72,8 @@ public class ImageLoader extends Thread
             {
                 Utils.warning(0,0,"Could not load Local image:" + e.getMessage());
             }
+
+            image_cache.put(url,new NullableBitmap(bitmap));
             if (bitmap != null)
                 setImage(ma,image,bitmap);
         }

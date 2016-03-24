@@ -1202,6 +1202,10 @@ public class Artisan extends FragmentActivity implements
                         aPlaying.getView() != null)
                         aPlaying.handleArtisanEvent(event_id,data);
 
+                    if (aPlaylist != null &&
+                        aPlaylist.getView() != null)
+                        aPlaylist.handleArtisanEvent(event_id,data);
+
                     if (aLibrary != null &&
                         aLibrary.getView() != null)
                         aLibrary.handleArtisanEvent(event_id,data);

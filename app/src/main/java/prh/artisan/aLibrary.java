@@ -342,7 +342,6 @@ public class aLibrary extends Fragment implements
         private aLibrary a_library;
         private int num_items = 0;
         private recordList sub_items;
-        private intViewHash items = new intViewHash();
         public Folder getFolder()  { return folder; }
 
         // ctor

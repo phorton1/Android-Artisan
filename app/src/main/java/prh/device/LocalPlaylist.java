@@ -21,11 +21,13 @@ import android.database.sqlite.SQLiteDatabase;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 
 import prh.artisan.Artisan;
 import prh.artisan.Database;
 import prh.artisan.Playlist;
 import prh.artisan.Prefs;
+import prh.artisan.Record;
 import prh.artisan.Track;
 import prh.server.HTTPServer;
 import prh.server.http.OpenPlaylist;
@@ -33,6 +35,7 @@ import prh.server.http.OpenPlaylist;
 import prh.server.utils.PlaylistExposer;
 import prh.server.utils.UpnpEventManager;
 import prh.server.utils.UpnpEventSubscriber;
+import prh.types.recordList;
 import prh.utils.Base64;
 import prh.utils.Utils;
 import prh.utils.httpUtils;
@@ -71,7 +74,7 @@ public class LocalPlaylist implements Playlist
 
     private boolean is_started = false;
     public boolean isStarted() { return is_started; }
-
+    public boolean isLocal() { return true; }
 
     //----------------------------------------------------------------
     // Constructor
@@ -138,6 +141,7 @@ public class LocalPlaylist implements Playlist
     }   // ctor
 
 
+
     //-------------------------------------------------------------
     // accessors (Playlist interface)
     //-------------------------------------------------------------
@@ -147,6 +151,46 @@ public class LocalPlaylist implements Playlist
     @Override public int getNumTracks()       { return num_tracks; }
     @Override public int getCurrentIndex()    { return track_index; }
     @Override public int getMyShuffle()       { return my_shuffle; }
+
+    @Override public recordList getAvailableTracks()
+    {
+        recordList retval = new recordList();
+
+        if (num_tracks > 0)
+        {
+            Cursor cursor = null;
+            String query = "SELECT * FROM tracks ORDER BY position";
+            try
+            {
+                cursor = track_db.rawQuery(query,new String[]{});
+            }
+            catch (Exception e)
+            {
+                Utils.error("Could not execute query: " + query + " exception=" + e.toString());
+                cursor = null;
+                return retval;
+            }
+
+            for (int i = 0; i < num_tracks; i++)
+            {
+                Track track = tracks_by_position.get(i);
+                if (track == null)
+                {
+                    cursor.moveToPosition(i);
+                    track = new Track(cursor);
+                    track.putOpenId(next_open_id);
+                    tracks_by_position.set(i,track);
+                    tracks_by_open_id.put(next_open_id,track);
+                    next_open_id++;
+                }
+                retval.add(track);
+            }
+        }
+        return retval;
+            // if not in-memory, then try to get it from the database
+    }
+
+
 
     @Override public void start()
     {
@@ -193,7 +237,6 @@ public class LocalPlaylist implements Playlist
     @Override public void stop()
     {
         is_started = false;
-
 
         // unexpose any tracks
 

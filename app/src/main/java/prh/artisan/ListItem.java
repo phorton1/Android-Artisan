@@ -166,7 +166,10 @@ public class ListItem extends RelativeLayout
 
         if (!is_track || large)
         {
-            String art_uri = folder.getLocalArtUri();
+            String art_uri = is_track ?
+                track.getLocalArtUri() :
+                folder.getLocalArtUri();
+
             if (!art_uri.isEmpty())
             {
                 float image_size = container_height - (large ? 0 : 4);

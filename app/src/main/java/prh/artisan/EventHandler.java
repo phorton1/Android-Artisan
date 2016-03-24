@@ -20,6 +20,7 @@ public interface EventHandler
     public static String EVENT_SSDP_SEARCH_STARTED     = "SSDP_SEARCH_STARTED";        // data = null
     public static String EVENT_SSDP_SEARCH_FINISHED    = "SSDP_SEARCH_FINISHED";       // data = null
     public static String EVENT_ADDL_FOLDERS_AVAILABLE  = "ADDITONAL_FOLDERS_AVAILABLE";// data = MediaRenderer.FolderPlus
+    public static String EVENT_ADDL_PLAYLIST_ITEMS     = "ADDL_PLAYLIST_ITEMS";        // data = Playlist
 
     // control commands
 
