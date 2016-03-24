@@ -50,9 +50,9 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
     private static int dbg_requests = 1;
     private static int dbg_favicon_requests = 1;
     private static int dbg_icon_requests = 1;
-    private static int dbg_service_requests = 1;
-    private static int dbg_device_requests = 1;
-    private static int dbg_control_requests = 1;
+    private static int dbg_service_requests = 0;
+    private static int dbg_device_requests = 0;
+    private static int dbg_control_requests = 0;
     private static int dbg_event_requests = 0;
     private static int dbg_other_requests = 1;
 

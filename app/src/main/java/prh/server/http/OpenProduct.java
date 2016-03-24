@@ -147,14 +147,24 @@ public class OpenProduct extends httpRequestHandler implements UpnpEventHandler
 
     String sourceXML()
     {
-        return // httpUtils.encode_xml(
+        // OK, so this encode_xml is absolutely necessary
+        // don't even think about removing it. Without it
+        // Bup does not make it to the first control request.
+        //
+        // BubbleUp may be hanging on the OpenPlaylist service request,
+        // before it gets to the Volume(Charateristics) control request,
+        // which is the first one of four when the renderer is not even
+        // selected during startup.  The problem seems to go away once
+        // Bup has subscribed successfully.
+
+        return httpUtils.encode_xml(
             "<SourceList>\n" +
                 "<Source>\n" +
                 "<Name>Playlist</Name>\n" +
                 "<Type>Playlist</Type>\n" +
                 "<Visible>true</Visible>\n" +
                 "</Source>\n" +
-                "</SourceList>\n"; // );
+                "</SourceList>\n");
     }
 
     //----------------------------------------
