@@ -24,26 +24,29 @@ public class aPrefs extends Fragment implements
     EventHandler
 {
     private static int dbg_aprefs = 0;
+
     private Artisan artisan = null;
+    private TextView page_title = null;
     private LinearLayout my_view = null;
     private PrefListAdapter pref_list_adapter = null;
 
-    @Override public String getTitle()
+
+    //----------------------------------------------
+    // LifeCycle
+    //----------------------------------------------
+
+    public void setArtisan(Artisan ma)
+        // called immediately after construction
     {
-        return "Preferences";
+        artisan = ma;
     }
 
-
-    //----------------------------------------------
-    // The main ListView (my_view)
-    //----------------------------------------------
 
     @Override
     public void onAttach(Activity activity)
     {
         Utils.log(dbg_aprefs,0,"aPrefs.onAttach() called");
         super.onAttach(activity);
-        artisan = (Artisan) activity;
     }
 
 
@@ -52,7 +55,6 @@ public class aPrefs extends Fragment implements
     {
         Utils.log(dbg_aprefs,0,"aPrefs.onDetach() called");
         super.onDetach();
-        artisan = null;
     }
 
 
@@ -69,6 +71,22 @@ public class aPrefs extends Fragment implements
         pref_list_adapter = new PrefListAdapter();
         list.setAdapter(pref_list_adapter);
         return my_view;
+    }
+
+
+    //----------------------------------
+    // utilities
+    //----------------------------------
+
+    @Override public void onSetPageCurrent(boolean current)
+    {
+        page_title = null;
+        if (current)
+        {
+            page_title = new TextView(artisan);
+            page_title.setText("Preferences");
+            artisan.setArtisanPageTitle(page_title);
+        }
     }
 
 

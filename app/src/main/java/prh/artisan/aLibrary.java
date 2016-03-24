@@ -35,6 +35,7 @@ import android.view.ViewGroup;
 import android.widget.AbsListView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.lang.reflect.Field;
@@ -57,16 +58,24 @@ public class aLibrary extends Fragment implements
 
     private Artisan artisan = null;
     private Library library = null;
+    private TextView page_title = null;
     private LinearLayout my_view = null;
     private ViewStack view_stack = null;
 
-    public Artisan getArtisan()  { return artisan; }
+   //  public Artisan getArtisan()  { return artisan; }
     public Library getLibrary()  { return library; }
 
 
     //----------------------------------------------
     // life cycle
     //----------------------------------------------
+
+    public void setArtisan(Artisan ma)
+        // called immediately after construction
+    {
+        artisan = ma;
+    }
+
 
     @Override
     public View onCreateView(LayoutInflater inflater,ViewGroup container,Bundle savedInstanceState)
@@ -94,7 +103,6 @@ public class aLibrary extends Fragment implements
     {
         Utils.log(dbg_alib,0,"aLibrary.onAttach() called");
         super.onAttach(activity);
-        artisan = (Artisan) activity;
     }
 
 
@@ -103,7 +111,6 @@ public class aLibrary extends Fragment implements
     {
         Utils.log(dbg_alib,0,"aLibrary.onDetach() called");
         super.onDetach();
-        artisan = null;
     }
 
 
@@ -172,13 +179,26 @@ public class aLibrary extends Fragment implements
     // utilities
     //--------------------------------------------
 
-    @Override public String getTitle()
+
+    @Override public void onSetPageCurrent(boolean current)
     {
-        return libraryPathMessage();
+        page_title = null;
+        if (current)
+        {
+            page_title = new TextView(artisan);
+            page_title.setText(getTitleBarText());
+            artisan.setArtisanPageTitle(page_title);
+        }
+    }
+
+    private void updateTitleBar()
+    {
+        if (page_title != null)
+            page_title.setText(getTitleBarText());
     }
 
 
-    private String libraryPathMessage()
+    private String getTitleBarText()
     {
         String msg = library == null ?
             "Library" :
@@ -199,16 +219,6 @@ public class aLibrary extends Fragment implements
         return msg;
     }
 
-    // event handlers in order of minor to major changes
-
-    private void updateArtisanTitleBarText()
-    {
-        if (my_view != null)
-            artisan.SetMainMenuText(
-                Artisan.PAGE_LIBRARY,
-                libraryPathMessage());
-    }
-
 
     //--------------------------------------------------------------
     // viewStack
@@ -227,7 +237,7 @@ public class aLibrary extends Fragment implements
             viewStackElement stack_ele = view_stack.get(view_stack.size() - 1);
             my_view.addView(stack_ele.getView());
             library.setCurrentFolder(stack_ele.getFolder());
-            updateArtisanTitleBarText();
+            updateTitleBar();
             stack_ele.restoreScroll();
         }
     }
@@ -284,7 +294,7 @@ public class aLibrary extends Fragment implements
         my_view.removeAllViews();
         my_view.addView(main_view);
         view_stack.add(new viewStackElement(main_view));
-        updateArtisanTitleBarText();
+        updateTitleBar();
 
     }   // pushViewStack()
 

@@ -33,16 +33,13 @@ public class aPlaying extends Fragment implements
     EventHandler,
     View.OnClickListener
 {
-    private static int dbg_anp = 0;
 
-    @Override public String getTitle()
-    {
-        return whatsPlayingMessage();
-    }
+    private static int dbg_anp = 0;
 
     // only good while attached
 
     private Artisan artisan = null;
+    private TextView page_title = null;
 
     // valid for the life of the object
     // between onCreate and onDestroy
@@ -64,10 +61,16 @@ public class aPlaying extends Fragment implements
     private boolean in_slider = false;
 
 
-
-    //----------------------------------------------
+   //----------------------------------------------
     // life cycle
     //----------------------------------------------
+
+    public void setArtisan(Artisan ma)
+        // called immediately after construction
+    {
+        artisan = ma;
+    }
+
 
     @Override
     public View onCreateView(LayoutInflater inflater,ViewGroup container,Bundle savedInstanceState)
@@ -108,7 +111,7 @@ public class aPlaying extends Fragment implements
     {
         Utils.log(dbg_anp,0,"aPlaying.onAttach() called");
         super.onAttach(activity);
-        artisan = (Artisan) activity;
+        // artisan = (Artisan) activity;
     }
 
 
@@ -117,7 +120,7 @@ public class aPlaying extends Fragment implements
     {
         Utils.log(dbg_anp,0,"aPlaying.onDetach() called");
         super.onDetach();
-        artisan = null;
+        // artisan = null;
         buttonAdapter = null;
     }
 
@@ -127,6 +130,62 @@ public class aPlaying extends Fragment implements
     {
         super.onDestroyView();
     }
+
+
+    //---------------------------
+    // UI Utilities
+    //---------------------------
+
+    void enable(int id, boolean enable)
+    // enable/disable a Button or ImageButton
+    // jesus christ, image buttons don't change their
+    // appearance when disabled, and there was no easy
+    // or apparent way to do it, so instead using the
+    // alpha channel, and UNDOCUMENTED range of 0..255
+    {
+        View btn = my_view.findViewById(id);
+        if (btn instanceof ImageButton)
+            ((ImageButton)btn).setImageAlpha(enable?255:100);
+        btn.setEnabled(enable);
+    }
+
+    @Override public void onSetPageCurrent(boolean current)
+    {
+        page_title = null;
+        if (current)
+        {
+            page_title = new TextView(artisan);
+            page_title.setText(getTitleBarText());
+            artisan.setArtisanPageTitle(page_title);
+        }
+    }
+
+    private String getTitleBarText()
+    {
+        String msg = renderer == null ?
+            "Now Playing " :
+            renderer.getName() + " ";
+
+        if (current_playlist != null)
+        {
+            msg += ":: " +
+                current_playlist.getName() + "(" +
+                current_playlist.getCurrentIndex() + "/" +
+                current_playlist.getNumTracks() + ") ";
+        }
+        // clean up PAUSED_PLAYBACK for display
+        msg += current_state.replace("_PLAYBACK","");
+        return msg;
+    }
+
+    // event handlers in order of minor to major changes
+
+    private void updateTitleBar()
+    {
+        if (page_title != null)
+            page_title.setText(getTitleBarText());
+    }
+
 
 
     //---------------------------
@@ -207,24 +266,6 @@ public class aPlaying extends Fragment implements
                 renderer.seekTo(progress);
         }
     };
-
-
-    //---------------------------
-    // UI Utilities
-    //---------------------------
-
-    void enable(int id, boolean enable)
-    // enable/disable a Button or ImageButton
-    // jesus christ, image buttons don't change their
-    // appearance when disabled, and there was no easy
-    // or apparent way to do it, so instead using the
-    // alpha channel, and UNDOCUMENTED range of 0..255
-    {
-        View btn = my_view.findViewById(id);
-        if (btn instanceof ImageButton)
-            ((ImageButton)btn).setImageAlpha(enable?255:100);
-        btn.setEnabled(enable);
-    }
 
 
     //-----------------------------------------------
@@ -369,35 +410,6 @@ public class aPlaying extends Fragment implements
     //-----------------------------------------------------------
     // Event Handling
     //-----------------------------------------------------------
-
-    private String whatsPlayingMessage()
-    {
-        String msg = renderer == null ?
-            "Now Playing " :
-            renderer.getName() + " ";
-
-        if (current_playlist != null)
-        {
-            msg += ":: " +
-                current_playlist.getName() + "(" +
-                current_playlist.getCurrentIndex() + "/" +
-                current_playlist.getNumTracks() + ") ";
-        }
-        // clean up PAUSED_PLAYBACK for display
-        msg += current_state.replace("_PLAYBACK","");
-        return msg;
-    }
-
-    // event handlers in order of minor to major changes
-
-    private void update_whats_playing_message()
-    {
-        if (my_view != null)
-            artisan.SetMainMenuText(
-                Artisan.PAGE_PLAYING,
-                whatsPlayingMessage());
-    }
-
 
 
     private void update_position(int position)
@@ -556,7 +568,7 @@ public class aPlaying extends Fragment implements
         else if (event_id.equals(EVENT_STATE_CHANGED))
         {
             update_state((String) data);
-            update_whats_playing_message();
+            updateTitleBar();
         }
         else if (event_id.equals(EVENT_TRACK_CHANGED))
         {
@@ -568,7 +580,7 @@ public class aPlaying extends Fragment implements
             update_track((Track) data);
             update_position(current_position);
             update_state(current_state);
-            update_whats_playing_message();
+            updateTitleBar();
         }
         else if (event_id.equals(EVENT_PLAYLIST_CHANGED))
         {
@@ -584,7 +596,7 @@ public class aPlaying extends Fragment implements
             update_track(current_track);
             update_position(current_position);
             update_state(current_state);
-            update_whats_playing_message();
+            updateTitleBar();
         }
 
         // oddball, no data member, not used yet
@@ -629,7 +641,7 @@ public class aPlaying extends Fragment implements
             update_track(current_track);
             update_position(current_position);
             update_state(current_state);
-            update_whats_playing_message();
+            updateTitleBar();
         }
 
         else if (event_id.equals(COMMAND_EVENT_PLAY_TRACK))

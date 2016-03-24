@@ -2,6 +2,5 @@ package prh.artisan;
 
 public interface ArtisanPage
 {
-    // public String getName();
-    public String getTitle();
+    public void onSetPageCurrent(boolean current);
 }

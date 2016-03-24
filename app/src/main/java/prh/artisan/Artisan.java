@@ -300,6 +300,12 @@ public class Artisan extends FragmentActivity implements
         aLibrary  = new aLibrary();
         aExplorer = new aExplorer();
 
+        aPrefs.setArtisan(this);
+        aPlaying.setArtisan(this);
+        aPlaylist.setArtisan(this);
+        aLibrary.setArtisan(this);
+        aExplorer.setArtisan(this);
+
         page_change_listener = new pageChangeListener(this);
         myPagerAdapter my_pager_adapter = new myPagerAdapter(getSupportFragmentManager());
         view_pager = (ViewPager) findViewById(R.id.artisan_content);
@@ -308,11 +314,14 @@ public class Artisan extends FragmentActivity implements
 
         // create the main menu
 
-        LayoutInflater inflater = LayoutInflater.from(this);
-        main_menu = (MainMenu) inflater.inflate(R.layout.main_menu,null,false);
-        LinearLayout menu_area = (LinearLayout) findViewById(R.id.artisan_menu_area);
-        menu_area.addView(main_menu);
+        //LayoutInflater inflater = LayoutInflater.from(this);
+        //main_menu = (MainMenu) inflater.inflate(R.layout.main_menu,null,false);
+        //LinearLayout menu_area = (LinearLayout) findViewById(R.id.artisan_menu_area);
+        //menu_area.addView(main_menu);
+
+        main_menu = (MainMenu) findViewById(R.id.artisan_main_menu);
         main_menu.setVisibility(View.GONE);
+
 
         // start the volume control and set full page
 
@@ -343,9 +352,12 @@ public class Artisan extends FragmentActivity implements
         playlist_source = local_playlist_source;
 
         // set the start page
+        // we have to call setPageSelected() because
+        // view_pager.setCurrentItem() does not trigger
+        // the onPageChange listener ...
 
         view_pager.setCurrentItem(START_PAGE);
-        setCurrentPageTitle();
+        setPageSelected(START_PAGE);
 
         // start the default, local, initial devices
         // the playlist source must be started before
@@ -566,27 +578,15 @@ public class Artisan extends FragmentActivity implements
     // Paging
     //-------------------------------------------------------
 
-    private void setCurrentPageTitle()
-    {
-        myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
-        ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
-        SetMainMenuText(current_page,page.getTitle());
-    }
 
-
-    public void SetMainMenuText(int page_idx,String text)
-    // only accepts text from the current page
+    public void setArtisanPageTitle(View page_title)
+        // shall only be called by pages while they
+        // are the current page
     {
-        myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
-        if (page_idx == current_page)
-        {
-            ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
-            if (page != null)
-            {
-                TextView title = (TextView) findViewById(R.id.artisan_title_bar_text);
-                title.setText(text);
-            }
-        }
+        LinearLayout title_area = (LinearLayout) findViewById(
+            R.id.artisan_title_bar_text_area);
+        title_area.removeAllViews();
+        title_area.addView(page_title);
     }
 
 
@@ -617,12 +617,30 @@ public class Artisan extends FragmentActivity implements
         @Override
         public void onPageSelected(int index)
         {
-            setBodyClickListener(false);
-            current_page = index;
-            setBodyClickListener(true);
-            if (current_page >= 0)
-                setCurrentPageTitle();
+            setPageSelected(index);
         }
+    }
+
+
+    private void setPageSelected(int index)
+    {
+        myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
+
+        // unselect the old page
+
+        setBodyClickListener(false);
+        if (current_page >= 0)
+        {
+            ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
+            page.onSetPageCurrent(false);
+        }
+
+        // select the new page
+
+        current_page = index;
+        setBodyClickListener(true);
+        ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
+        page.onSetPageCurrent(true);
     }
 
 

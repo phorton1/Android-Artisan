@@ -10,6 +10,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -26,15 +27,25 @@ public class aPlaylist extends Fragment implements
     EventHandler,
     ListItem.ListItemListener
 {
-    static int dbg_aplay = 0;
+    private static int dbg_aplay = 0;
+
+    private TextView page_title = null;
     private Artisan artisan = null;
     private Playlist playlist = null;
-    LinearLayout my_view = null;
-    ListView the_list = null;
+    private LinearLayout my_view = null;
+    private ListView the_list = null;
+
 
     //----------------------------------------------
     // life cycle
     //----------------------------------------------
+
+    public void setArtisan(Artisan ma)
+    // called immediately after construction
+    {
+        artisan = ma;
+    }
+
 
     @Override
     public View onCreateView(LayoutInflater inflater,ViewGroup container,Bundle savedInstanceState)
@@ -42,11 +53,6 @@ public class aPlaylist extends Fragment implements
         Utils.log(dbg_aplay,0,"aPlaylist.onCreateView() called");
         my_view = (LinearLayout) inflater.inflate(R.layout.activity_playlist,container,false);
         the_list = (ListView) my_view.findViewById(R.id.playlist);
-
-        //the_list.setScrollBarSize(44);
-        //the_list.setVerticalScrollBarEnabled(true);
-        //the_list.setScrollBarDefaultDelayBeforeFade(7000);
-
         init(artisan.getRenderer());
         return my_view;
     }
@@ -78,7 +84,7 @@ public class aPlaylist extends Fragment implements
             true);
 
         the_list.setAdapter(adapter);
-        updateArtisanTitleBar();
+        updateTitleBar();
     }
 
 
@@ -87,7 +93,7 @@ public class aPlaylist extends Fragment implements
     {
         Utils.log(dbg_aplay,0,"aPlaylist.onAttach() called");
         super.onAttach(activity);
-        artisan = (Artisan) activity;
+        // artisan = (Artisan) activity;
     }
 
 
@@ -96,7 +102,7 @@ public class aPlaylist extends Fragment implements
     {
         Utils.log(dbg_aplay,0,"aPlaylist.onDetach() called");
         super.onDetach();
-        artisan = null;
+        // artisan = null;
     }
 
 
@@ -104,19 +110,26 @@ public class aPlaylist extends Fragment implements
     // utilities
     //--------------------------------
 
-    @Override public String getTitle()
+
+    @Override public void onSetPageCurrent(boolean current)
     {
-        return getArtisanTitleBarText();
+        page_title = null;
+        if (current)
+        {
+            page_title = new TextView(artisan);
+            page_title.setText(getTitleBarText());
+            artisan.setArtisanPageTitle(page_title);
+        }
     }
 
-    private void updateArtisanTitleBar()
+    private void updateTitleBar()
     {
-        artisan.SetMainMenuText(
-            Artisan.PAGE_PLAYLIST,
-            getArtisanTitleBarText());
+        if (page_title != null)
+            page_title.setText(getTitleBarText());
     }
 
-    private String getArtisanTitleBarText()
+
+    private String getTitleBarText()
     {
         String msg =
             playlist == null ? "Playlist" :
