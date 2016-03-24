@@ -28,7 +28,7 @@ public class aPrefs extends Fragment implements
     private LinearLayout my_view = null;
     private PrefListAdapter pref_list_adapter = null;
 
-    @Override public String getName()
+    @Override public String getTitle()
     {
         return "Preferences";
     }

@@ -82,20 +82,6 @@ public class aLibrary extends Fragment implements
 {
     private static int dbg_alib = 0;
 
-    private boolean USE_VIEW_CACHE = false;
-        // If true, the libraryListAdapter keeps a cache of the
-        // views it has created.  Has to be false right now because,
-        // apparently view recycling is invalidating the onClick()
-        // pointers and everything goes to hell when I try to cache em.
-        // Similar problem occurs in the MainMenu, for which I just
-        // resorted to keeping it around all the time.
-        //
-        // Because of this, at a minimum, I must keep a scroll position
-        // in the stack of views, so that when a user returns to a view,
-        // it shows the same stuff (we at least don't rebuild the adapter)
-
-    @Override public String getName()  { return "Library"; }
-
     class ViewStack extends ArrayList<viewStackElement> {}
 
     private Artisan artisan = null;
@@ -110,38 +96,6 @@ public class aLibrary extends Fragment implements
     public Artisan getArtisan()  { return artisan; }
     public Library getLibrary()  { return library; }
     // public LinearLayout getMyView()  { return my_view; }
-
-
-    private class viewStackElement
-    {
-        private View view;
-        private int scroll_position = -1;
-
-        public viewStackElement(View v) {view = v;}
-        public View getView() {return view;}
-
-        public void setScrollPosition(int p) { scroll_position = p;}
-        public int getScrollPosition() { return scroll_position; }
-
-        public ListView getListView()
-        {
-            if (view instanceof ListView)
-                return (ListView) view;
-            return (ListView) view.findViewById(R.id.library_list);
-        }
-
-        public libraryListAdapter getAdapter()
-        {
-            ListView list_view = getListView();
-            libraryListAdapter adapter = (libraryListAdapter) list_view.getAdapter();
-            return adapter;
-        }
-
-        public Folder getFolder()
-        {
-            return getAdapter().getFolder();
-        }
-    }
 
 
     //----------------------------------------------
@@ -197,6 +151,99 @@ public class aLibrary extends Fragment implements
     }
 
 
+
+    //--------------------
+    // viewStackElement
+    //--------------------
+
+    private class viewStackElement
+    {
+        private View view;
+        private int scroll_index = 0;
+        private int scroll_position = 0;
+
+        public viewStackElement(View v) {view = v;}
+        public View getView() {return view;}
+
+
+        public ListView getListView()
+        {
+            if (view instanceof ListView)
+                return (ListView) view;
+            return (ListView) view.findViewById(R.id.library_list);
+        }
+
+        public libraryListAdapter getAdapter()
+        {
+            ListView list_view = getListView();
+            libraryListAdapter adapter = (libraryListAdapter) list_view.getAdapter();
+            return adapter;
+        }
+
+        public Folder getFolder()
+        {
+            return getAdapter().getFolder();
+        }
+
+        public void saveScroll()
+        {
+            ListView list_view = getListView();
+            scroll_index = list_view.getFirstVisiblePosition();
+            View v = list_view.getChildAt(0);
+            scroll_position = (v == null) ? 0 : (v.getTop() - list_view.getPaddingTop());
+        }
+
+
+        public void restoreScroll()
+        {
+            ListView list_view = getListView();
+            list_view.setSelectionFromTop(scroll_index,scroll_position);
+        }
+    }
+
+
+    //--------------------------------------------
+    // utilities
+    //--------------------------------------------
+
+    @Override public String getTitle()
+    {
+        return libraryPathMessage();
+    }
+
+
+    private String libraryPathMessage()
+    {
+        String msg = library == null ?
+            "Library" :
+            library.getName();
+
+        if (view_stack != null && view_stack.size() > 1)
+        {
+            for (int i=1; i<view_stack.size(); i++)
+            {
+                Folder folder = view_stack.get(i).getFolder();
+                if (!folder.getType().equals("album"))
+                {
+                    msg += "/";
+                    msg += folder.getTitle();
+                }
+            }
+        }
+        return msg;
+    }
+
+    // event handlers in order of minor to major changes
+
+    private void updateArtisanTitleBarText()
+    {
+        if (my_view != null)
+            artisan.SetMainMenuText(
+                Artisan.PAGE_LIBRARY,
+                libraryPathMessage());
+    }
+
+
     //--------------------------------------------------------------
     // Traversal
     //--------------------------------------------------------------
@@ -215,6 +262,8 @@ public class aLibrary extends Fragment implements
             viewStackElement stack_ele = view_stack.get(view_stack.size() - 1);
             my_view.addView(stack_ele.getView());
             library.setCurrentFolder(stack_ele.getFolder());
+            updateArtisanTitleBarText();
+            stack_ele.restoreScroll();
         }
     }
 
@@ -251,10 +300,22 @@ public class aLibrary extends Fragment implements
             ((LinearLayout)main_view).addView(list_view);
         }
 
+        // save the scroll position
+
+        if (view_stack.size()>0)
+        {
+            viewStackElement tos = view_stack.get(view_stack.size() - 1);
+            tos.saveScroll();
+        }
+
+        // add the view to the page
+
         my_view.removeAllViews();
         my_view.addView(main_view);
         view_stack.add(new viewStackElement(main_view));
-    }
+        updateArtisanTitleBarText();
+
+    }   // pushViewStack()
 
 
 
@@ -262,12 +323,12 @@ public class aLibrary extends Fragment implements
         // only called for folders ..
         // there are no subitems of tracks.
         //
-        // Calls getSubItems(0,999999) for local folders, and
+        // Call getSubItems(0,999999) for local folders, and
         // getSubItems(0,0) for external folders. Local usage
         // is not complicated, so what follows is only for external
         // usage in conjunction with Device.MediaServer.
         //
-        // The initial call to getSubItems(0,0) will happen
+        // The initial call to getSubItems(0,0) was already done
         // synchronously, so the adapter can start displaying views.
         // The adapter only sees the records that have been found
         // by the MediaServer.
@@ -284,6 +345,7 @@ public class aLibrary extends Fragment implements
         private intViewHash items = new intViewHash();
         public Folder getFolder()  { return folder; }
 
+        // ctor
 
         public libraryListAdapter(aLibrary the_a_library, Folder the_folder, recordList initial_records)
         {
@@ -292,59 +354,32 @@ public class aLibrary extends Fragment implements
             folder = the_folder;
             sub_items = initial_records;
             num_items = sub_items.size();
-            //hasStableIds();
         }
 
-        /*
-
-        public int getCount()
-        {
-            return num_items;
-        }
-
-        public long getItemId(int position)
-        {
-            return position;
-        }
-
-        public View getItem(int position)
-        {
-            return getView(position,null,null);     // items.get(position);
-        }
-
-        */
+        // build the views
 
         public View getView(int position, View re_use, ViewGroup view_group)
         {
-            View item = items.get(position);
-            if (item == null)
-            {
-                Record rec = sub_items.get(position);
-                LayoutInflater inflater = LayoutInflater.from(artisan);
-                ListItem list_item = (ListItem) inflater.inflate(R.layout.list_item_layout,view_group,false);
-                if (rec instanceof Track)
-                    list_item.setTrack((Track) rec);
-                else
-                    list_item.setFolder((Folder) rec);
+            Record rec = sub_items.get(position);
+            LayoutInflater inflater = LayoutInflater.from(artisan);
+            ListItem list_item = (ListItem) inflater.inflate(R.layout.list_item_layout,view_group,false);
+            if (rec instanceof Track)
+                list_item.setTrack((Track) rec);
+            else
+                list_item.setFolder((Folder) rec);
 
-                // OnClickHandlers are set in doLayout()
+            // OnClickHandlers are set in doLayout()
 
-                list_item.doLayout(a_library,a_library);
-                item = list_item;
-
-                // If I attempt to cache these, I lose the click listener
-
-                if (USE_VIEW_CACHE)
-                    items.put(position,item);
-           }
-           return item;
+            list_item.doLayout(a_library,a_library);
+            return list_item;
         }
 
 
-        // called by ARTISAN_EVENT when MediaServer adds more
-        // subitems to this adapter's folder ...
+        // add items
 
         public void addItems(MediaServer.FolderPlus folder_plus)
+            // called by ARTISAN_EVENT when MediaServer adds more
+            // subitems to this adapter's folder ...
         {
             recordList new_records = folder_plus.getRecords();
             int first = sub_items.size();
@@ -359,169 +394,10 @@ public class aLibrary extends Fragment implements
                 Utils.log(0,4,"changing num_items to " + sub_items.size() + " and calling notify DataSet changed()");
                 num_items = sub_items.size();
                 notifyDataSetChanged();
-                //notifyDataSetInvalidated();
-
             }
         }
-
-
-
-        // implementing these two methods disables
-        // view recycling by the ListView which is supposed
-        // to allow the cached items to work, by telling the
-        // list view that all objects are of unique types and
-        // cannot be recycled. It don't (work).
-
-        /*
-        @Override
-        public int getViewTypeCount()
-        {
-            return getCount();
-        }
-
-        @Override
-        public int getItemViewType(int position)
-        {
-            return position;
-        }
-
-        */
 
     }   // class libraryListAdapter
-
-
-
-
-    private class old_libraryListAdapter extends BaseAdapter
-        // only called for folders ..
-        // there are no subitems of tracks.
-        //
-        // Calls getSubItems(0,999999) for local folders, and
-        // getSubItems(0,0) for external folders. Local usage
-        // is not complicated, so what follows is only for external
-        // usage in conjunction with Device.MediaServer.
-        //
-        // The initial call to getSubItems(0,0) will happen
-        // synchronously, so the adapter can start displaying views.
-        // The adapter only sees the records that have been found
-        // by the MediaServer.
-        //
-        // Meanwhile, the MediaServer plugs away and sends EVENT_ADDL_FOLDERS_AVAILABLE
-        // to us when it gets some records, in which case we add them to our array,
-        // and notify the adapter that the dataset has changed, and away the user
-        // goes, scrolling like mad.
-    {
-        private Folder folder;
-        private aLibrary a_library;
-        private int num_items = 0;
-        private recordList sub_items;
-        private intViewHash items = new intViewHash();
-
-        public Folder getFolder()  { return folder; }
-
-
-        public old_libraryListAdapter(aLibrary the_a_library, Folder the_folder)
-        {
-            super();
-            a_library = the_a_library;
-            folder = the_folder;
-            int count = ((Device) library).isLocal() ? 999999 : 0;
-            sub_items = a_library.getLibrary().getSubItems(folder.getId(),0,count,false);
-            num_items = sub_items.size();
-            hasStableIds();
-        }
-
-        public int getCount()
-        {
-            return num_items;
-        }
-
-        public long getItemId(int position)
-        {
-            return position;
-        }
-
-        public View getItem(int position)
-        {
-            return getView(position,null,null);     // items.get(position);
-        }
-
-        public View getView(int position, View re_use, ViewGroup view_group)
-        {
-            View item = items.get(position);
-            if (item == null)
-            {
-                Record rec = sub_items.get(position);
-                LayoutInflater inflater = LayoutInflater.from(artisan);
-                ListItem list_item = (ListItem) inflater.inflate(R.layout.list_item_layout,view_group,false);
-                if (rec instanceof Track)
-                    list_item.setTrack((Track) rec);
-                else
-                    list_item.setFolder((Folder) rec);
-
-                // OnClickHandlers are set in doLayout()
-
-                list_item.doLayout(a_library,a_library);
-                item = list_item;
-
-                // If I attempt to cache these, I lose the click listener
-
-                if (USE_VIEW_CACHE)
-                    items.put(position,item);
-            }
-            return item;
-        }
-
-
-        // called by ARTISAN_EVENT when MediaServer adds more
-        // subitems to this adapter's folder ...
-
-        public void addItems(MediaServer.FolderPlus folder_plus)
-        {
-            recordList new_records = folder_plus.getRecords();
-            int first = sub_items.size();
-            int last = new_records.size() - 1;
-            if (last >= first)
-            {
-                Utils.log(0,4,"adding " + (last-first+1) + " items to existing " + first + " records");
-
-                for (int i = first; i <= last; i++)
-                    sub_items.add(new_records.get(i));
-
-                Utils.log(0,4,"changing num_items to " + sub_items.size() + " and calling notify DataSet changed()");
-                num_items = sub_items.size();
-                notifyDataSetChanged();
-                //notifyDataSetInvalidated();
-
-            }
-        }
-
-        // implementing these two methods disables
-        // view recycling by the ListView which is supposed
-        // to allow the cached items to work, by telling the
-        // list view that all objects are of unique types and
-        // cannot be recycled. It don't (work).
-
-
-        @Override
-        public int getViewTypeCount()
-        {
-            return getCount();
-        }
-
-        @Override
-        public int getItemViewType(int position)
-        {
-            return position;
-        }
-
-
-    }   // class libraryListAdapter
-
-
-
-
-
 
 
 

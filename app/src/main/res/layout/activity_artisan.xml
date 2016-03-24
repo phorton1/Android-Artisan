@@ -55,14 +55,36 @@
                 android:id="@+id/artisan_title_bar_right"
                 android:orientation="horizontal"
                 android:layout_alignParentRight="true"
+                android:layout_marginRight="12dip"
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"/>
+
+            <!--
+               -->
+
+            <RelativeLayout
+                android:id="@+id/artisan_progress_container"
+                android:layout_toLeftOf="@id/artisan_title_bar_right"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent">
+                <ProgressBar
+                    android:id="@+id/artisan_progress"
+                    style="?android:attr/progressBarStyle"
+                    android:paddingLeft="6dip"
+                    android:visibility="gone"
+                    android:layout_centerVertical="true"
+                    android:layout_centerHorizontal="true"
+                    android:layout_gravity="center_vertical|center_horizontal"
+                    android:layout_width="24dip"
+                    android:layout_height="24dip" />
+            </RelativeLayout>
+
 
             <TextView
                 android:id="@+id/artisan_title_bar_text"
                 android:layout_centerVertical="true"
                 android:layout_toRightOf="@id/artisan_title_bar_left"
-                android:layout_toLeftOf="@id/artisan_title_bar_right"
+                android:layout_toLeftOf="@id/artisan_progress_container"
                 android:singleLine="true"
                 android:text="Howdy Doody"
                 android:textSize="18dip"

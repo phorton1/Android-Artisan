@@ -34,7 +34,11 @@ public class aPlaying extends Fragment implements
     View.OnClickListener
 {
     private static int dbg_anp = 0;
-    @Override public String getName()  { return "Now Playing"; }
+
+    @Override public String getTitle()
+    {
+        return whatsPlayingMessage();
+    }
 
     // only good while attached
 
@@ -388,26 +392,32 @@ public class aPlaying extends Fragment implements
     // Event Handling
     //-----------------------------------------------------------
 
+    private String whatsPlayingMessage()
+    {
+        String msg = renderer == null ?
+            "Now Playing " :
+            renderer.getName() + " ";
+
+        if (current_playlist != null)
+        {
+            msg += ":: " +
+                current_playlist.getName() + "(" +
+                current_playlist.getCurrentIndex() + "/" +
+                current_playlist.getNumTracks() + ") ";
+        }
+        // clean up PAUSED_PLAYBACK for display
+        msg += current_state.replace("_PLAYBACK","");
+        return msg;
+    }
 
     // event handlers in order of minor to major changes
 
-
-    public void update_whats_playing_message()
+    private void update_whats_playing_message()
     {
         if (my_view != null)
-        {
-            String msg = "";
-            if (renderer != null)
-                msg += renderer.getName() + " :: ";
-            if (current_playlist != null)
-                msg += current_playlist.getName() + "(" +
-                    current_playlist.getCurrentIndex() + "/" +
-                    current_playlist.getNumTracks() + ") ";
-            msg += current_state.replace("_PLAYBACK","");
-                // clean up PAUSED_PLAYBACK for display
-
-            artisan.SetMainMenuText(getName(),msg);
-        }
+            artisan.SetMainMenuText(
+                Artisan.PAGE_PLAYING,
+                whatsPlayingMessage());
     }
 
 

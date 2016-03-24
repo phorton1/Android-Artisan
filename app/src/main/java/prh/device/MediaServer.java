@@ -61,6 +61,7 @@ public class MediaServer extends Device implements Library
     folderHash folders = null;
     trackHash tracks = null;
     private FolderPlus current_fetcher_folder = null;
+    private int num_fetchers_running = 0;
 
 
     //----------------------------------------
@@ -110,6 +111,8 @@ public class MediaServer extends Device implements Library
 
     @Override public void stop()
     {
+        // artisan.showArtisanProgressIndicator(false);
+
         if (tracks != null)
             tracks.clear();
         tracks = null;
@@ -173,6 +176,12 @@ public class MediaServer extends Device implements Library
         }
 
         Utils.log(dbg_ms,0,"MediaServer.getSubItems(" + start + "," + count + ") for " + folder.getTitle());
+
+        if (folder.getType().equals("unknown"))
+        {
+            Utils.error("Cannot get subItems of unknown folder type for " + folder.getTitle());
+            return new libraryBrowseResult();
+        }
         
         // stepping up the hierarchy
 
@@ -323,7 +332,7 @@ public class MediaServer extends Device implements Library
                 Utils.log(dbg_fetcher,1,"FETCHER.start(" + getTitle() + ") called");
                 if (getRunning())
                 {
-                    Utils.error("Fetcher is already running");
+                    Utils.warning(0,3,"Fetcher is already running");
                     return;
                 }
                 if (records.size() >= getNumElements())
@@ -355,6 +364,9 @@ public class MediaServer extends Device implements Library
             public void run()
             {
                 Utils.log(dbg_fetcher,2,"FETCHER.run(" + getTitle() + ") started num_records=" + records.size() + "  num_elements=" + getNumElements());
+
+                num_fetchers_running++;
+                artisan.showArtisanProgressIndicator(true);
                 while (state == 1 &&
                        records.size() < getNumElements())
                 {
@@ -376,6 +388,9 @@ public class MediaServer extends Device implements Library
                     }
                 }
                 Utils.log(dbg_fetcher,2,"FETCHER.run(" + getTitle() + ") finished");
+                num_fetchers_running--;
+                if (num_fetchers_running == 0)
+                    artisan.showArtisanProgressIndicator(false);
                 state = 0;
             }
 
@@ -424,6 +439,7 @@ public class MediaServer extends Device implements Library
                         // for now, see what happens creating a track
                         // from an arbitrary audioItem
 
+                    boolean is_container = node_class.startsWith("object.container");
                     boolean is_album = node_class.startsWith("object.container.album.musicAlbum");
                         // object.container
                         // object.container.storageContainer
@@ -457,7 +473,8 @@ public class MediaServer extends Device implements Library
                     params.put("year_str",year_str);
 
                     // retroactively change any container with
-                    // music_items into an "albums".
+                    // music_items into an "albums". Don't know
+                    // what happens with unknown types
 
                     if (is_music)
                         put("dirtype","album");
@@ -512,7 +529,16 @@ public class MediaServer extends Device implements Library
                         if (state == 3)
                             return false;
 
-                        params.put("dirtype",is_album ? "album" : "folder");
+                        String dirtype =
+                            is_album ? "album" :
+                            is_container ? "folder" :
+                            "unknown";
+
+                        if (dirtype.equals("unknown"))
+                            Utils.warning(0,0,"Unknown folder type(" + node_class + ") for " + title);
+
+                        params.put("dirtype",dirtype);
+
                         FolderPlus add_folder = new FolderPlus(params);
                         records.add(add_folder);
                         folders.put(item_id,add_folder);
@@ -550,7 +576,7 @@ public class MediaServer extends Device implements Library
                 // get the sub_items from the remote server
 
                 int cur_num_items = records.size();
-                Utils.log(dbg_fetcher,3,"syncGetItems(" + start + "," + count + ") cur_num_items=" + cur_num_items);
+                Utils.log(dbg_fetcher,3,"syncGetItems(" + start + "," + count + ") cur_num_items=" + cur_num_items +"/" + getNumElements());
 
                 stringHash args = new stringHash();
                 args.put("InstanceID","0");

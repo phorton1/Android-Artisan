@@ -113,6 +113,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.PopupMenu;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -569,10 +570,23 @@ public class Artisan extends FragmentActivity implements
     {
         myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
         ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
-        if (current_page == PAGE_PLAYING)
-            aPlaying.update_whats_playing_message();
-        else
-            SetMainMenuText(page.getName(),page.getName());
+        SetMainMenuText(current_page,page.getTitle());
+    }
+
+
+    public void SetMainMenuText(int page_idx,String text)
+    // only accepts text from the current page
+    {
+        myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
+        if (page_idx == current_page)
+        {
+            ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
+            if (page != null)
+            {
+                TextView title = (TextView) findViewById(R.id.artisan_title_bar_text);
+                title.setText(text);
+            }
+        }
     }
 
 
@@ -745,18 +759,6 @@ public class Artisan extends FragmentActivity implements
     }
 
 
-    public void SetMainMenuText(String from,String text)
-        // only accepts text from the current page
-    {
-        myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
-        ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
-        if (page != null && page.getName().equals(from))
-        {
-            TextView title = (TextView) findViewById(R.id.artisan_title_bar_text);
-            title.setText(text);
-        }
-    }
-
 
     public void doVolumeControl()
     {
@@ -769,6 +771,13 @@ public class Artisan extends FragmentActivity implements
         }
     }
 
+
+    public void showArtisanProgressIndicator(final boolean show_it)
+    {
+        runOnUiThread(new Runnable() { public void run() {
+        ProgressBar progress = (ProgressBar) findViewById(R.id.artisan_progress);
+        progress.setVisibility(show_it ? View.VISIBLE : View.GONE); }});
+    }
 
 
     //------------------------------------------------
