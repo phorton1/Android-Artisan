@@ -237,7 +237,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
             // OpenPlaylist is the only service that currently gets a subscriber
     {
         boolean ok = true;
-        boolean changed = false;
+        String delayed_event_id = "";
         HashMap<String,String> hash = new HashMap<>();
         LocalRenderer local_renderer = artisan.getLocalRenderer();
             // NEVER NULL
@@ -326,7 +326,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
             local_playlist = createLocalPlaylist();
                 // empty playlists don't need exposers
             local_renderer.setPlaylist(local_playlist);
-            changed = true;
+            delayed_event_id = EventHandler.EVENT_PLAYLIST_CONTENT_CHANGED;
         }
         else if (action.equals("DeleteId"))
         {
@@ -335,7 +335,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
             Utils.log(0,0,"open_id=" + open_id);
             if (!local_playlist.removeTrack(open_id))
                 return error_response(http_server,800,open_id);
-            changed = true;
+            delayed_event_id = EventHandler.EVENT_PLAYLIST_CONTENT_CHANGED;
         }
         else if (action.equals("Insert"))
         {
@@ -382,7 +382,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
                 }
                 hash.put("NewId",Integer.toString(track.getOpenId()));
             }
-            changed = true;
+            delayed_event_id = EventHandler.EVENT_PLAYLIST_CONTENT_CHANGED;
         }
 
 
@@ -394,14 +394,14 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
             int value = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"value=" + value);
             local_renderer.setRepeat(value > 0);
-            changed = true;
+            incUpdateCount();
         }
         else if (action.equals("SetShuffle"))
         {
             int value = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"value=" + value);
             local_renderer.setShuffle(value > 0);
-            changed = true;
+            incUpdateCount();
         }
 
 
@@ -459,27 +459,27 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         else if (action.equals("Next"))
         {
             local_renderer.incAndPlay(1);
-            changed = true;
+            incUpdateCount();
         }
         else if (action.equals("Previous"))
         {
             local_renderer.incAndPlay(-1);
-            changed = true;
+            incUpdateCount();
         }
         else if (action.equals("Pause"))
         {
             local_renderer.pause();
-            changed = true;
+            incUpdateCount();
         }
         else if (action.equals("Play"))
         {
             local_renderer.play();
-            changed = true;
+            incUpdateCount();
         }
         else if (action.equals("Stop"))
         {
             local_renderer.stop();
-            changed = true;
+            incUpdateCount();
         }
 
 
@@ -500,7 +500,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
             httpUtils.dbg_hash_response = false;
         }
 
-        if (changed) synchronized (delayed_event)
+        if (!delayed_event_id.isEmpty()) synchronized (delayed_event)
         {
             // Instead of incUpdateCount()  we use a delayed post to
             // do the increment. If a change happens again before the timeout,
@@ -509,7 +509,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
 
             if (delayed_sender != null)
                 delayed_event.removeCallbacks(delayed_sender);
-            delayed_sender = new SendEventDelayed();
+            delayed_sender = new SendEventDelayed(delayed_event_id,local_playlist);
             delayed_event.postDelayed(delayed_sender,1200);
         }
 
@@ -519,14 +519,29 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
 
     private class SendEventDelayed implements Runnable
     {
+        Playlist playlist;
+        String event_id;
+
+        SendEventDelayed(String delayed_event_id,Playlist playlist)
+        {
+            this.playlist = playlist;
+            this.event_id = delayed_event_id;
+        }
+
         public void run()
         {
             synchronized (delayed_event)
             {
                 Utils.log(0,0,"OpenPlaylist::SendEventDelayed()");
-                incUpdateCount();
                 delayed_event.removeCallbacks(delayed_sender);
                 delayed_sender = null;
+
+                // instead of just bumping the count,
+                // we notify the whole system ...
+
+                artisan.handleArtisanEvent(event_id,playlist);
+                //incUpdateCount();
+
             }
         }
     }

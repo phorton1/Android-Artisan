@@ -72,7 +72,8 @@ public class aPlaylist extends Fragment implements
         playlist = new_playlist;
         recordList tracks = new recordList();
         if (playlist != null)
-            tracks = playlist.getAvailableTracks();
+
+            tracks.addAll(playlist.getAvailableTracks(false));
 
         ListItemAdapter adapter = new ListItemAdapter(
             artisan,
@@ -186,21 +187,20 @@ public class aPlaylist extends Fragment implements
         {
             init((Renderer) data);
         }
-        else if (event_id.equals(EVENT_PLAYLIST_CHANGED))
+
+        else if (
+            event_id.equals(EVENT_PLAYLIST_CHANGED) ||
+            event_id.equals(EVENT_PLAYLIST_CONTENT_CHANGED) )
         {
             Playlist new_playlist = (Playlist) data;
             if (new_playlist == null || playlist == null ||
-                !new_playlist.getName().equals(playlist.getName()))
+                !new_playlist.equals(playlist))
             {
                 init(new_playlist);
             }
-        }
-        else if (event_id.equals(EVENT_ADDL_PLAYLIST_ITEMS))
-        {
-            Playlist event_playlist = (Playlist) data;
-            if (playlist != null && playlist.equals(event_playlist))
+            else if ( new_playlist != null)
                 ((ListItemAdapter) the_list.getAdapter()).
-                    setItems(event_playlist.getAvailableTracks());
+                    setItems(new_playlist.getAvailableTracks(false));
         }
     }
 

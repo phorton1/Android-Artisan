@@ -18,30 +18,27 @@ package prh.device;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.List;
 
 import prh.artisan.Artisan;
 import prh.artisan.Database;
+import prh.artisan.EventHandler;
 import prh.artisan.Playlist;
 import prh.artisan.Prefs;
-import prh.artisan.Record;
 import prh.artisan.Track;
 import prh.server.HTTPServer;
 import prh.server.http.OpenPlaylist;
 //import prh.server.utils.PlaylistExposer;
+import prh.utils.Fetcher;
 import prh.server.utils.PlaylistExposer;
-import prh.server.utils.UpnpEventManager;
-import prh.server.utils.UpnpEventSubscriber;
 import prh.types.recordList;
 import prh.utils.Base64;
 import prh.utils.Utils;
 import prh.utils.httpUtils;
 
 
-public class LocalPlaylist implements Playlist
+public class LocalPlaylist implements Playlist, Fetcher.FetcherUser
 {
     private int dbg_pl = 1;
     private int dbg_open_pl = 0;
@@ -152,42 +149,64 @@ public class LocalPlaylist implements Playlist
     @Override public int getCurrentIndex()    { return track_index; }
     @Override public int getMyShuffle()       { return my_shuffle; }
 
-    @Override public recordList getAvailableTracks()
+    //------------------------------
+    // Fetcher scheme
+    //------------------------------
+
+    private static int FETCH_INITIAL = 20;
+    private static int NUM_PER_FETCH = 200;
+    private Fetcher fetcher = null;
+
+
+    @Override public boolean getFetchItems(int start, int count, Fetcher fetcher)
     {
-        recordList retval = new recordList();
+        int num_fetched = 0;
+        recordList records = fetcher.getRecords();
 
-        if (num_tracks > 0)
+        int num_already = records.size();
+        for (int i = num_already; i < num_tracks && num_fetched < NUM_PER_FETCH; i++)
         {
-            Cursor cursor = null;
-            String query = "SELECT * FROM tracks ORDER BY position";
-            try
-            {
-                cursor = track_db.rawQuery(query,new String[]{});
-            }
-            catch (Exception e)
-            {
-                Utils.error("Could not execute query: " + query + " exception=" + e.toString());
-                cursor = null;
-                return retval;
-            }
+            records.add(getTrack(i));
+            num_fetched++;
+        }
 
-            for (int i = 0; i < num_tracks; i++)
+        if (num_fetched > 0)
+            artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CONTENT_CHANGED,this);
+        return true;
+    }
+
+
+    @Override public recordList getAvailableTracks(boolean with_album_breaks)
+        // Called by the Playlist to start, and on events
+        // HAS to work off of in memory records which can be
+        // slowish if they have not been loaded from the database yet.
+        // So, even though it's local, it uses a Fetcher ...
+        //
+        // Have to wait for it to stop to bump/dec num_tracks
+        // on insertions - BUG WAITING TO HAPPEN
+
+    {
+        if (fetcher == null)
+        {
+            recordList records = new recordList();
+            for (int i = 0; i < num_tracks && i < FETCH_INITIAL; i++)
+                records.add(getTrack(i + 1));  // ONE BASED
+
+            fetcher = new Fetcher(
+                artisan,
+                this,
+                records,
+                num_tracks,
+                NUM_PER_FETCH,
+                "Playlist_" + getName());
+
+            if (num_tracks > FETCH_INITIAL)
             {
-                Track track = tracks_by_position.get(i);
-                if (track == null)
-                {
-                    cursor.moveToPosition(i);
-                    track = new Track(cursor);
-                    track.putOpenId(next_open_id);
-                    tracks_by_position.set(i,track);
-                    tracks_by_open_id.put(next_open_id,track);
-                    next_open_id++;
-                }
-                retval.add(track);
+                fetcher.start();
             }
         }
-        return retval;
-            // if not in-memory, then try to get it from the database
+
+        return fetcher.getRecords();
     }
 
 

@@ -32,6 +32,6 @@ public interface Playlist
 
     // pre-fetch scheme
 
-    recordList getAvailableTracks();
+    recordList getAvailableTracks(boolean with_album_breaks);
 
 }

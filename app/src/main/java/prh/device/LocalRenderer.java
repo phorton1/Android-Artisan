@@ -95,8 +95,12 @@ public class LocalRenderer extends Device implements
         // on transitions, and updated in updateState()
 
     private Track current_track = null;
-    private Playlist current_playlist = null;
+    private Playlist current_playlist = artisan.createEmptyPlaylist();
         // what's playing, or playable
+        // the LocalRenderer ALWAYS has a playlist,
+        // even when stopped, as it serves as the
+        // "current" playlist for the system.
+
 
     private boolean repeat = true;
     private boolean shuffle = false;
@@ -200,9 +204,14 @@ public class LocalRenderer extends Device implements
         }
         in_refresh = false;
 
-        // get rid of any references to external objects
+        // the localRenderer ALWAYS has a playlist, even when
+        // it's stopped, as it is the "current" playlist for the
+        // entire system (for http.OpenHomeRenderer, particularly)
 
-        current_playlist = null;
+        current_playlist = artisan.createEmptyPlaylist();
+
+        // forget the current track
+
         current_track = null;
 
         // stop the media_player and the volume control

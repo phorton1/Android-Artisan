@@ -191,7 +191,7 @@ public class Artisan extends FragmentActivity implements
 
 
     public final static int START_PAGE = Build.ID.equals(Utils.ID_CAR_STEREO) ?
-        PAGE_PLAYING : PAGE_LIBRARY;
+        PAGE_PLAYING : PAGE_PLAYING;
 
     // system working variables
 
@@ -385,19 +385,24 @@ public class Artisan extends FragmentActivity implements
         // only construct the library if the database
         // is present.
 
-        if (Prefs.getBoolean(Prefs.id.START_LOCAL_RENDERER))
-            local_renderer = new LocalRenderer(this);
-
         if (database != null &&
             Prefs.getBoolean(Prefs.id.START_LOCAL_LIBRARY))
         {
             local_library = new LocalLibrary(this);
-            local_playlist_source = new LocalPlaylistSource(this);
         }
-
         library = local_library;
-        renderer = local_renderer;
+
+
+        local_playlist_source = new LocalPlaylistSource(this);
         playlist_source = local_playlist_source;
+            // we always create the LocalPlaylistSource,
+            // even without a database. And it must be
+            // started before the renderer, as the renderer
+            // will immediately create an empty playlist.
+
+        if (Prefs.getBoolean(Prefs.id.START_LOCAL_RENDERER))
+            local_renderer = new LocalRenderer(this);
+        renderer = local_renderer;
 
         // set the start page
         // we have to call setPageSelected() because
@@ -1327,6 +1332,7 @@ public class Artisan extends FragmentActivity implements
 
                     if (event_id.equals(EVENT_STATE_CHANGED) ||
                         event_id.equals(EVENT_PLAYLIST_CHANGED) ||
+                        event_id.equals(EVENT_PLAYLIST_CONTENT_CHANGED) ||
                         event_id.equals(EVENT_PLAYLIST_TRACKS_EXPOSED))
                         event_manager.incUpdateCount("Playlist");
 
