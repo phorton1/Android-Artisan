@@ -22,7 +22,6 @@ public class ImageLoader extends Thread
     private String image_url;
     private ImageView image_view;
     private Artisan artisan;
-    private int num_threads = 0;
 
 
     // STATIC PUBLIC API
@@ -56,7 +55,11 @@ public class ImageLoader extends Thread
             bitmap = BitmapFactory.decodeResource(ma.getResources(),res_id);
             image_cache.put("res/" + res_id,new NullableBitmap(bitmap));
         }
-        // if (bitmap != null)
+
+        // should not be null for a resouce
+
+        if (bitmap == null)
+             Utils.warning(0,0,"Null bitmap trying to get image at resource_id=" + res_id);
         setImage(ma,image,bitmap);
     }
 
@@ -71,8 +74,7 @@ public class ImageLoader extends Thread
         if (found != null)
         {
             Bitmap bitmap = found.getBitMap();
-            if (bitmap != null)
-                setImage(ma,image,bitmap);
+            setImage(ma,image,bitmap);
         }
         else if (url.startsWith("http://"))
         {
@@ -95,8 +97,7 @@ public class ImageLoader extends Thread
             }
 
             image_cache.put(url,new NullableBitmap(bitmap));
-            if (image != null && bitmap != null)
-                setImage(ma,image,bitmap);
+            setImage(ma,image,bitmap);
         }
     }
 
@@ -114,10 +115,6 @@ public class ImageLoader extends Thread
     {
         //synchronized (artisan)
         {
-            if ((num_threads % 10) == 0)
-                Utils.log(0,6,"num_image_threads=" + num_threads);
-            num_threads++;
-
             Bitmap bitmap = null;
             try
             {
@@ -132,9 +129,7 @@ public class ImageLoader extends Thread
             // call back to the UI thread
 
             image_cache.put(image_url,new NullableBitmap(bitmap));
-            if (image_view != null && bitmap != null)
-                setImage(artisan,image_view,bitmap);
-            num_threads--;
+            setImage(artisan,image_view,bitmap);
         }
     }
 
@@ -144,17 +139,18 @@ public class ImageLoader extends Thread
     private static void setImage(
         Artisan artisan,
         final ImageView image_view,
-        final Bitmap image_bitmap)
+        final Bitmap bitmap)
         // runOnUiThread() to set bitmap into image view
     {
-        artisan.runOnUiThread(new Runnable()
-        {
-            @Override  public void run()
+        if (image_view != null && bitmap != null)
+            artisan.runOnUiThread(new Runnable()
             {
-                image_view.setImageDrawable(
-                    new BitmapDrawable(image_bitmap));
-            }
-        });
+                @Override  public void run()
+                {
+                    image_view.setImageDrawable(
+                        new BitmapDrawable(bitmap));
+                }
+            });
     }
 
 

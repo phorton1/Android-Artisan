@@ -155,14 +155,14 @@
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="14dp"
                 android:enabled="false"
-                android:src="@android:drawable/ic_media_rew" />
+                android:src="@drawable/my_ic_media_rew" />
 
             <ImageButton
                 android:id="@+id/button_play_pause"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="14dp"
-                android:src="@android:drawable/ic_media_play" />
+                android:src="@drawable/my_ic_media_play" />
 
             <ImageButton
                 android:id="@+id/button_stop"
@@ -176,7 +176,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="14dp"
-                android:src="@android:drawable/ic_media_ff" />
+                android:src="@drawable/my_ic_media_ff" />
 
         </LinearLayout>
 

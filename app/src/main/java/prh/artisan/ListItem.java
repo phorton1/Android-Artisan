@@ -150,11 +150,10 @@ public class ListItem extends RelativeLayout implements
         // cannot assume that the layout is fresh from the xml
     {
         // set the main item click listener
-        // these should be combined into a new interface
-        // ArtisanListItemListener
 
-        setOnClickListener(listener);
-        setOnLongClickListener(listener);
+        this.listener = listener;
+        setOnClickListener(this);
+        setOnLongClickListener(this);
 
         // get sub views
 
@@ -230,8 +229,8 @@ public class ListItem extends RelativeLayout implements
                 track.getDurationString(Utils.how_precise.FOR_DISPLAY) :
                 n > 0 ? "(" + n + ")" : "";
 
-            item_right.setOnClickListener(listener);
-            item_right_text.setOnClickListener(listener);
+            item_right.setOnClickListener(this);
+            item_right_text.setOnClickListener(this);
             Utils.setViewSize(artisan,item_right,container_height,null);
             item_right_text.setText(num);
         }

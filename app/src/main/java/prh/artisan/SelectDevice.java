@@ -47,7 +47,7 @@ public class SelectDevice extends RelativeLayout implements
         /****************************************************
          interesting, but unused, example, of how to pass
          attributes from XML to ctor. See /res/values/attr.xml
-         for type definitions, and the main_menu.xml layout
+         for type definitions, and the unused_main_menu.xmlenu.xml layout
          for example implementation
          ****************************************************
 
@@ -125,7 +125,7 @@ public class SelectDevice extends RelativeLayout implements
         else
             device_list.setVisibility(View.GONE);
 
-        //((MainMenu.mainMenuListAdapter)main_menu.getAdapter()).
+        //((MainMenu.mainMenuListAdapter)unused_main_menu.getAdapter()).
         //    notifyDataSetChanged();
     }
 

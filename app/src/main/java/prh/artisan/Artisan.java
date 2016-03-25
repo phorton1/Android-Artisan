@@ -153,6 +153,9 @@ public class Artisan extends FragmentActivity implements
     private boolean artisan_created = false;
 
     private MainMenu main_menu = null;
+    private MainMenuToolbar main_toolbar = null;
+    public MainMenuToolbar getToolbar() { return main_toolbar; }
+
     private ViewPager view_pager = null;
     private pageChangeListener page_change_listener = null;
     private WifiManager.WifiLock wifi_lock = null;
@@ -232,7 +235,7 @@ public class Artisan extends FragmentActivity implements
 /***
     <ImageView
     android:id="@+id/main_menu_context_button"
-    android:src="@drawable/my_ic_menu_more_light"
+    android:src="@drawable/my_ic_menu_context"
     android:layout_alignParentRight="true"
     android:layout_width="38dip"
     android:layout_height="wrap_content"
@@ -312,16 +315,14 @@ public class Artisan extends FragmentActivity implements
         view_pager.setAdapter(my_pager_adapter);
         view_pager.addOnPageChangeListener(page_change_listener);
 
-        // create the main menu
-
-        //LayoutInflater inflater = LayoutInflater.from(this);
-        //main_menu = (MainMenu) inflater.inflate(R.layout.main_menu,null,false);
-        //LinearLayout menu_area = (LinearLayout) findViewById(R.id.artisan_menu_area);
-        //menu_area.addView(main_menu);
+        // get a pointer to the main menu and toolbar
+        // disappear the main menu
 
         main_menu = (MainMenu) findViewById(R.id.artisan_main_menu);
-        main_menu.setVisibility(View.GONE);
+        hideMainMenu();
 
+        // main_menu.setVisibility(View.GONE);
+        main_toolbar = (MainMenuToolbar) findViewById(R.id.artisan_main_toolbar);
 
         // start the volume control and set full page
 
@@ -625,6 +626,7 @@ public class Artisan extends FragmentActivity implements
     private void setPageSelected(int index)
     {
         myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
+        main_toolbar.initButtons();
 
         // unselect the old page
 
@@ -794,7 +796,7 @@ public class Artisan extends FragmentActivity implements
     {
         runOnUiThread(new Runnable() { public void run() {
         ProgressBar progress = (ProgressBar) findViewById(R.id.artisan_progress);
-        progress.setVisibility(show_it ? View.VISIBLE : View.GONE); }});
+        progress.setVisibility(show_it ? View.VISIBLE : View.INVISIBLE); }});
     }
 
 
@@ -998,46 +1000,51 @@ public class Artisan extends FragmentActivity implements
     private boolean hideMainMenu()
     {
         boolean retval = false;
-        if (main_menu.getVisibility() == View.VISIBLE)
+        if (main_menu.getAlpha() != 0F)
         {
-            main_menu.setVisibility(View.GONE);
+            main_menu.animate()
+                .translationX(-main_menu.getWidth())
+                .alpha(0.0f);
+            findViewById(R.id.artisan_content).setAlpha(1.0F);
             retval = true;
         }
         return retval;
+    }
+
+    private void showMainMenu()
+    {
+        // first time
+        if (main_menu.getVisibility() == View.GONE)
+            main_menu.setVisibility(View.VISIBLE);
+
+        findViewById(R.id.artisan_content).setAlpha(0.4F);
+        main_menu.init();
+        main_menu.animate()
+            .translationX(0)
+            .alpha(1.0f);
     }
 
 
     public void onClick(View v)
     {
         int id = v.getId();
-
-        if (id != R.id.artisan_title_bar &&
-            id != R.id.artisan_title_bar_icon)
-            onBodyClicked();
-
-
         switch (id)
         {
             case R.id.artisan_title_bar:
-                hideMainMenu();
-                showFullScreen(false);
+                if (!onBodyClicked())
+                    showFullScreen(false);
                 break;
 
             case R.id.artisan_title_bar_icon:
-
-                if (main_menu.getVisibility() == View.VISIBLE)
-                {
-                    hideMainMenu();
-                }
-                else
-                {
-                    main_menu.setVisibility(View.VISIBLE);
-                    main_menu.init();
-                }
+                if (!onBodyClicked())
+                    showMainMenu();
                 break;
 
-            /**
-            case R.id.main_menu_home_button:
+
+            // all other commands come in from MenuButtons
+            // who already call onBodyClicked()
+
+            case R.id.command_home :
                 Utils.log(0,0,"onClickHome()");
                 Intent i = new Intent();
                 i.setAction(Intent.ACTION_MAIN);
@@ -1045,9 +1052,12 @@ public class Artisan extends FragmentActivity implements
                 v.getContext().startActivity(i);
                 break;
 
-            case R.id.main_menu_context_button:
+            case R.id.command_back :
+                onBackPressed();
                 break;
-                 ***/
+
+            case R.id.command_context :
+                break;
         }
     }
 
@@ -1212,7 +1222,7 @@ public class Artisan extends FragmentActivity implements
                 // Note the selective dispatch to the volumeControl only
                 // if it's showing
 
-                if (//main_menu.getVisibility() == View.VISIBLE && (
+                if (//unused_main_menu.getVisibility() == View.VISIBLE && (
                     event_id.equals(EVENT_NEW_DEVICE) ||
                     event_id.equals(EVENT_LIBRARY_CHANGED) ||
                     event_id.equals(EVENT_RENDERER_CHANGED) ||

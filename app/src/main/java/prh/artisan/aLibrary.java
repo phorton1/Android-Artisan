@@ -188,6 +188,14 @@ public class aLibrary extends Fragment implements
             page_title = new TextView(artisan);
             page_title.setText(getTitleBarText());
             artisan.setArtisanPageTitle(page_title);
+
+            // set the main toolbar buttons for this ativity
+
+            MainMenuToolbar toolbar = artisan.getToolbar();
+            toolbar.showButtons(new int[]{
+                R.id.command_back});
+            toolbar.enableButton(R.id.command_back,false);
+
         }
     }
 
@@ -236,9 +244,12 @@ public class aLibrary extends Fragment implements
             view_stack.remove(view_stack.size() - 1);
             viewStackElement stack_ele = view_stack.get(view_stack.size() - 1);
             my_view.addView(stack_ele.getView());
-            library.setCurrentFolder(stack_ele.getFolder());
-            updateTitleBar();
             stack_ele.restoreScroll();
+
+            library.setCurrentFolder(stack_ele.getFolder());
+            artisan.getToolbar().enableButton(R.id.command_back,
+                view_stack.size() > 1);
+            updateTitleBar();
         }
     }
 
@@ -294,6 +305,9 @@ public class aLibrary extends Fragment implements
         my_view.removeAllViews();
         my_view.addView(main_view);
         view_stack.add(new viewStackElement(main_view));
+
+        artisan.getToolbar().enableButton(R.id.command_back,
+            view_stack.size() > 1);
         updateTitleBar();
 
     }   // pushViewStack()

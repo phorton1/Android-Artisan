@@ -33,6 +33,11 @@ class ListItemAdapter extends ArrayAdapter<Record>
     private boolean large_tracks = false;
     private ListItem.ListItemListener listener;
 
+    boolean fast_scroll_setup = false;
+    boolean fast_scroll_enabled = false;
+    boolean fast_scroll_visible = false;
+
+
     public Folder getFolder() { return folder; }
 
     // ctor
@@ -132,8 +137,28 @@ class ListItemAdapter extends ArrayAdapter<Record>
 
         // set the scrolling enabled and visible
 
-        list_view.setFastScrollEnabled(enabled);
-        list_view.setFastScrollAlwaysVisible(force_visible);
+        if (enabled != fast_scroll_enabled)
+        {
+            fast_scroll_enabled = enabled;
+            list_view.setFastScrollEnabled(enabled);
+            Utils.log(0,0,"FastScroll enabled=" + enabled);
+        }
+        if (fast_scroll_visible != force_visible)
+        {
+            fast_scroll_visible = force_visible;
+            list_view.setFastScrollAlwaysVisible(force_visible);
+            Utils.log(0,0," FastScroll visible=" + force_visible);
+        }
+
+        // use our thumb if enabled
+
+        if (enabled && !fast_scroll_setup)
+        {
+            Utils.log(0,0,"Setting up FastScroll thumb");
+            fast_scroll_setup = true;
+            setFastScrollThumb();
+        }
+
 
         // if USE_SCROLL_BARS
         // shrink the list_view if the scroll bar visible
@@ -145,11 +170,6 @@ class ListItemAdapter extends ArrayAdapter<Record>
             int margin_width = force_visible ? 16 : 0;
             list_view.setPadding(0,0,margin_width,0);
         }
-
-        // use our thumb if enabled
-
-        if (enabled)
-            setFastScrollThumb();
 
     }   // setFastScrollVisible()
 

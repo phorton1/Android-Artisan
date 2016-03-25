@@ -448,9 +448,9 @@ public class aPlaying extends Fragment implements
         current_state = state;
         if (my_view != null)
         {
-            int image_id = android.R.drawable.ic_media_play;
+            int image_id = R.drawable.my_ic_media_play;
             if (state.equals(Renderer.RENDERER_STATE_PLAYING))
-                image_id = android.R.drawable.ic_media_pause;
+                image_id = R.drawable.my_ic_media_pause;
             ImageView btn = (ImageView) my_view.findViewById(R.id.button_play_pause);
             btn.setImageResource(image_id);
 
