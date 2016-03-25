@@ -1,5 +1,52 @@
 package prh.artisan;
 
+// TODO
+//
+//      SSDPServer devices
+//      Basic Prefs
+//      Item Selection
+//      Basic Context Menus
+//      Auto-Albums in Playlist
+//
+// Real write-thru image cache
+//   lru, memory limit?
+// Memory usage, code cleanup
+//
+//     OpenHomeRenderer
+//     Fit it all together to there
+//         with no Playlist Sources
+//
+// Untestable OpenHome PlaylistManager
+//     - only does single song inserts
+// RemotePlaylistSource
+//     Copy, Compare, whole playlists
+//     inser, delete,t a bunch of records at once
+//     Re-order ... shuffling in general
+//     think it through, put it all together
+//
+// Niceties?
+//     Library (or even Playlist) TreeView
+//     Prefs Fragment becomes the
+//          Database,PlaylistSource, and general
+//          Playlist Mangaer ..
+//     Or maybe even two more pages
+//     Implement DLNA Search in http.ContentServer
+//     Sorting, etc
+//     Form factors (phone, tablet, LibraryGridView)
+//
+// Artisan Pure Perl Server incompatabilities (object.container types)
+//      huge cleanup
+// Artisan Windows
+//      Playlist and Library synchronization
+//      from USB or remote device
+//      Android Media Scan & Self Sufficiency
+
+
+
+
+
+
+
 // ARCHITCTURAL NOTES
 //
 // Loops and Events
