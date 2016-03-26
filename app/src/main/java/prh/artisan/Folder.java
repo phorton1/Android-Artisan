@@ -6,6 +6,9 @@ package prh.artisan;
 
 import android.database.Cursor;
 
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+
 import java.util.HashMap;
 
 import prh.types.objectHash;
@@ -37,6 +40,30 @@ public class Folder extends Record
     }
 
 
+
+
+    public Folder(Node didl_node)
+    {
+        Element node_ele = (Element) didl_node;
+
+        setTitle(Utils.getTagValue(node_ele,"dc:title"));
+        setId(Utils.getNodeAttr(didl_node,"id"));
+        setParentId(Utils.getNodeAttr(didl_node,"parentID"));
+        setPath(Utils.getTagValue(node_ele,"upnp:albumArtURI"));    // special knowledge
+        setGenre(Utils.getTagValue(node_ele,"upnp:genre"));
+        setYearString(Utils.getTagValue(node_ele,"dc:date"));
+
+        String artist = Utils.getTagValue(node_ele,"upnp:artist");
+        if (artist.isEmpty())
+            artist = Utils.getTagValue(node_ele,"upnp:albumArtist");
+        setArtist(artist);
+
+
+
+    }
+
+
+    /*
     public Folder(String uri, String metadata)
         // construct from didl METADATA from a dlna client
         // the dummy boolean is used to give this a different
@@ -44,6 +71,7 @@ public class Folder extends Record
     {
         // TBD
     }
+    */
 
 
     //------------------------------------------

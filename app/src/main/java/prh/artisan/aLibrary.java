@@ -398,32 +398,6 @@ public class aLibrary extends Fragment implements
                 init(new_library);
             }
         }
-        else if (true)
-            return; // for now
-
-
-
-        else if (event_id.equals(EVENT_ADDL_FOLDERS_AVAILABLE))
-        {
-            // Find the adapter, if any, for the FolderPlus to
-            // which additional folders have been added (by MediaServer),
-            // and reset its list of records.
-
-            MediaServer.FolderPlus event_folder = (MediaServer.FolderPlus) data;
-            for (int stack_pos = view_stack.size() - 1; stack_pos >= 0; stack_pos--)
-            {
-                viewStackElement stack_ele = view_stack.get(stack_pos);
-                Folder folder = stack_ele.getFolder();
-                MediaServer.FolderPlus stack_folder = (folder instanceof MediaServer.FolderPlus) ?
-                    (MediaServer.FolderPlus) folder : null;
-
-                if (stack_folder != null && stack_folder.equals(event_folder))
-                {
-                    stack_ele.getAdapter().setItems(event_folder.getRecords());
-                    return;
-                }
-            }
-        }
     }
 
 

@@ -4,6 +4,9 @@ package prh.artisan;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+
 import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -56,7 +59,56 @@ public class Track extends Record
     }
 
 
-    public Track(String uri, String didl)
+    public Track(Node didl_node)
+    {
+        Element node_ele = (Element) didl_node;
+
+        setTitle(Utils.getTagValue(node_ele,"dc:title"));
+        setId(Utils.getNodeAttr(didl_node,"id"));
+        setParentId(Utils.getNodeAttr(didl_node,"parentID"));
+        setArtUri(Utils.getTagValue(node_ele,"upnp:albumArtURI"));
+        setGenre(Utils.getTagValue(node_ele,"upnp:genre"));
+        setYearString(Utils.getTagValue(node_ele,"dc:date"));
+
+        String artist = Utils.getTagValue(node_ele,"upnp:artist");
+        String album_artist = Utils.getTagValue(node_ele,"upnp:albumArtist");
+        if (artist.isEmpty())
+            artist = album_artist;
+        if (album_artist.isEmpty())
+            album_artist = artist;
+        setArtist(artist);
+        setAlbumArtist(album_artist);
+
+        setAlbumTitle(Utils.getTagValue(node_ele,"upnp:album"));
+        setTrackNum(Utils.getTagValue(node_ele,"upnp:originalTrackNumber"));
+
+        Element res_ele = Utils.getTagElement(node_ele,"res");
+        if (res_ele == null)
+        {
+            Utils.warning(0,0,"Could not get <res> element for track " + getTitle());
+        }
+        else
+        {
+            String path = res_ele.getTextContent();
+            setPath(path);
+
+            setSize(Utils.parseInt(Utils.getNodeAttr(res_ele,"size")));
+            setDuration(Utils.stringToDuration(Utils.getNodeAttr(res_ele,"duration")));
+
+            String protocol = Utils.getNodeAttr(res_ele,"protocolInfo");
+            setType(Track.extractType(protocol));
+
+            if (path.isEmpty()) Utils.warning(0,0,"No path (uri) for track " + getTitle());
+            if (getSize() == 0) Utils.warning(0,0,"No size for track " + getTitle());
+            if (getDuration() == 0) Utils.warning(0,0,"No duration for track " + getTitle());
+            if (protocol.isEmpty()) Utils.warning(0,0,"No protocol for track " + getTitle());
+        }
+
+    }
+
+
+
+    public Track(String uri,String didl)
         // construct from a URI and some didl encoded METADATA from a dlna client
     {
         boolean isLocal = false;
@@ -114,7 +166,7 @@ public class Track extends Record
         if (!isLocal) this.put("path",uri);
         this.put("is_local",isLocal?1:0);
         this.put("id",id);
-        this.put("parent_id", extract_value("parentID=\"(.*?)\"",didl));
+        this.put("parent_id",extract_value("parentID=\"(.*?)\"",didl));
         // has_art
         // path
         this.put("art_uri",extract_value("<upnp:albumArtURI>(.*?)<\\/upnp:albumArtURI>",didl));
@@ -228,6 +280,8 @@ public class Track extends Record
     public void setErrorCodes    (String value)    { putString("error_codes",value); }
     public void setHighestError  (int    value)    { putInt("highest_error",value); }
     public void setPosition      (int    value)    { putInt("position",value); }
+    public void setArtUri        (String value)    { putString("art_uri",value); }
+    public void setPath          (String value)    { putString("path",value); }
 
 
     //------------------------------------------------------------

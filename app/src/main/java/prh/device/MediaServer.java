@@ -135,12 +135,10 @@ public class MediaServer extends Device implements
 
         if (folder == null && id.equals("0"))
         {
-            // MUST be the first call!
-            objectHash params = new objectHash();
-            params.put("id",id);
-            params.put("dirtype","root");
-            params.put("title","root");
-            folder = new FolderPlus(new Folder(params));
+            folder = new FolderPlus();
+            folder.setId(id);
+            folder.setType("root");
+            folder.setTitle("root");
             folders.put(id,folder);
         }
         return folder;
@@ -223,9 +221,13 @@ public class MediaServer extends Device implements
         // FolderPlus API
         //---------------------------------------
 
-        public FolderPlus(objectHash params)
+        public FolderPlus()
         {
-            super(params);
+        }
+
+        public FolderPlus(Folder folder)
+        {
+            super(folder);
         }
 
 
@@ -365,7 +367,6 @@ public class MediaServer extends Device implements
                 boolean is_track = node_class.startsWith("object.item.audioItem");  //.musicTrack");
                     // for now, see what happens creating a track
                     // from an arbitrary audioItem
-
                 boolean is_container = node_class.startsWith("object.container");
                 boolean is_album = node_class.startsWith("object.container.album.musicAlbum");
                     // object.container
@@ -374,105 +375,41 @@ public class MediaServer extends Device implements
                     // object.item.audioItem
                     // object.item.audioItem.musicTrack
 
-                // following more or less the same in my database for tracks and folders
-
-                String item_id = getNodeAttr(node,"id");
-                String parent_id = getNodeAttr(node,"parentID");
-                String title = Utils.getTagValue(node_ele,"dc:title");
-                String art_uri = Utils.getTagValue(node_ele,"upnp:albumArtURI");
-                String artist = Utils.getTagValue(node_ele,"upnp:artist");
-                String album_artist = Utils.getTagValue(node_ele,"upnp:albumArtist");
-                String genre = Utils.getTagValue(node_ele,"upnp:genre");
-                String year_str = Utils.getTagValue(node_ele,"dc:date");
-
-                if (artist.isEmpty())
-                    artist = album_artist;
-                if (album_artist.isEmpty())
-                    album_artist = artist;
-
-                params.put("title",title);
-                params.put("id",item_id);
-                params.put("parent_id",parent_id);
-                params.put("artist",artist);
-                params.put("album_artist",album_artist);
-                params.put("art_uri",art_uri);
-                params.put("genre",genre);
-                params.put("year_str",year_str);
-
-                // retroactively change any container with
-                // music_items into an "albums". Don't know
-                // what happens with unknown types
+                // set this folder's album type to "album" retroactivly
+                // if any tracks found in it
 
                 if (is_music)
-                    put("dirtype","album");
+                    setType("album");
 
-                // but only create tracks given the proper SSDP type
-                // add additional fields for Tracks
-                // and put them in the result AND the global hash
-
+                String art_uri = "";
                 if (is_track)
                 {
-                    params.put("album_title",Utils.getTagValue(node_ele,"upnp:album"));
-                    params.put("tracknum",Utils.getTagValue(node_ele,"upnp:originalTrackNumber"));
-
-                    // get size, duration, uri and "type" from the <res> element
-
-                    Element res_ele = Utils.getTagElement(node_ele,"res");
-                    if (res_ele == null)
-                    {
-                        Utils.warning(0,0,"Could not get <res> element for track " + title);
-                    }
-                    else
-                    {
-                        String path =res_ele.getTextContent();
-                        int size = Utils.parseInt(getNodeAttr(res_ele,"size"));
-                        int duration = Utils.stringToDuration(getNodeAttr(res_ele,"duration"));
-                        String protocol = getNodeAttr(res_ele,"protocolInfo");
-                        String mime_type = Utils.extract_re("^.*?:.*?:(.*?):",protocol);
-
-                        if (path.isEmpty()) Utils.warning(0,0,"No path (uri) for track " + title);
-                        if (size == 0) Utils.warning(0,0,"No size for track " + title);
-                        if (duration == 0) Utils.warning(0,0,"No duration for track " + title);
-                        if (protocol.isEmpty()) Utils.warning(0,0,"No protocol for track " + title);
-
-                        params.put("path",path);
-                        params.put("size",size);
-                        params.put("duration",duration);
-                        params.put("type",Track.extractType(protocol));
-                    }
-
-                    if (fetcher.stop_fetch())
-                        return true;
-
-                    Track add_track = new Track(params);
+                    Track add_track = new Track(node);
                     recordList records_ref = fetcher.getRecordsRef();
                     records_ref.add(add_track);
-                    tracks.put(item_id,add_track);
+                    tracks.put(add_track.getId(),add_track);
+                    art_uri = add_track.getLocalArtUri();
                 }
 
                 // add Folder to result AND global hash
 
                 else
                 {
-                    if (fetcher.stop_fetch())
-                        return true;
-
-                    String dirtype =
+                    Folder base_folder = new Folder(node);
+                    base_folder.setType(
                         is_album ? "album" :
-                        is_container ? "folder" :
-                        "unknown";
+                            is_container ? "folder" :
+                                "unknown");
 
-                    if (dirtype.equals("unknown"))
-                        Utils.warning(0,0,"Unknown folder type(" + node_class + ") for " + title);
+                    if (base_folder.getType().equals("unknown"))
+                        Utils.warning(0,0,"Unknown folder type(" + node_class + ") for " + base_folder.getTitle());
 
-                    params.put("dirtype",dirtype);
-
-                    FolderPlus add_folder = new FolderPlus(params);
+                    FolderPlus add_folder = new FolderPlus(base_folder);
                     recordList records_ref = fetcher.getRecordsRef();
                     records_ref.add(add_folder);
-                    folders.put(item_id,add_folder);
+                    folders.put(add_folder.getId(),add_folder);
+                    art_uri = add_folder.getLocalArtUri();
                 }
-
 
                 // start pre-fetching the image
 
@@ -489,15 +426,6 @@ public class MediaServer extends Device implements
 
         }   // parseResultDidl()
 
-
-        private String getNodeAttr(Node node,String name)
-        {
-            NamedNodeMap attrs = node.getAttributes();
-            Node found = attrs.getNamedItem(name);
-            if (found != null)
-                return found.getNodeValue();
-            return "";
-        }
 
 
 

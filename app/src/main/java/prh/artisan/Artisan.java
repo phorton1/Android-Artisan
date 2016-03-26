@@ -143,6 +143,7 @@ import android.content.Intent;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
@@ -179,20 +180,6 @@ public class Artisan extends FragmentActivity implements
 {
 
     private static int dbg_main = 0;
-
-    // FetcherClient interface from device.MediaServer to aLibrary
-
-    public void notifyFetchRecords(Fetcher fetcher,Fetcher.fetchResult fetch_result)
-    {
-        aLibrary.notifyFetchRecords(fetcher,fetch_result);
-    }
-    public void notifyFetcherStop(Fetcher fetcher,Fetcher.fetcherState fetcher_state)
-    {
-        aLibrary.notifyFetcherStop(fetcher,fetcher_state);
-    }
-
-
-
 
     private static int NUM_PAGER_ACTIVITIES = 5;
     public final static int PAGE_PREFS = 0;
@@ -262,7 +249,7 @@ public class Artisan extends FragmentActivity implements
     private SSDPServer ssdp_server = null;
     public HTTPServer getHTTPServer() { return http_server; }
 
-    // and finally, the device manager and default renderer and library names
+    // the device manager and default renderer and library names
 
     private DeviceManager device_manager = null;
     public DeviceManager getDeviceManager() { return device_manager; }
@@ -273,41 +260,13 @@ public class Artisan extends FragmentActivity implements
         // if these are non-blank, we have to keep trying until the
         // SSDPSearch finishes to set the correct renderer ...
 
-
-    private String getDefaultDeviceName(String what, Prefs.id pref_id, Prefs.id selected_id)
-    {
-        String default_name = Prefs.getString(pref_id);
-        if (default_name.equals(Prefs.LAST_SELECTED))
-            default_name = Prefs.getString(selected_id);
-        if (default_name.startsWith("Local"))
-            default_name = "";
-        if (!default_name.isEmpty())
-            Utils.log(dbg_main,0,"DEFAULT_" + what + "(" + default_name +")");
-        return default_name;
-    }
+    OpenHomeEventDelayer oh_delayer = null;
+    Handler delay_handler = new Handler();
 
 
     //--------------------------------------------------------
     // onCreate()
     //--------------------------------------------------------
-
-/***
-    <ImageView
-    android:id="@+id/main_menu_context_button"
-    android:src="@drawable/my_ic_menu_context"
-    android:layout_alignParentRight="true"
-    android:layout_width="38dip"
-    android:layout_height="wrap_content"
-    android:onClick="onClick"/>
-
-    <ImageView
-    android:id="@+id/main_menu_home_button"
-    android:src="@drawable/my_ic_menu_home"
-    android:layout_toLeftOf="@id/main_menu_context_button"
-    android:layout_width="38dip"
-    android:layout_height="wrap_content"
-    android:onClick="onClick"/>
-****/
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -639,10 +598,10 @@ public class Artisan extends FragmentActivity implements
     }
 
 
+
     //-------------------------------------------------------
     // Paging
     //-------------------------------------------------------
-
 
     public void setArtisanPageTitle(View page_title)
         // shall only be called by pages while they
@@ -826,16 +785,17 @@ public class Artisan extends FragmentActivity implements
     }
 
 
+
     //-------------------------------------------------------
     // Utilities
     //-------------------------------------------------------
 
-
     public void onUtilsError(final String msg)
     {
-        runOnUiThread( new Runnable()
+        runOnUiThread(new Runnable()
         {
-            @Override public void run()
+            @Override
+            public void run()
             {
                 Toast.makeText(getApplicationContext(),msg,Toast.LENGTH_LONG).show();
             }
@@ -846,7 +806,7 @@ public class Artisan extends FragmentActivity implements
 
     public void doVolumeControl()
     {
-        Utils.log(dbg_main+1,0,"doVolumeControl()");
+        Utils.log(dbg_main + 1,0,"doVolumeControl()");
         if (volume_control != null &&
             renderer != null &&
             renderer.getVolume() != null)
@@ -871,10 +831,10 @@ public class Artisan extends FragmentActivity implements
     }
 
 
+
     //------------------------------------------------
     // Playlist
     //------------------------------------------------
-
 
     public Playlist createEmptyPlaylist()
     {
@@ -912,6 +872,19 @@ public class Artisan extends FragmentActivity implements
     //-------------------------------------------------------
     // Device Management
     //-------------------------------------------------------
+
+    private String getDefaultDeviceName(String what, Prefs.id pref_id, Prefs.id selected_id)
+    {
+        String default_name = Prefs.getString(pref_id);
+        if (default_name.equals(Prefs.LAST_SELECTED))
+            default_name = Prefs.getString(selected_id);
+        if (default_name.startsWith("Local"))
+            default_name = "";
+        if (!default_name.isEmpty())
+            Utils.log(dbg_main,0,"DEFAULT_" + what + "(" + default_name +")");
+        return default_name;
+    }
+
 
     public Device getCurrentDevice(Device.deviceGroup group)
     {
@@ -1170,10 +1143,43 @@ public class Artisan extends FragmentActivity implements
 
 
 
-    //---------------------------------------------------------------------
-    // EVENT HANDLING
-    //---------------------------------------------------------------------
 
+    //---------------------------------------------------------------------
+    // EVENT UTILITIES
+    //---------------------------------------------------------------------
+    // delay OpenHome events
+
+    private class OpenHomeEventDelayer implements Runnable
+    {
+        public void run()
+        {
+            oh_delayer = null;
+        }
+    }
+
+
+    public void setDeferOpenHomeEvents()
+    {
+        if (oh_delayer != null)
+            delay_handler.removeCallbacks(oh_delayer);
+        oh_delayer = new OpenHomeEventDelayer();
+        delay_handler.postDelayed(oh_delayer,1200);
+    }
+
+    // FetcherClient interface from device.MediaServer to aLibrary
+
+    public void notifyFetchRecords(Fetcher fetcher,Fetcher.fetchResult fetch_result)
+    {
+        aLibrary.notifyFetchRecords(fetcher,fetch_result);
+    }
+    public void notifyFetcherStop(Fetcher fetcher,Fetcher.fetcherState fetcher_state)
+    {
+        aLibrary.notifyFetcherStop(fetcher,fetcher_state);
+    }
+
+
+    // restart the device search
+    // stop everything and restart defaults
 
     public void restartDeviceSearch()
     {
@@ -1213,6 +1219,11 @@ public class Artisan extends FragmentActivity implements
             "PLAYLIST_SOURCE",Prefs.id.DEFAULT_PLAYLIST_SOURCE,Prefs.id.SELECTED_PLAYLIST_SOURCE);
     }
 
+
+
+    //---------------------------------------------------------------------
+    // EVENT HANDLER
+    //---------------------------------------------------------------------
 
     @Override
     public void handleArtisanEvent(final String event_id,final Object data)
@@ -1295,26 +1306,31 @@ public class Artisan extends FragmentActivity implements
                 // Global Events to main Views
                 //----------------------------------------------------------
                 // Send all events non-IDLE to all known event handlers
-                // prh = Could use this to get rid of other Timer Loops,
+                // prh = Could use EVENT_IDLE to get rid of other Timer Loops,
                 // i.e. to hit LocalVolumeFixer and polling Volume objects.
                 // Note the selective dispatch to the volumeControl only
                 // if it's showing
 
-                if (//unused_main_menu.getVisibility() == View.VISIBLE && (
-                    event_id.equals(EVENT_NEW_DEVICE) ||
-                    event_id.equals(EVENT_LIBRARY_CHANGED) ||
-                    event_id.equals(EVENT_RENDERER_CHANGED) ||
-                    event_id.equals(EVENT_SSDP_SEARCH_STARTED) ||
-                    event_id.equals(EVENT_SSDP_SEARCH_FINISHED) ||
-                    event_id.equals(EVENT_PLAYLIST_SOURCE_CHANGED)) //)
+                if (!event_id.equals(EVENT_IDLE))
                 {
-                    main_menu.handleArtisanEvent(event_id,data);
-                }
+                //if (//unused_main_menu.getVisibility() == View.VISIBLE && (
+                //    event_id.equals(EVENT_NEW_DEVICE) ||
+                //    event_id.equals(EVENT_LIBRARY_CHANGED) ||
+                //    event_id.equals(EVENT_RENDERER_CHANGED) ||
+                //    event_id.equals(EVENT_SSDP_SEARCH_STARTED) ||
+                //    event_id.equals(EVENT_SSDP_SEARCH_FINISHED) ||
+                //    event_id.equals(EVENT_PLAYLIST_SOURCE_CHANGED)) //)
+                //{
+                    if (main_menu != null &&
+                        main_menu.getAlpha() != 0F &&
+                        main_menu.getVisibility() == View.VISIBLE)
+                        main_menu.handleArtisanEvent(event_id,data);
+                //}
 
 
-                if (!event_id.equals(EVENT_IDLE) &&
-                    !event_id.equals(EVENT_VOLUME_CHANGED))
-                {
+                //if (!event_id.equals(EVENT_IDLE) &&
+                //    !event_id.equals(EVENT_VOLUME_CHANGED))
+                //{
                     if (aPlaying != null &&
                         aPlaying.getView() != null)
                         aPlaying.handleArtisanEvent(event_id,data);
@@ -1327,22 +1343,24 @@ public class Artisan extends FragmentActivity implements
                         aLibrary.getView() != null)
                         aLibrary.handleArtisanEvent(event_id,data);
 
-                    if (aPrefs != null && aPrefs.getView() != null)
+                    if (aPrefs != null &&
+                        aPrefs.getView() != null)
                         aPrefs.handleArtisanEvent(event_id,data);
 
-                }
+                // }
 
                 // only send volume changes if it's open,
                 // but send config messages event if it's closed
 
-                if (event_id.equals(EVENT_VOLUME_CHANGED))
-                {
+                // if (event_id.equals(EVENT_VOLUME_CHANGED))
+                //
                     if (volume_control != null &&
                         volume_control.isShowing())
                     {
                         volume_control.handleArtisanEvent(event_id,data);
                     }
-                }
+
+                }   // Non-IDLE events
 
 
                 //-----------------------------------------------------
@@ -1371,7 +1389,8 @@ public class Artisan extends FragmentActivity implements
                     else if (event_id.equals(EVENT_VOLUME_CHANGED))
                         event_manager.incUpdateCount("Volume");
 
-                    else if (event_id.equals(EVENT_IDLE))
+                    else if (oh_delayer == null  &&
+                             event_id.equals(EVENT_IDLE))
                         event_manager.send_events();
                 }
 

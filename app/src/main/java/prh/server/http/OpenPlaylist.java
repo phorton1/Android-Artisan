@@ -66,9 +66,6 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         // control points subscribe to this server, by ip:user_agent
     int next_exposer_bit_mask = 0;
 
-    private Handler delayed_event = null;
-    private SendEventDelayed delayed_sender = null;
-
 
     public OpenPlaylist(Artisan ma, HTTPServer http, String the_urn)
     {
@@ -83,7 +80,6 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         next_exposer_bit_mask = 1;
         exposers = new exposerHash();
         http_server.getEventManager().RegisterHandler(this);
-        delayed_event = new Handler();
     }
 
     @Override public void stop()
@@ -92,8 +88,6 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         if (exposers != null)
             exposers.clear();
         exposers = null;
-        if (delayed_sender != null)
-            delayed_event.removeCallbacks(delayed_sender);
     }
 
     @Override public void notifySubscribed(UpnpEventSubscriber subscriber,boolean subscribe)
@@ -217,7 +211,6 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
             // OpenPlaylist is the only service that currently gets a subscriber
     {
         boolean ok = true;
-        String delayed_event_id = "";
         HashMap<String,String> hash = new HashMap<>();
         LocalRenderer local_renderer = artisan.getLocalRenderer();
             // NEVER NULL
@@ -306,7 +299,8 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
             local_playlist = createLocalPlaylist();
                 // empty playlists don't need exposers
             local_renderer.setPlaylist(local_playlist);
-            delayed_event_id = EventHandler.EVENT_PLAYLIST_CONTENT_CHANGED;
+                // renderer sends out EVENT_PLAYLIST_CHANGED
+            incUpdateCount();
         }
         else if (action.equals("DeleteId"))
         {
@@ -315,7 +309,10 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
             Utils.log(0,0,"open_id=" + open_id);
             if (!local_playlist.removeTrack(open_id))
                 return error_response(http_server,800,open_id);
-            delayed_event_id = EventHandler.EVENT_PLAYLIST_CONTENT_CHANGED;
+            incUpdateCount();
+            artisan.setDeferOpenHomeEvents();
+                // defer the open home events
+                // in case it is a group of deletes
         }
         else if (action.equals("Insert"))
         {
@@ -361,8 +358,9 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
                     artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
                 }
                 hash.put("NewId",Integer.toString(track.getOpenId()));
+                incUpdateCount();
+                artisan.setDeferOpenHomeEvents();
             }
-            delayed_event_id = EventHandler.EVENT_PLAYLIST_CONTENT_CHANGED;
         }
 
 
@@ -435,7 +433,6 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
 
         // transport controls
 
-
         else if (action.equals("Next"))
         {
             local_renderer.incAndPlay(1);
@@ -480,51 +477,9 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
             httpUtils.dbg_hash_response = false;
         }
 
-        if (!delayed_event_id.isEmpty()) synchronized (delayed_event)
-        {
-            // Instead of incUpdateCount()  we use a delayed post to
-            // do the increment. If a change happens again before the timeout,
-            // the old one will be cleared and a new time out interval will
-            // proceed.
-
-            if (delayed_sender != null)
-                delayed_event.removeCallbacks(delayed_sender);
-            delayed_sender = new SendEventDelayed(delayed_event_id,local_playlist);
-            delayed_event.postDelayed(delayed_sender,1200);
-        }
-
         return response;
     }
 
-
-    private class SendEventDelayed implements Runnable
-    {
-        Playlist playlist;
-        String event_id;
-
-        SendEventDelayed(String delayed_event_id,Playlist playlist)
-        {
-            this.playlist = playlist;
-            this.event_id = delayed_event_id;
-        }
-
-        public void run()
-        {
-            synchronized (delayed_event)
-            {
-                Utils.log(0,0,"OpenPlaylist::SendEventDelayed()");
-                delayed_event.removeCallbacks(delayed_sender);
-                delayed_sender = null;
-
-                // instead of just bumping the count,
-                // we notify the whole system ...
-
-                artisan.handleArtisanEvent(event_id,playlist);
-                //incUpdateCount();
-
-            }
-        }
-    }
 
 
     //---------------------------------------

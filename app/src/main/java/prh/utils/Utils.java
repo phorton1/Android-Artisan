@@ -15,6 +15,8 @@ import android.widget.Toast;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import java.io.BufferedInputStream;
@@ -207,6 +209,16 @@ public class Utils {
         String msg = "No supported songs types found in playlist '" + playlist_name + "'";
         Utils.error(msg);
         Toast.makeText(artisan.getApplicationContext(),msg,Toast.LENGTH_LONG).show();
+    }
+
+
+    public static String getNodeAttr(Node node,String name)
+    {
+        NamedNodeMap attrs = node.getAttributes();
+        Node found = attrs.getNamedItem(name);
+        if (found != null)
+            return found.getNodeValue();
+        return "";
     }
 
 
