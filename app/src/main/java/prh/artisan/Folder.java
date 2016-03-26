@@ -21,7 +21,6 @@ public class Folder extends Record
     // Construction
 
     public Folder()  {};
-        // protected default constructor
 
     public Folder(Cursor cursor)
         // construct from a cursor pointing at a database record
@@ -30,15 +29,11 @@ public class Folder extends Record
     }
 
 
-    public Folder(objectHash hash)
-        // construct from a a hash of the correct
-        // fields and types .. all blanks, integers
-        // etc, must be provided.
+    public Folder(Folder other)
+        // Copy Constructor
     {
-        for (String key:hash.keySet())
-        {
-            this.put(key,hash.get(key));
-        }
+        this.clear();
+        this.putAll(other);
     }
 
 
@@ -72,12 +67,48 @@ public class Folder extends Record
     public String getArtist()       { return getString("artist"); }
     public String getGenre()        { return getString("genre"); }
     public String getYearString()   { return getString("year_str"); }
+    public int getDuration()        { return getInt("duration"); }
 
-    // local only raw database accessors
+    // My raw database accessors
 
     public int getFolderError()        { return getInt("folder_error"); }
     public int getHighestFolderError() { return getInt("highest_folder_error"); }
     public int getHighestTrackError()  { return getInt("highest_track_error"); }
+
+
+    // setters
+
+    public void setIsLocal            (boolean value){ putInt("is_local",value? 1 : 0); }
+    public void setHasArt             (boolean value){ putInt("has_art",value ? 1 : 0); }
+        // if is_local, art is folder.jpg at path/folder.jpg,
+        // and this boolean indicates it's presence.
+        // otherwise, the path IS the art_uri
+    public void setPath               (String  value){ putString("path",value); }
+        // this is the art_uri for external folders
+        // if is_local, it is the mp3's relative path for the folder
+
+    public void setId                 (String  value){ putString("id",value); }
+    public void setParentId           (String  value){ putString("parent_id",value); }
+    public void setType               (String  value){ putString("dirtype",value); }
+        // root
+        // folder
+        // album
+    public void setNumElements        (int     value){ putInt("num_elements",value); }
+    public void incNumElements        ()             { putInt("num_elements",getNumElements() + 1); }
+
+    public void setTitle              (String  value){ putString("title",value); }
+    public void setArtist             (String  value){ putString("artist",value); }
+    public void setGenre              (String  value){ putString("genre",value); }
+    public void setYearString         (String  value){ putString("year_str",value); }
+    public void setDuration           (int     value){ putInt("duration",value); }
+    public void addDuration           (int     value){ putInt("duration",getDuration() + value); }
+
+    public void setFolderError        (int     value){ putInt("folder_error",value); }
+    public void setHighestFolderError (int     value){ putInt("highest_folder_error",value); }
+    public void setHighestTrackError  (int     value){ putInt("highest_track_error",value); }
+
+
+    // protect Record
 
 
     //------------------------------------------------------------

@@ -38,8 +38,8 @@ public class Track extends Record
 
    // Construction
 
-    protected Track()  {};
-        // protected default constructor
+    public Track()  {};
+
 
     public Track(Cursor cursor)
         // construct from a cursor pointing at a database record
@@ -48,14 +48,11 @@ public class Track extends Record
     }
 
 
-    public Track(HashMap<String,Object> hash)
-        // construct from a a hash of the correct
-        // fields and types .. all blanks, integers
-        // etc, must be provided.
+    public Track(Track track)
+        // Copy Contructor
     {
-        this.put("dirty",1);
-        for (String key:hash.keySet())
-            this.put(key,hash.get(key));
+        this.clear();
+        this.putAll(track);
     }
 
 
@@ -170,6 +167,13 @@ public class Track extends Record
     //----------------------------------------------------------
     // base fields needed for minimum dlna representation
 
+    // NOT IN DATABASE
+
+    public int getOpenId()                  { return getInt("open_id"); }
+    public void setOpenId(Integer value)    { putInt("open_id",value); }
+
+    // rest in database
+
     public boolean isLocal()                { return getInt("is_local") > 0; }
     private String getPath()                { return getString("path"); }
     public int getHasArt()                  { return getInt("has_art"); }
@@ -198,12 +202,32 @@ public class Track extends Record
     public int getHighestError()    { return getInt("highest_error"); }
     public int getPosition()        { return getInt("position"); }
 
-    // overload the highest error field to the open_id
-    // and support for creating new playlist items
+    // correctly used PUBLIC setter:
 
-    public int getOpenId()          { return getInt("highest_error"); }
-    public void putPosition(Integer value)  { putInt("position",value); }
-    public void putOpenId(Integer value)    { putInt("highest_error",value); }
+    public void setPosition(Integer value)  { putInt("position",value); }
+
+    //-------------------------------------------------------------
+    // Restricted setters should only be used by clients who
+    //-------------------------------------------------------------
+    // have detailed knowledge of path and has_art internal scheme
+
+    public void setId            (String value)    { putString("id",value); }
+    public void setParentId      (String value)    { putString("parent_id",value); }
+    public void setDuration      (int    value)    { putInt("duration",value); }
+    public void setType          (String value)    { putString("type",value); }
+    public void setSize          (int    value)    { putInt("size",value); }
+    public void setTitle         (String value)    { putString("title",value); }
+    public void setArtist        (String value)    { putString("artist",value); }
+    public void setAlbumTitle    (String value)    { putString("album_title",value); }
+    public void setAlbumArtist   (String value)    { putString("album_artist",value); }
+    public void setTrackNum      (String value)    { putString("tracknum",value); }
+    public void setGenre         (String value)    { putString("genre",value); }
+    public void setYearString    (String value)    { putString("year_str",value); }
+    public void setTimeStamp     (int    value)    { putInt("timestamp",value); }
+    public void setFileMd5       (String value)    { putString("file_md5",value); }
+    public void setErrorCodes    (String value)    { putString("error_codes",value); }
+    public void setHighestError  (int    value)    { putInt("highest_error",value); }
+    public void setPosition      (int    value)    { putInt("position",value); }
 
 
     //------------------------------------------------------------

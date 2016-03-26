@@ -15,7 +15,7 @@ import prh.artisan.Artisan;
 import prh.artisan.Folder;
 import prh.artisan.Library;
 import prh.artisan.Track;
-import prh.utils.Fetcher;
+import prh.artisan.Fetcher;
 import prh.types.libraryBrowseResult;
 import prh.types.objectHash;
 import prh.types.recordList;

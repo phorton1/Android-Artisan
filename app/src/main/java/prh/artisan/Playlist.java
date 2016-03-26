@@ -1,16 +1,6 @@
 package prh.artisan;
 
 
-import java.util.List;
-
-import prh.server.utils.PlaylistExposer;
-import prh.server.utils.UpnpEventManager;
-import prh.types.recordList;
-import prh.utils.Fetcher;
-import prh.utils.Utils;
-import prh.utils.httpUtils;
-
-
 public interface Playlist extends Fetcher.FetcherSource
     // The interface to a Playlist as used by the UI
     // The open home OpenPlaylist only makes use of LocalPlaylists,

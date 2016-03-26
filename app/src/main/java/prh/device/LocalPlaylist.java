@@ -26,12 +26,11 @@ import prh.artisan.Database;
 import prh.artisan.Folder;
 import prh.artisan.Playlist;
 import prh.artisan.Prefs;
-import prh.artisan.Record;
 import prh.artisan.Track;
 import prh.server.HTTPServer;
 import prh.server.http.OpenPlaylist;
 //import prh.server.utils.PlaylistExposer;
-import prh.utils.Fetcher;
+import prh.artisan.Fetcher;
 import prh.server.utils.PlaylistExposer;
 import prh.types.recordList;
 import prh.utils.Base64;
@@ -44,7 +43,7 @@ public class LocalPlaylist implements
     Fetcher.FetcherSource
 {
     private int dbg_pl = 1;
-    private int dbg_open_pl = 0;
+    private int dbg_open_pl = 1;
 
     public static int MAX_TRACKS = 1000;
 
@@ -274,7 +273,7 @@ public class LocalPlaylist implements
                 track = new Track(cursor);
                 // Utils.log(dbg_pl+2,5,"got db_track(" + next_open_id + ") " + track.getTitle());
 
-                track.putOpenId(next_open_id);
+                track.setOpenId(next_open_id);
                 tracks_by_position.set(index - 1,track);
                 tracks_by_open_id.put(next_open_id,track);
                 next_open_id++;
@@ -437,8 +436,8 @@ public class LocalPlaylist implements
 
         int new_id = next_open_id++;
         int position = insert_idx + 1;
-        track.putPosition(position);
-        track.putOpenId(new_id);
+        track.setPosition(position);
+        track.setOpenId(new_id);
         Utils.log(dbg_open_pl,0,"addding  " + track.getTitle() + " to Playlist(" + name + ") at position=" + position);
 
 
@@ -756,15 +755,15 @@ public class LocalPlaylist implements
             !last_virtual_folder.getTitle().equals(title))
         {
             Folder folder = new Folder();
-            folder.put("id",id);
-            folder.put("title",title);
-            folder.put("num_elements",0);
-            folder.put("duration",0);
-            folder.put("artist",artist);
-            folder.put("art_uri",art_uri);
-            folder.put("year_str",year_str);
-            folder.put("genre",genre);
-            folder.put("dirtype","album");
+            folder.setId(id);
+            folder.setTitle(title);
+            folder.setNumElements(0);   // implicit
+            folder.setDuration(0);      // implicit
+            folder.setArtist(artist);
+            folder.setPath(art_uri);    // use of path for art_uri requires internal knowledge
+            folder.setYearString(year_str);
+            folder.setGenre(genre);
+            folder.setType("album");
             last_virtual_folder = folder;
             return folder;
         }
@@ -776,29 +775,28 @@ public class LocalPlaylist implements
         String folder_year_str = folder.getYearString();
         String folder_genre = folder.getGenre();
         String folder_id = folder.getId();
-        int num_elements = folder.getNumElements();
-        int folder_duration = folder.getInt("duration");
 
-        folder.putInt("num_elements",num_elements + 1);
-        folder.putInt("duration",folder_duration + duration);
+        folder.incNumElements();
+        folder.addDuration(duration);
+
         if (folder_title.isEmpty())
-            folder.put("title",title);
+            folder.setTitle(title);
         if (folder_art_uri.isEmpty())
-            folder.put("art_uri",art_uri);
+            folder.setPath(art_uri);        // requires special knowledge
         if (folder_year_str.isEmpty())
-            folder.put("year_str",year_str);
+            folder.setYearString(year_str);
         if (folder_genre.isEmpty())
-            folder.put("genre",genre);
+            folder.setGenre(genre);
         if (folder_id.isEmpty())
-            folder.put("id",id);
+            folder.setId(id);
 
         String sep = folder_genre.isEmpty() ? "" : "|";
         if (!genre.isEmpty() &&
             !folder.getGenre().contains(genre))
-            folder.put("genre",folder_genre + sep + genre);
+            folder.setGenre(folder_genre + sep + genre);
         if (!artist.isEmpty() &&
             !folder.getArtist().contains(artist))
-            folder.put("artist","Various");
+            folder.setArtist("Various");
 
         return null;
     }

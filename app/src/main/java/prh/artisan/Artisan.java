@@ -150,18 +150,12 @@ import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
 
 import android.view.KeyEvent;
-import android.view.LayoutInflater;
-import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ListView;
-import android.widget.PopupMenu;
 import android.widget.ProgressBar;
-import android.widget.TextView;
 import android.widget.Toast;
 
 
@@ -174,7 +168,6 @@ import prh.server.HTTPServer;
 import prh.server.LocalVolumeFixer;
 import prh.server.SSDPServer;
 import prh.server.utils.UpnpEventManager;
-import prh.utils.Fetcher;
 import prh.utils.Utils;
 
 

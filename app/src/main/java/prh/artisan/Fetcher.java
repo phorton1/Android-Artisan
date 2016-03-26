@@ -1,8 +1,7 @@
-package prh.utils;
+package prh.artisan;
 
-import prh.artisan.Artisan;
-import prh.artisan.Playlist;
 import prh.types.recordList;
+import prh.utils.Utils;
 
 
 public class Fetcher implements Runnable
@@ -531,12 +530,9 @@ public class Fetcher implements Runnable
             int num_recs_before_call = records.size();
             Utils.log(dbg_fetcher,2,"Fetcher.run(" + dbg_title + ") TOP OF LOOP current num_records=" + records.size());
 
-            synchronized (this)
-            {
-                Utils.log(dbg_fetcher,1,"Fetcher(" + dbg_title + ").run() calling getFetchRecords(false," + num_per_fetch + ")");
-                fetch_result = source.getFetchRecords(this,false,num_per_fetch);
-                Utils.log(dbg_fetcher,1,"Fetcher(" + dbg_title + ").run() call to getFetchRecords() returned " + fetch_result);
-            }
+            Utils.log(dbg_fetcher,1,"Fetcher(" + dbg_title + ").run() calling getFetchRecords(false," + num_per_fetch + ")");
+            fetch_result = source.getFetchRecords(this,false,num_per_fetch);
+            Utils.log(dbg_fetcher,1,"Fetcher(" + dbg_title + ").run() call to getFetchRecords() returned " + fetch_result);
 
             // ERROR
 
@@ -568,13 +564,23 @@ public class Fetcher implements Runnable
                 if (!stop_fetch() &&
                     records.size() != num_recs_before_call)
                 {
-                    artisan.runOnUiThread( new Runnable() { public void run()
-                    {
-                        Utils.log(dbg_fetcher,1,"Fetcher(" + dbg_title + ").run() calling client.notifyFetchRecords(" + fetch_result + ")");
-                        client.notifyFetchRecords(Fetcher.this,fetch_result);
-                    }});
-                }
+                    // when this was not synchronized, and I turned off debugging
+                    // the ui would hang on the fetcher, as I think the below code
+                    // loaded up the UI thread faster than it could handle things.
+                    // adding this call to synchronize fixed it ... interesting ...
 
+                    synchronized (this)
+                    {
+                        artisan.runOnUiThread(new Runnable()
+                        {
+                            public void run()
+                            {
+                                Utils.log(dbg_fetcher,1,"Fetcher(" + dbg_title + ").run() calling client.notifyFetchRecords(" + fetch_result + ")");
+                                client.notifyFetchRecords(Fetcher.this,fetch_result);
+                            }
+                        });
+                    }
+                }
                 artisan.showArtisanProgressIndicator(false);
                 in_fetch = false;
                 return;
@@ -594,6 +600,9 @@ public class Fetcher implements Runnable
                     }
                 });
             }
+
+            if (SLEEP_FETCH_INTERNAL_MILLIS>0)
+                Utils.sleep(SLEEP_FETCH_INTERNAL_MILLIS);
         }
 
         artisan.showArtisanProgressIndicator(false);

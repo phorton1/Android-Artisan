@@ -94,11 +94,11 @@ public class LocalLibrary extends Device implements Library
                 return null;
             }
 
-            HashMap<String, Object> hash = new HashMap<String, Object>();
-            hash.put("id","select_playlist_" + name);
-            hash.put("parent_id", "select_playlist");
-            hash.put("title", name + "(" + (playlist == null ? "0" : Integer.toString(playlist.getNumTracks())) + ")");
-            return new Track(hash);
+            Track track = new Track();
+            track.setId("select_playlist_" + name);
+            track.setParentId("select_playlist");
+            track.setTitle(name + "(" + (playlist == null ? "0" : Integer.toString(playlist.getNumTracks())) + ")");
+            return track;
         }
 
         // return the first record found by the query
@@ -150,16 +150,17 @@ public class LocalLibrary extends Device implements Library
             }
             num_elements += cursor.getCount();
 
-            objectHash params = new objectHash();
-            params.put("id","0");
-            params.put("parent_id", "");
-            params.put("title", "All Artisan Folders");
-            params.put("dirtype", "root");
-            params.put("num_elements", num_elements);
-            params.put("artist", "");
-            params.put("genre", "");
-            params.put("year_str", "");
-            return new Folder(params);
+            Folder folder = new Folder();
+
+            folder.setId("0");
+            folder.setTitle("All Artisan Folders");
+            folder.setNumElements(num_elements);
+            folder.setType("root");
+            //folder.setParentId("");
+            //folder.setArtist("");
+            //folder.setGenre("");
+            //folder.setYearString("");
+            return folder;
         }
 
         // a virtual folder that contains playlist items
@@ -170,16 +171,13 @@ public class LocalLibrary extends Device implements Library
             PlaylistSource playlist_source = artisan.getPlaylistSource();
                 // Never Null
 
-            objectHash params = new objectHash();
-            params.put("id","select_playlist");
-            params.put("parent_ID","1");
-            params.put("title","Select Playlist");
-            params.put("dirtype", "folder");
-            params.put("num_elements",playlist_source.getPlaylistNames().length);
-            params.put("artist", "");
-            params.put("genre", "");
-            params.put("year_str", "");
-            return new Folder(params);
+            Folder folder = new Folder();
+            folder.setId("select_playlist");
+            folder.setParentId("1");
+            folder.setTitle("Select Playlist");
+            folder.setType("folder");
+            folder.setNumElements(playlist_source.getPlaylistNames().length);
+            return folder;
         }
 
         // return the first record found by the query

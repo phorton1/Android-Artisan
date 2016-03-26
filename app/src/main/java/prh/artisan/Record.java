@@ -11,17 +11,17 @@ public class Record extends objectHash
     // Class that should already exist
     // Maps a cursor to a Hash of Typed Objects by field name.
 {
+    /*
     private boolean exists = false;
     private boolean dirty = true;
 
     public boolean exists()             { return exists; }
     public boolean dirty()              { return dirty; }
     public void setDirty(boolean value) { dirty = value; }
+    */
 
-
-    public Record()
+    protected Record()
     {
-        // protected default constructor
     }
 
     protected Record(Cursor cursor)
@@ -31,8 +31,8 @@ public class Record extends objectHash
 
     protected void from_cursor(Cursor cursor)
     {
-        exists = true;
-        dirty = false;
+        //exists = true;
+        //dirty = false;
         for (int i=0; i<cursor.getColumnCount(); i++)
         {
             int type = cursor.getType(i);
@@ -53,36 +53,44 @@ public class Record extends objectHash
     }
 
 
-    public String getString(String field_name)
+    protected Object get(String field_name)
     {
-        String value = (String) get(field_name);
+        return super.get(field_name);
+    }
+    protected String getString(String field_name)
+    {
+        String value = (String) super.get(field_name);
         if (value==null) value = new String();
         return value;
     }
-    public Integer getInt(String field_name)
+    protected Integer getInt(String field_name)
     {
-        Integer value = (Integer) get(field_name);
+        Integer value = (Integer) super.get(field_name);
         if (value==null) value = new Integer(0);
         return value;
     }
-    public Float getFloat(String field_name)
+    protected Float getFloat(String field_name)
     {
-        Float value = (Float) get(field_name);
+        Float value = (Float) super.get(field_name);
         if (value==null) value = new Float(0F);
         return value;
     }
 
-    public void putString(String field_name, String value)
+    protected void pet(String field_name,Object value)
     {
-        this.put(field_name,value);
+        super.put(field_name,value);
     }
-    public void putInt(String field_name, Integer value)
+    protected void putString(String field_name, String value)
     {
-        this.put(field_name,value);
+        super.put(field_name,value);
     }
-    public void putFloat(String field_name, Float value)
+    protected void putInt(String field_name, Integer value)
     {
-        this.put(field_name,value);
+        super.put(field_name,value);
+    }
+    protected void putFloat(String field_name, Float value)
+    {
+        super.put(field_name,value);
     }
 
 }
