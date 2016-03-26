@@ -1,5 +1,7 @@
 package prh.server.utils;
 
+import java.util.HashMap;
+
 import prh.artisan.Artisan;
 import prh.artisan.EventHandler;
 import prh.device.LocalPlaylist;
@@ -7,7 +9,7 @@ import prh.artisan.Track;
 import prh.server.http.OpenPlaylist;
 import prh.utils.Utils;
 
-public class PlaylistExposer implements Comparable<PlaylistExposer>
+public class PlaylistExposer
     // A class to incrementally expose a Playlist in our
     // OpenHome renderer service, for BubbleUp responsiveness.
     //
@@ -26,104 +28,69 @@ public class PlaylistExposer implements Comparable<PlaylistExposer>
     // Bup behavior is still "chunky" when initializing large
     // playlists from an OpenHome renderer (OpenPlaylist), but this
     // helps.
-    //
-    // We keep an in-memory only bit on the actual tracks
-    // that tells us if they have been exposed (default = false
-    // for an "null" unloaded track in the list).
-    //
-    // We first hand out the currently playing track, then the one
-    // after it, then the one before it, then 2 after it, and 2
-    // before it, and so on, until we have exposed the whole thing.
-    //
-    // Tracks created from didl start out as exposed.
-    //
-    // The exposed bits need to be cleared when playlists change,
-    // so when we change back to the playlist, Bup will start over.
-    // They also need to be cleared when Bup disconnects from us
-    // as an OpenHome renderer, so if they re-connect, we don't use
-    // the old bits.
-    //
-    // The scheme does not support multiple BubbleUp control points
-    // being simultaneously subscribed to our OpenHome server, though
-    // it could by using the exposure Bitwise for upto 32 Bup clients.
 {
     private static int dbg_expose = 0;
 
+    private static int NUM_TO_EXPOSE = 20;
+    // number that we expose in ExposeMore
+    // set to the number BubbleUp normally asks for / 2
     private static int EXPOSE_MORE_SLEEP_MILLIS = 200;
     private static int EXPOSE_MORE_SLEEP_TIMES = 20;
         // how long ThreadedExposeMore sleeps before it
         // calls exposeMore()
 
-    private static int NUM_TO_EXPOSE = 20;
-        // number that we expose in ExposeMore
-        // set to the number BubbleUp normally asks for / 2
+    // types
+
+    private class intBoolHash extends HashMap<Integer,Boolean> {}
+
+    // instance variables
 
     private Artisan artisan;
+    private String user_agent;
     private OpenPlaylist playlist;
-    private int bit_mask;
     private int num_exposed = 0;
+    private intBoolHash exposed;
 
-    public int getMask()
+
+    public PlaylistExposer(OpenPlaylist pl, Artisan ma, String ua)
     {
-        return bit_mask;
+        playlist = pl;
+        artisan = ma;
+        user_agent = ua;
+        exposed = new intBoolHash();
     }
+
+    public String getUserAgent()
+    {
+        return user_agent;
+    }
+
     public int getNumExposed()
     {
         return num_exposed;
     }
 
-
-    public PlaylistExposer(OpenPlaylist pl, Artisan ma, int subscriber_bitmask)
-    {
-        playlist = pl;
-        artisan = ma;
-        bit_mask = subscriber_bitmask;
-    }
-
-
-    public int compareTo(PlaylistExposer other)
-    {
-        if (bit_mask > other.bit_mask)
-            return 1;
-        if (bit_mask < other.bit_mask)
-            return -1;
-        return 0;
-    }
-
-
     public void clearExposedBits(LocalPlaylist playlist)
     {
         num_exposed = 0;
-        for (int i = 1; i <= playlist.getNumTracks(); i++)
-        {
-            Track track = playlist.getTrackLow(i);
-                // may return null for non-exposed
-                // as-yet otherwise unused records
-            if (track != null)
-                track.setExposed(bit_mask,false);
-        }
+        exposed.clear();
     }
 
+    public boolean isExposed(Track track)
+    {
+        return exposed.get(track.getOpenId()) != null;
+    }
 
     public boolean exposeTrack(Track track,boolean set_it)
     {
-        if (set_it)
+        int id = track.getOpenId();
+        if (set_it && exposed.get(id) == null)
         {
-            if (!track.getExposed(bit_mask))
-            {
-                track.setExposed(bit_mask,true);
-                num_exposed++;
-                return true;
-            }
+            exposed.put(id,true);
         }
-        else
+        else if (!set_it && exposed.get(id) != null)
         {
-            if (track.getExposed(bit_mask))
-            {
-                track.setExposed(bit_mask,false);
-                num_exposed--;
-                return true;
-            }
+            exposed.remove(exposed.get(id));
         }
         return false;
     }

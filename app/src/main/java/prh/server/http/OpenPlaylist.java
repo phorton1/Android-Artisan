@@ -57,17 +57,13 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
     // until it finds a number for which there is no bitmask.
 
 
-    private class exposerHash extends HashMap<Integer,PlaylistExposer> {}
-    private class exposersByIpUA extends HashMap<String,PlaylistExposer> {}
+    private class exposerHash extends HashMap<String,PlaylistExposer> {}
 
-    exposerHash exposers_by_mask = null;
-    exposersByIpUA exposers_by_ipua = null;
+    exposerHash exposers = null;
 
-    public exposerHash getExposers() { return exposers_by_mask; }
+    public exposerHash getExposers() { return exposers; }
         // a list of exposers that are created when UpNP remote
-        // control points subscribe to this server, by their
-        // bitmap.  he first
-        // one that
+        // control points subscribe to this server, by ip:user_agent
     int next_exposer_bit_mask = 0;
 
     private Handler delayed_event = null;
@@ -85,8 +81,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
     @Override public void start()
     {
         next_exposer_bit_mask = 1;
-        exposers_by_mask = new exposerHash();
-        exposers_by_ipua = new exposersByIpUA();
+        exposers = new exposerHash();
         http_server.getEventManager().RegisterHandler(this);
         delayed_event = new Handler();
     }
@@ -94,8 +89,9 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
     @Override public void stop()
     {
         http_server.getEventManager().UnRegisterHandler(this);
-        exposers_by_mask = null;
-        exposers_by_ipua = null;
+        if (exposers != null)
+            exposers.clear();
+        exposers = null;
         if (delayed_sender != null)
             delayed_event.removeCallbacks(delayed_sender);
     }
@@ -105,7 +101,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         String ip = subscriber.getIp();
         String user_agent = subscriber.getUserAgent();
         String ipua = ip + ":" + user_agent;
-        PlaylistExposer exposer = exposers_by_ipua.get(ipua);
+        PlaylistExposer exposer = exposers.get(ipua);
         LocalRenderer local_renderer = artisan.getLocalRenderer();
             // NEVER NULL
         LocalPlaylist local_playlist = getRendererLocalPlaylist(local_renderer);
@@ -119,24 +115,9 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
             }
             else
             {
-                int num = 0;
-                int mask = 1;
-                while (num < 32 &&
-                    exposers_by_mask.get(mask) != null)
-                {
-                    num++;
-                    mask <<= 1;
-                }
-
-                if (num == 32)
-                {
-                    Utils.error("This server only supports 32 concurrent OpenPlaylist subscribers with EXPOSURE_SCHEME");
-                    return;
-                }
-                Utils.log(0,0,"notifySubscribed() Creating Exposer(" + mask + ") for " + ipua);
-                exposer = new PlaylistExposer(this,artisan,mask);
-                exposers_by_mask.put(mask,exposer);
-                exposers_by_ipua.put(ipua,exposer);
+                Utils.log(0,0,"notifySubscribed() Creating Exposer(" + ipua + ")");
+                exposer = new PlaylistExposer(this,artisan,ipua);
+                exposers.put(ipua,exposer);
             }
 
             // This will be evented to the client with the
@@ -156,8 +137,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         else
         {
             exposer.clearExposedBits(local_playlist);
-            exposers_by_mask.remove(exposer.getMask());
-            exposers_by_ipua.remove(ipua);
+            exposers.remove(ipua);
         }
     }   // OpenPlaylist.notifySubscribed()
 
@@ -169,8 +149,8 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         // The call is presumably accompanied by a artisan
         // PLAYLIST_CHANGED event.
     {
-        if (!exposers_by_ipua.isEmpty())
-            for (PlaylistExposer exposer : exposers_by_ipua.values())
+        if (!exposers.isEmpty())
+            for (PlaylistExposer exposer : exposers.values())
                 exposer.exposeTrack(track,set_it);
     }
 
@@ -182,7 +162,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
     // The call is presumably accompanied by a artisan
     // PLAYLIST_CHANGED event.
     {
-        if (!exposers_by_ipua.isEmpty())
+        if (!exposers.isEmpty())
         {
             Track track = local_playlist.getCurrentTrack();
             exposeTrack(track,true);
@@ -198,7 +178,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         // The call is presumably accompanied by a artisan
         // PLAYLIST_CHANGED event.
     {
-        for (PlaylistExposer exposer : exposers_by_ipua.values())
+        for (PlaylistExposer exposer : exposers.values())
         {
             exposer.clearExposedBits(local_playlist);
         }
@@ -247,7 +227,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         String ipua =
             session.getHeaders().get("remote-addr") + ":" +
             session.getHeaders().get("user-agent");
-        PlaylistExposer exposer = exposers_by_ipua.get(ipua);
+        PlaylistExposer exposer = exposers.get(ipua);
 
         // get basic info
 
@@ -623,7 +603,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         // EXPOSE_SCHEME support
 
         String ipua = subscriber.getIp() + ":" + subscriber.getUserAgent();
-        PlaylistExposer exposer = exposers_by_ipua.get(ipua);
+        PlaylistExposer exposer = exposers.get(ipua);
 
         // build the event response
 

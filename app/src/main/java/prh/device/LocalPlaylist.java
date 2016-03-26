@@ -555,7 +555,7 @@ public class LocalPlaylist implements
         // show debugging for the exposer, if any
 
         if (exposer != null)
-             Utils.log(dbg_open_pl,1,"exposer(" + exposer.getMask() + ") num_exposed=" + exposer.getNumExposed());
+             Utils.log(dbg_open_pl,1,"exposer(" + exposer.getUserAgent() + ") num_exposed=" + exposer.getNumExposed());
 
         for (int index=1; index<=num_tracks; index++)
         {
@@ -575,7 +575,7 @@ public class LocalPlaylist implements
 
             if (track != null &&
                 (exposer == null ||
-                 track.getExposed(exposer.getMask())))
+                 exposer.isExposed(track)))
             {
                 int id = track.getOpenId();
                 data[num * 4 + 0] = (byte) ((id >> 24) & 0xFF);
