@@ -19,7 +19,7 @@ public class Record extends objectHash
     public void setDirty(boolean value) { dirty = value; }
 
 
-    protected Record()
+    public Record()
     {
         // protected default constructor
     }

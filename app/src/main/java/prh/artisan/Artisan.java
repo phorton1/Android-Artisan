@@ -174,18 +174,37 @@ import prh.server.HTTPServer;
 import prh.server.LocalVolumeFixer;
 import prh.server.SSDPServer;
 import prh.server.utils.UpnpEventManager;
+import prh.utils.Fetcher;
 import prh.utils.Utils;
 
 
 
 public class Artisan extends FragmentActivity implements
     View.OnClickListener,
-    EventHandler
+    EventHandler,
+    Fetcher.FetcherClient
 {
+
+    private static int dbg_main = 0;
+
+    // FetcherClient interface from device.MediaServer to aLibrary
+
+    public void notifyFetchRecords(Fetcher fetcher,Fetcher.fetchResult fetch_result)
+    {
+        aLibrary.notifyFetchRecords(fetcher,fetch_result);
+    }
+    public void notifyFetcherStop(Fetcher fetcher,Fetcher.fetcherState fetcher_state)
+    {
+        aLibrary.notifyFetcherStop(fetcher,fetcher_state);
+    }
+
+
+
+
     private static int NUM_PAGER_ACTIVITIES = 5;
     public final static int PAGE_PREFS = 0;
-    public final static int PAGE_PLAYING = 1;
-    public final static int PAGE_PLAYLIST = 2;
+    public final static int PAGE_PLAYING = 2;
+    public final static int PAGE_PLAYLIST = 1;
     public final static int PAGE_LIBRARY = 3;
     public final static int PAGE_EXPLORER = 4;
 
@@ -270,7 +289,7 @@ public class Artisan extends FragmentActivity implements
         if (default_name.startsWith("Local"))
             default_name = "";
         if (!default_name.isEmpty())
-            Utils.log(0,0,"DEFAULT_" + what + "(" + default_name +")");
+            Utils.log(dbg_main,0,"DEFAULT_" + what + "(" + default_name +")");
         return default_name;
     }
 
@@ -300,7 +319,7 @@ public class Artisan extends FragmentActivity implements
     @Override
     protected void onCreate(Bundle savedInstanceState)
     {
-        Utils.log(0,0,"------ Artisan.onCreate() started ------");
+        Utils.log(dbg_main,0,"------ Artisan.onCreate() started ------");
 
         // 0 = static initialization
 
@@ -419,7 +438,7 @@ public class Artisan extends FragmentActivity implements
 
         if (library != null)
         {
-            Utils.log(0,0,"Local Library created ");
+            Utils.log(dbg_main+1,0,"Local Library created ");
             library.start();
             // handleArtisanEvent(EventHandler.EVENT_LIBRARY_CHANGED,library);
         }
@@ -428,7 +447,7 @@ public class Artisan extends FragmentActivity implements
 
         if (playlist_source != null)
         {
-            Utils.log(0,0,"Local PlaylistSource created ");
+            Utils.log(dbg_main+1,0,"Local PlaylistSource created ");
             playlist_source.start();
             // handleArtisanEvent(EventHandler.EVENT_PLAYLIST_SOURCE_CHANGED,playlist_source);
         }
@@ -438,7 +457,7 @@ public class Artisan extends FragmentActivity implements
 
         if (renderer != null)
         {
-            Utils.log(0,0,"Local Renderer created ");
+            Utils.log(dbg_main+1,0,"Local Renderer created ");
             renderer.startRenderer();
             // handleArtisanEvent(EventHandler.EVENT_RENDERER_CHANGED,renderer);
         }
@@ -480,11 +499,11 @@ public class Artisan extends FragmentActivity implements
                 {
                     http_server.start();
 
-                    Utils.log(0,0,"starting ssdp_server ...");
+                    Utils.log(dbg_main+1,0,"starting ssdp_server ...");
                     SSDPServer ssdp_server = new SSDPServer(this,http_server);
                     Thread ssdp_thread = new Thread(ssdp_server);
                     ssdp_thread.start();
-                    Utils.log(0,0,"ssdp_server started");
+                    Utils.log(dbg_main+1,0,"ssdp_server started");
                 }
             }
         }
@@ -517,7 +536,7 @@ public class Artisan extends FragmentActivity implements
         // the initial cache.
 
         device_manager.doDeviceSearch(false);
-        Utils.log(0,0,"------ Artisan.onCreate() finished ------");
+        Utils.log(dbg_main,0,"------ Artisan.onCreate() finished ------");
         artisan_created = true;
 
     }   // onCreate()
@@ -526,14 +545,14 @@ public class Artisan extends FragmentActivity implements
     @Override
     public void onResume()
     {
-        Utils.log(0,0,"Artisan.onResume()");
+        Utils.log(dbg_main+1,0,"Artisan.onResume()");
         super.onResume();
     }
 
     @Override
     public void onPause()
     {
-        Utils.log(0,0,"Artisan.onPause()");
+        Utils.log(dbg_main+1,0,"Artisan.onPause()");
         super.onPause();
     }
 
@@ -541,7 +560,7 @@ public class Artisan extends FragmentActivity implements
     @Override
     public void onDestroy()
     {
-        Utils.log(0,0,"Artisan.onDestroy() started ------");
+        Utils.log(dbg_main,0,"Artisan.onDestroy() started ------");
         super.onDestroy();
 
         // 5 = stop the device manager
@@ -568,11 +587,11 @@ public class Artisan extends FragmentActivity implements
         // 3 = stop the current and local devices
 
         if (library != null)
-            library.stop();
+            library.stop(true);
         library = null;
 
         if (local_library != null)
-            local_library.stop();
+            local_library.stop(true);
         local_library = null;
 
         if (renderer != null)
@@ -623,7 +642,7 @@ public class Artisan extends FragmentActivity implements
 
         Prefs.static_init(null);
         Utils.static_init(null);
-        Utils.log(0,0,"Artisan.onDestroy() finished ------");
+        Utils.log(dbg_main,0,"Artisan.onDestroy() finished ------");
     }
 
 
@@ -834,7 +853,7 @@ public class Artisan extends FragmentActivity implements
 
     public void doVolumeControl()
     {
-        Utils.log(0,0,"doVolumeControl()");
+        Utils.log(dbg_main+1,0,"doVolumeControl()");
         if (volume_control != null &&
             renderer != null &&
             renderer.getVolume() != null)
@@ -844,11 +863,18 @@ public class Artisan extends FragmentActivity implements
     }
 
 
+    private int num_progress = 0;
+
     public void showArtisanProgressIndicator(final boolean show_it)
     {
         runOnUiThread(new Runnable() { public void run() {
-        ProgressBar progress = (ProgressBar) findViewById(R.id.artisan_progress);
-        progress.setVisibility(show_it ? View.VISIBLE : View.INVISIBLE); }});
+            num_progress += show_it ? 1 : -1;
+            if (num_progress == 0 || num_progress == 1)
+            {
+                ProgressBar progress = (ProgressBar) findViewById(R.id.artisan_progress);
+                progress.setVisibility(show_it ? View.VISIBLE : View.INVISIBLE);
+            }
+        }});
     }
 
 
@@ -868,7 +894,7 @@ public class Artisan extends FragmentActivity implements
     // playlist and event it to any interested clients
     // PRH - this should not be here
     {
-        Utils.log(0,0,"setPlaylist(" + name + ")");
+        Utils.log(dbg_main,0,"setPlaylist(" + name + ")");
 
         // get the playlist
 
@@ -915,17 +941,18 @@ public class Artisan extends FragmentActivity implements
             return false;
 
         Device device = device_manager.getDevice(group,name);
+        String dbg_thing = group.toString().replace("DEVICE_GROUP_","");
 
         if (device != null)
         {
-            Utils.log(0,0,"STARTING DEFAULT " + group +"(" + name + ") artisan_created=" + artisan_created);
+            Utils.log(dbg_main,0,"STARTING DEFAULT " + dbg_thing +"(" + name + ") artisan_created=" + artisan_created);
             setArtisanDevice(group,name);
                 // ignore false == could_not_start function value
             return true;
         }
 
         if (!artisan_created)
-            Utils.log(0,0,"Could not find DEFAULT " + group + "(" + name + ") in onCreate() ... continuing to look ...");
+            Utils.log(dbg_main,0,"Could not find DEFAULT " + dbg_thing + "(" + name + ") in onCreate() ... continuing to look ...");
         return false;
     }
 
@@ -980,10 +1007,10 @@ public class Artisan extends FragmentActivity implements
 
         if (cur_name.equals(name))
         {
-            Utils.log(0,0,"setArtisanDevice(" + thing + "," + name + ") ignoring attempt to set to same " + thing);
+            Utils.log(dbg_main,0,"setArtisanDevice(" + thing + "," + name + ") ignoring attempt to set to same " + thing);
             return true;
         }
-        Utils.log(0,0,"--- setArtisanDevice(" + thing + "," + name + ")");
+        Utils.log(dbg_main,0,"setArtisanDevice(" + thing + "," + name + ")");
 
         // find the new Device
         // bail if it's not found
@@ -1004,7 +1031,7 @@ public class Artisan extends FragmentActivity implements
         if (thing.equals("Library") && ((Library) device).start())
         {
             if (library != null)
-                library.stop();
+                library.stop(false);
             library = (Library) device;
             started = true;
         }
@@ -1036,7 +1063,7 @@ public class Artisan extends FragmentActivity implements
         if (artisan_created)
         {
             Prefs.putString(prefs_id,prefs_name);
-            Utils.log(0,0,"--- set" + thing + "(" + name + ") finishing and dispatching " + event_name + "(" + name + ")");
+            Utils.log(dbg_main+1,0,"setArisanDevice(" + thing + "(" + name + ") finishing and dispatching " + event_name + "(" + name + ")");
             handleArtisanEvent(event_name,device);
         }
 
@@ -1097,7 +1124,7 @@ public class Artisan extends FragmentActivity implements
             // who already call onBodyClicked()
 
             case R.id.command_home :
-                Utils.log(0,0,"onClickHome()");
+                Utils.log(dbg_main,0,"onClickHome()");
                 Intent i = new Intent();
                 i.setAction(Intent.ACTION_MAIN);
                 i.addCategory(Intent.CATEGORY_HOME);
@@ -1110,6 +1137,12 @@ public class Artisan extends FragmentActivity implements
 
             case R.id.command_context :
                 break;
+
+            case R.id.command_playlist_albums :
+                aPlaylist.setAlbumMode(true);
+                break;
+            case R.id.command_playlist_tracks :
+                aPlaylist.setAlbumMode(false);
         }
     }
 
@@ -1135,7 +1168,7 @@ public class Artisan extends FragmentActivity implements
             keyCode == KeyEvent.KEYCODE_BACK &&
             event.getRepeatCount() == 0)
         {
-            Utils.log(0,0,"onKeyDown(KEYCODE_BACK) Called");
+            Utils.log(dbg_main+1,0,"onKeyDown(KEYCODE_BACK) Called");
             onBackPressed();
             return true;
         }
@@ -1153,7 +1186,7 @@ public class Artisan extends FragmentActivity implements
     {
         if (library != null && !((Device)library).isLocal())
         {
-            library.stop();
+            library.stop(false);
             library = local_library;
             if (library != null)
                 library.start();
@@ -1193,7 +1226,7 @@ public class Artisan extends FragmentActivity implements
     // run on UI async task to pass events to UI clients
     {
         if (!event_id.equals(EVENT_POSITION_CHANGED))
-            Utils.log(1,0,"artisan.handleRendererEvent(" + event_id + ")");
+            Utils.log(dbg_main+1,0,"artisan.handleRendererEvent(" + event_id + ") " + data);
 
         runOnUiThread(new Runnable()
         {
@@ -1204,7 +1237,7 @@ public class Artisan extends FragmentActivity implements
 
                 if (!event_id.equals(EVENT_POSITION_CHANGED) &&
                     !event_id.equals(EVENT_IDLE))
-                    Utils.log(0,0,"----> " + event_id);
+                    Utils.log(dbg_main,0,"----> " + event_id);
 
                 //----------------------------------------------
                 // Command Events

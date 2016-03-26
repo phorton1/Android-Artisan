@@ -34,7 +34,7 @@ public class aPlaying extends Fragment implements
     View.OnClickListener
 {
 
-    private static int dbg_anp = 0;
+    private static int dbg_anp = 1;
 
     // only good while attached
 

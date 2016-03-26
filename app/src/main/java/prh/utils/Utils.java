@@ -179,7 +179,7 @@ public class Utils {
             StackTraceElement[] stack = Thread.currentThread().getStackTrace();
             int level = 0;
             while (level+call_level+4 < stack.length &&
-                stack[level+call_level+4].getClassName().startsWith("com.prh.carstereo"))
+                stack[level+call_level+4].getClassName().startsWith("com.prh"))
             {
                 level++;
             }

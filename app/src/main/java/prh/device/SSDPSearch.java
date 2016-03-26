@@ -109,7 +109,7 @@ public class SSDPSearch implements Runnable
 
     public void run()
     {
-        Utils.log(0,0,"SSDPSearch started");
+        Utils.log(dbg_ssdp_search,0,"SSDPSearch started");
         artisan.handleArtisanEvent(EventHandler.EVENT_SSDP_SEARCH_STARTED,null);
 
         // create a DeviceListener on LISTEN_PORT
@@ -330,7 +330,7 @@ public class SSDPSearch implements Runnable
                 device_manager.writeCache();
             ssdp_search_finished = true;
             artisan.handleArtisanEvent(EventHandler.EVENT_SSDP_SEARCH_FINISHED,null);
-            Utils.log(0,0,"SSDPSearch finished");
+            Utils.log(dbg_ssdp_search,0,"SSDPSearch finished");
 
         }   // run()
 

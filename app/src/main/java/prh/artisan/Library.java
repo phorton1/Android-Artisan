@@ -21,7 +21,7 @@ public interface Library
     String getName();
 
     boolean start();
-    void stop();
+    void stop(boolean wait_for_stop);
 
     Track getTrack(String id);
     Folder getFolder(String id);
@@ -39,9 +39,9 @@ public interface Library
         //      by a second "get" in the implementation
 
     void setCurrentFolder(Folder folder);
-        // support for pre-fetching scheme on device.MediaServer.
-        // clients tell us when they are BACKING DOWN THE STACK to
-        // stop prefetching above the TOS, and re-start fetching
-        // at the new TOS.
+        // Support for pre-fetching scheme from aLibrary to device.MediaServer.
+        // Currently does nothing on the LocalLibrary, which does not use fetchers.
+        // If this Library is device.MediaServer, folder will be a FolderPlus
+        // with a fetcher member.
 
 }

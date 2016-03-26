@@ -74,6 +74,20 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content">
 
+
+                <prh.artisan.MainMenuButton
+                    android:id = "@+id/command_playlist_albums"
+                    android:src="@drawable/ic_album_view"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"/>
+
+                <prh.artisan.MainMenuButton
+                    android:id = "@+id/command_playlist_tracks"
+                    android:src="@drawable/ic_track_view"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"/>
+
+
                 <prh.artisan.MainMenuButton
                     android:id = "@+id/command_volume"
                     android:src="@drawable/ic_volume_small"

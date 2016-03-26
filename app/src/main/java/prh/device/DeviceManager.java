@@ -90,7 +90,7 @@ public class DeviceManager
 {
 
     private static int dbg_dm = 1;
-    private static int dbg_cache = 0;
+    private static int dbg_cache = 1;
     private static String cache_file_name = "device_cache.txt";
     public static boolean USE_DEVICE_CACHE = true;
 
@@ -384,7 +384,7 @@ public class DeviceManager
         Device device = devices.get(ssdp_device.getDeviceUUID());
         if (device != null)
         {
-            Utils.log(0,3,"device already exists" + dbg_msg);
+            Utils.log(dbg_dm,3,"device already exists" + dbg_msg);
             return;
         }
 

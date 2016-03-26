@@ -101,6 +101,7 @@ public class ListItem extends RelativeLayout implements
     {
         folder = null;
         is_track = true;
+        is_album = false;
         track = the_track;
         large = false;
         return true;
@@ -110,6 +111,7 @@ public class ListItem extends RelativeLayout implements
     {
         track = null;
         folder = the_folder;
+        is_track = false;
         is_album = folder.getType().equals("album");
         large = false;
         return true;
@@ -146,6 +148,9 @@ public class ListItem extends RelativeLayout implements
     // doLayout()
     //---------------------------------------------
 
+    private static int SELECTED_COLOR = 0xFF332200;
+
+
     public void doLayout(ListItemListener listener)
         // cannot assume that the layout is fresh from the xml
     {
@@ -169,9 +174,10 @@ public class ListItem extends RelativeLayout implements
 
         // set background color
 
-        if (large && !is_track)
-            setBackgroundColor(0xFF002222);
-
+        int color =
+            selected ? SELECTED_COLOR :
+            large && !is_track ? 0xFF002222 : 0;
+        setBackgroundColor(color);
 
         // IMAGE
         // set icon_container size to one of three heights
@@ -229,6 +235,7 @@ public class ListItem extends RelativeLayout implements
                 track.getDurationString(Utils.how_precise.FOR_DISPLAY) :
                 n > 0 ? "(" + n + ")" : "";
 
+            item_right.setVisibility(View.VISIBLE);
             item_right.setOnClickListener(this);
             item_right_text.setOnClickListener(this);
             Utils.setViewSize(artisan,item_right,container_height,null);
@@ -236,7 +243,7 @@ public class ListItem extends RelativeLayout implements
         }
         else
         {
-            Utils.setViewSize(artisan,item_right,0F,0F);
+            item_right.setVisibility(View.GONE);
         }
 
 
@@ -245,9 +252,10 @@ public class ListItem extends RelativeLayout implements
         // if it exists, to the left. disappear it otherwise
 
         if (!is_track || large)
-            Utils.setViewSize(artisan,item_left,null,0F);
+            item_left.setVisibility(View.GONE);
         else
         {
+            item_left.setVisibility(View.VISIBLE);
             String track_num = track.getTrackNum();
             if (!track_num.isEmpty())
                 track_num += ".";
@@ -266,21 +274,27 @@ public class ListItem extends RelativeLayout implements
             is_album ? folder.getArtist() : "";
 
         if (!artist.isEmpty() || (large && !is_track))
+        {
+            line2.setVisibility(View.VISIBLE);
             line2.setText(artist);
+        }
         else
-            Utils.setViewSize(artisan,line2,0F,null);
+            line2.setVisibility(View.GONE);
 
 
         // LINES 3-5 are only for large albums
 
         if (is_track || !large)
         {
-            Utils.setViewSize(artisan,line3,0F,null);
-            Utils.setViewSize(artisan,line4,0F,null);
-            Utils.setViewSize(artisan,line5,0F,null);
+            line3.setVisibility(View.GONE);
+            line4.setVisibility(View.GONE);
+            line5.setVisibility(View.GONE);
         }
         else    // large => also implies is_album
         {
+            line3.setVisibility(View.VISIBLE);
+            line4.setVisibility(View.VISIBLE);
+            line5.setVisibility(View.VISIBLE);
 
             String s3 = "";
             int num = folder.getNumElements();
@@ -288,6 +302,11 @@ public class ListItem extends RelativeLayout implements
                 s3 += "" + num + " tracks      ";
             s3 += folder.getGenre() + "      ";
             s3 += folder.getYearString();
+
+            int duration = folder.getInt("duration");
+            if (duration > 0)
+                s3 += "     " + Utils.durationToString(duration,Utils.how_precise.FOR_DISPLAY);
+
 
             String s4 = "";
             if (folder.getFolderError() != 0)
@@ -322,10 +341,16 @@ public class ListItem extends RelativeLayout implements
         {
             line1.setTextSize(TypedValue.COMPLEX_UNIT_DIP,12);
             line2.setTextSize(TypedValue.COMPLEX_UNIT_DIP,10);
-            //item_left.setTextSize(TypedValue.COMPLEX_UNIT_DIP,10);
             item_right_text.setTextSize(TypedValue.COMPLEX_UNIT_DIP,10);
         }
+        else
+        {
+            line1.setTextSize(TypedValue.COMPLEX_UNIT_DIP,14);
+            line2.setTextSize(TypedValue.COMPLEX_UNIT_DIP,12);
+            item_right_text.setTextSize(TypedValue.COMPLEX_UNIT_DIP,12);
+        }
     }   // listItem.doLayout()
+
 
 
     //--------------------------------------------------------------
@@ -381,7 +406,7 @@ public class ListItem extends RelativeLayout implements
             ListItem list_item = (ListItem) v;
             list_item.setSelected(!list_item.getSelected());
             if (list_item.getSelected())
-                list_item.setBackgroundColor(0xFF332200);
+                list_item.setBackgroundColor(SELECTED_COLOR);
             else
                 list_item.setBackgroundColor(Color.BLACK);
             return true;

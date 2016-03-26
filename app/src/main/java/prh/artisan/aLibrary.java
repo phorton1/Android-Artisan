@@ -44,15 +44,17 @@ import java.util.ArrayList;
 import prh.device.Device;
 import prh.device.MediaServer;
 import prh.types.recordList;
+import prh.utils.Fetcher;
 import prh.utils.Utils;
 
 
 public class aLibrary extends Fragment implements
     ArtisanPage,
     EventHandler,
-    ListItem.ListItemListener
+    ListItem.ListItemListener,
+    Fetcher.FetcherClient
 {
-    private static int dbg_alib = 0;
+    private static int dbg_alib = 1;
 
     class ViewStack extends ArrayList<viewStackElement> {}
 
@@ -353,6 +355,40 @@ public class aLibrary extends Fragment implements
 
 
 
+    //---------------------------------------------------------------------
+    // FetcherClient interface from device.MediaServer via Artisan
+    //---------------------------------------------------------------------
+
+    @Override public void notifyFetchRecords(Fetcher fetcher,Fetcher.fetchResult fetch_result)
+    {
+        MediaServer.FolderPlus event_folder = (MediaServer.FolderPlus) fetcher.getSource();
+        Utils.log(dbg_alib,0,"aLibrary.notifyFetchRecords(" + fetch_result + ") called with fetcher.source=" +
+            "FolderPlus(" + event_folder.getTitle() + ")");
+        for (int stack_pos = view_stack.size() - 1; stack_pos >= 0; stack_pos--)
+        {
+            viewStackElement stack_ele = view_stack.get(stack_pos);
+            Folder folder = stack_ele.getFolder();
+            MediaServer.FolderPlus stack_folder = (folder instanceof MediaServer.FolderPlus) ?
+                (MediaServer.FolderPlus) folder : null;
+
+            if (stack_folder != null && stack_folder.equals(event_folder))
+            {
+                recordList records = fetcher.getRecordsRef();
+                Utils.log(dbg_alib,1,"aLibrary.notifyFetchRecords() calling adapter.setItems(" +
+                    records.size() + ") for the stack_folder(" + stack_folder.getTitle() + ")");
+                stack_ele.getAdapter().setItems(records);
+                return;
+            }
+        }
+    }
+
+    @Override public void notifyFetcherStop(Fetcher fetcher,Fetcher.fetcherState fetcher_state)
+    {
+        Utils.error("aLibrary.notifyFetcherStop() not implemented yet");
+    }
+
+
+
     //--------------------------------------------------------------
     // Artisan Event Handling
     //--------------------------------------------------------------
@@ -368,6 +404,11 @@ public class aLibrary extends Fragment implements
                 init(new_library);
             }
         }
+        else if (true)
+            return; // for now
+
+
+
         else if (event_id.equals(EVENT_ADDL_FOLDERS_AVAILABLE))
         {
             // Find the adapter, if any, for the FolderPlus to

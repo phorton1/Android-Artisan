@@ -20,7 +20,7 @@ public class Folder extends Record
 {
     // Construction
 
-    protected Folder()  {};
+    public Folder()  {};
         // protected default constructor
 
     public Folder(Cursor cursor)
@@ -28,32 +28,6 @@ public class Folder extends Record
     {
         super(cursor);
     }
-
-    /*********************************
-        Don't like this ctor
-        Since it cannot fail with null
-
-        public Folder(String id)
-            // construct from an id in the local database
-        {
-            SQLiteDatabase db = Database.getDB();
-            Cursor cursor = null;
-            String query = "SELECT * FROM folders WHERE id='" + id + "'";
-            try
-            {
-                cursor = db.rawQuery(query,new String[]{});
-            }
-            catch (Exception e)
-            {
-                Utils.error("Could not execute query: " + query + " exception=" + e.toString());
-            }
-            if (cursor == null || !cursor.moveToFirst())
-            {
-                Utils.error("No cursor returned for track(" + id + ")");
-            }
-        }
-
-    **************************/
 
 
     public Folder(objectHash hash)

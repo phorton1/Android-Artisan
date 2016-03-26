@@ -16,13 +16,14 @@ import prh.utils.Utils;
 
 class ListItemAdapter extends ArrayAdapter<Record>
 {
+    private static int dbg_la = 1;
+
     private static int USE_SCROLL_BARS = 30;
         // Show a fixed vertical scroll bar if records.size()
         // is larger than this. We override Androids default
         // behavior by disabling fast scroll under this, and
         // always showing the scroll bar (and scrunching the
-        // list) when at or above this.  Set to zero to return
-        // to default Android behavior.
+        // list) when at or above this.
 
     private Artisan artisan;
     private ListView list_view;
@@ -34,8 +35,8 @@ class ListItemAdapter extends ArrayAdapter<Record>
     private ListItem.ListItemListener listener;
 
     boolean fast_scroll_setup = false;
-    boolean fast_scroll_enabled = false;
-    boolean fast_scroll_visible = false;
+    // boolean fast_scroll_enabled = false;
+    // boolean fast_scroll_visible = false;
 
 
     public Folder getFolder() { return folder; }
@@ -63,7 +64,7 @@ class ListItemAdapter extends ArrayAdapter<Record>
         this.large_folders = large_folders;
         this.large_tracks = large_tracks;
 
-        setFastScrollVisible();
+        setScrollBar();
 
     }
 
@@ -106,12 +107,12 @@ class ListItemAdapter extends ArrayAdapter<Record>
     // called by ARTISAN_EVENT when MediaServer adds more
     // subitems to this adapter's folder ...
     {
-        Utils.log(0,4,"libraryListAdapter.setItems() num_items=" + new_records.size());
+        Utils.log(dbg_la,0,"libraryListAdapter.setItems() num_items=" + new_records.size());
         records.clear();
         records.addAll(new_records);
         num_items = records.size();
         notifyDataSetChanged();
-        setFastScrollVisible();
+        setScrollBar();
     }
 
 
@@ -119,59 +120,33 @@ class ListItemAdapter extends ArrayAdapter<Record>
     // SCROLL BARS
     //----------------------------------
 
-    private void setFastScrollVisible()
+    private void setScrollBar()
     {
         // we are forcing it to show if the USE_SCROLL_BARS
         // and the number of records exceeds it
 
-        boolean force_visible =
-            USE_SCROLL_BARS != 0 &&
-            records.size() >= USE_SCROLL_BARS;
+        boolean enabled = records.size() >= USE_SCROLL_BARS;
+        Utils.log(dbg_la,0,"SETSCROLLBAR() enabled=" + enabled);
 
-        // enabled if !USE_SCROLL_BARS (default)
-        // or if we are forcing the scroll bar to show.
+        // SHRINK the right hand text
+        // shrink the list_view if the scroll bar visible
 
-        boolean enabled =
-            USE_SCROLL_BARS == 0 ||
-            force_visible;
+        int margin_width = enabled ? 16 : 0;
+        list_view.setPadding(0,0,margin_width,0);
 
         // set the scrolling enabled and visible
 
-        if (enabled != fast_scroll_enabled)
-        {
-            fast_scroll_enabled = enabled;
-            list_view.setFastScrollEnabled(enabled);
-            Utils.log(0,0,"FastScroll enabled=" + enabled);
-        }
-        if (fast_scroll_visible != force_visible)
-        {
-            fast_scroll_visible = force_visible;
-            list_view.setFastScrollAlwaysVisible(force_visible);
-            Utils.log(0,0," FastScroll visible=" + force_visible);
-        }
-
+       list_view.setFastScrollEnabled(enabled);
+       list_view.setFastScrollAlwaysVisible(enabled);
         // use our thumb if enabled
 
         if (enabled && !fast_scroll_setup)
         {
-            Utils.log(0,0,"Setting up FastScroll thumb");
             fast_scroll_setup = true;
+            Utils.log(dbg_la,0,"Setting up FastScroll thumb");
             setFastScrollThumb();
         }
-
-
-        // if USE_SCROLL_BARS
-        // shrink the list_view if the scroll bar visible
-        // should be gotten from the scroll bar button
-        // it overlaps a bit with my button on purpose
-
-        if (USE_SCROLL_BARS != 0)
-        {
-            int margin_width = force_visible ? 16 : 0;
-            list_view.setPadding(0,0,margin_width,0);
-        }
-
-    }   // setFastScrollVisible()
+    }   // setScrollBar()
 
 
 
@@ -207,7 +182,7 @@ class ListItemAdapter extends ArrayAdapter<Record>
             Object fade_duration = fader_duration.get(fade_object);
 
             fader_duration.set(fade_object,new Integer(200000));
-            Utils.log(0,0,"fade duration = " + fader_duration.get(fade_object));
+            Utils.log(dbg_la,0,"fade duration = " + fader_duration.get(fade_object));
             */
 
         }

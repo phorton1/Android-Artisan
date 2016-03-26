@@ -27,7 +27,7 @@ import prh.utils.httpUtils;
 
 public class LocalLibrary extends Device implements Library
 {
-    public static int dbg_lib = -1;
+    public static int dbg_lib = 0;
 
     public final static boolean SHOW_PLAYLISTS = true;
 
@@ -49,7 +49,7 @@ public class LocalLibrary extends Device implements Library
         friendlyName = deviceType.LocalLibrary.toString();
         device_url = Utils.server_uri;
         icon_path = "/icons/artisan.png";
-        Utils.log(dbg_lib+1,2,"new LocalLibrary()");
+        Utils.log(dbg_lib+1,0,"new LocalLibrary()");
     }
 
     @Override public boolean isLocal() { return true; }
@@ -63,7 +63,7 @@ public class LocalLibrary extends Device implements Library
     }
 
 
-    @Override public void stop( )
+    @Override public void stop(boolean wait)
     {
         // db = null;
         // local_library = null;
@@ -83,7 +83,7 @@ public class LocalLibrary extends Device implements Library
         if (id.startsWith("select_playlist_"))
         {
             String name = id.replace("select_playlist_","");
-            Utils.log(dbg_lib,0,"VIRTUAL get_track(" + id + ")");
+            Utils.log(dbg_lib+1,0,"VIRTUAL get_track(" + id + ")");
 
             PlaylistSource playlist_source = artisan.getPlaylistSource();
                 // NEVER NULL
@@ -292,7 +292,7 @@ public class LocalLibrary extends Device implements Library
 
             if (cursor != null && retval.size() < count)
             {
-                Utils.log(dbg_lib,1,"found " + cursor.getCount() + " " + table + " records");
+                Utils.log(dbg_lib +1,1,"found " + cursor.getCount() + " " + table + " records");
                 if (cursor.moveToFirst())
                 {
                     if (retval.size() < count)

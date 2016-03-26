@@ -23,9 +23,10 @@ import java.util.LinkedList;
 
 import prh.artisan.Artisan;
 import prh.artisan.Database;
-import prh.artisan.EventHandler;
+import prh.artisan.Folder;
 import prh.artisan.Playlist;
 import prh.artisan.Prefs;
+import prh.artisan.Record;
 import prh.artisan.Track;
 import prh.server.HTTPServer;
 import prh.server.http.OpenPlaylist;
@@ -38,7 +39,9 @@ import prh.utils.Utils;
 import prh.utils.httpUtils;
 
 
-public class LocalPlaylist implements Playlist, Fetcher.FetcherUser
+public class LocalPlaylist implements
+    Playlist,
+    Fetcher.FetcherSource
 {
     private int dbg_pl = 1;
     private int dbg_open_pl = 0;
@@ -68,6 +71,7 @@ public class LocalPlaylist implements Playlist, Fetcher.FetcherUser
     private LinkedList<Track> tracks_by_position =  new LinkedList<Track>();
         // list of in-memory tracks
         // the linked list is flushed out with null members during start()
+
 
     private boolean is_started = false;
     public boolean isStarted() { return is_started; }
@@ -127,7 +131,6 @@ public class LocalPlaylist implements Playlist, Fetcher.FetcherUser
                 track_index = cursor.getInt(fields.get("track_index"));
                 my_shuffle = cursor.getInt(fields.get("shuffle"));
                 Utils.log(dbg_pl,1,"LocalPlaylist(" + name + ") num_tracks=" + num_tracks + " track_index=" + track_index + " my_shuffle=" + my_shuffle);
-
             }
         }
 
@@ -148,67 +151,6 @@ public class LocalPlaylist implements Playlist, Fetcher.FetcherUser
     @Override public int getNumTracks()       { return num_tracks; }
     @Override public int getCurrentIndex()    { return track_index; }
     @Override public int getMyShuffle()       { return my_shuffle; }
-
-    //------------------------------
-    // Fetcher scheme
-    //------------------------------
-
-    private static int FETCH_INITIAL = 20;
-    private static int NUM_PER_FETCH = 200;
-    private Fetcher fetcher = null;
-
-
-    @Override public boolean getFetchItems(int start, int count, Fetcher fetcher)
-    {
-        int num_fetched = 0;
-        recordList records = fetcher.getRecords();
-
-        int num_already = records.size();
-        for (int i = num_already; i < num_tracks && num_fetched < NUM_PER_FETCH; i++)
-        {
-            records.add(getTrack(i));
-            num_fetched++;
-        }
-
-        if (num_fetched > 0)
-            artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CONTENT_CHANGED,this);
-        return true;
-    }
-
-
-    @Override public recordList getAvailableTracks(boolean with_album_breaks)
-        // Called by the Playlist to start, and on events
-        // HAS to work off of in memory records which can be
-        // slowish if they have not been loaded from the database yet.
-        // So, even though it's local, it uses a Fetcher ...
-        //
-        // Have to wait for it to stop to bump/dec num_tracks
-        // on insertions - BUG WAITING TO HAPPEN
-
-    {
-        if (fetcher == null)
-        {
-            recordList records = new recordList();
-            for (int i = 0; i < num_tracks && i < FETCH_INITIAL; i++)
-                records.add(getTrack(i + 1));  // ONE BASED
-
-            fetcher = new Fetcher(
-                artisan,
-                this,
-                records,
-                num_tracks,
-                NUM_PER_FETCH,
-                "Playlist_" + getName());
-
-            if (num_tracks > FETCH_INITIAL)
-            {
-                fetcher.start();
-            }
-        }
-
-        return fetcher.getRecords();
-    }
-
 
 
     @Override public void start()
@@ -231,12 +173,13 @@ public class LocalPlaylist implements Playlist, Fetcher.FetcherUser
 
             for (int i=0; i<num_tracks; i++)
             {
-                // Utils.log(0,6,"setting initial null track(" + i +") length=" + tracks_by_position.size());
+                // Utils.log(dbg_pl+2,6,"setting initial null track(" + i +") length=" + tracks_by_position.size());
                 tracks_by_position.add(i,null);
             }
         }
 
         // EXPOSE THE CURRENT TRACK
+        // to be changed into another set of Fetchers
 
         if (track_index > 0)
         {
@@ -256,6 +199,10 @@ public class LocalPlaylist implements Playlist, Fetcher.FetcherUser
     @Override public void stop()
     {
         is_started = false;
+
+        // Notify All Fetchers that we are stopping()
+        // Means we must keep a list of fetchers somehow
+
 
         // unexpose any tracks
 
@@ -325,7 +272,7 @@ public class LocalPlaylist implements Playlist, Fetcher.FetcherUser
             else
             {
                 track = new Track(cursor);
-                // Utils.log(0,5,"got db_track(" + next_open_id + ") " + track.getTitle());
+                // Utils.log(dbg_pl+2,5,"got db_track(" + next_open_id + ") " + track.getTitle());
 
                 track.putOpenId(next_open_id);
                 tracks_by_position.set(index - 1,track);
@@ -763,6 +710,177 @@ public class LocalPlaylist implements Playlist, Fetcher.FetcherUser
             // created in memory from didl
         }
     }
+
+
+    //------------------------------
+    // Fetcher Interface
+    //------------------------------
+
+    @Override public boolean isDynamicFetcherSource()
+    {
+        return true;
+    }
+
+
+    boolean fetcher_valid = true;
+    int num_virtual_folders = 0;
+    Folder last_virtual_folder = null;
+
+
+    private void invalidateFetcher()
+    {
+        fetcher_valid = false;
+        num_virtual_folders = 0;
+        last_virtual_folder = null;
+    }
+
+
+    private Folder addVirtualFolder(Track track)
+    // Given the track, if the virtual folder does
+    // not already exist, create it an initialize
+    // from the track, and return.  Otherwise add
+    // the track's statistics (existence, duration)
+    // to the virtual folder, but return null.
+    {
+        String title = track.getAlbumTitle();
+        String artist = track.getAlbumArtist();
+        int duration = track.getDuration();
+        String art_uri = track.getLocalArtUri();
+        String year_str = track.getYearString();
+        String genre = track.getGenre();
+        String id = track.getParentId();
+        if (artist.isEmpty())
+            artist = track.getArtist();
+
+        if (last_virtual_folder == null ||
+            !last_virtual_folder.getTitle().equals(title))
+        {
+            Folder folder = new Folder();
+            folder.put("id",id);
+            folder.put("title",title);
+            folder.put("num_elements",0);
+            folder.put("duration",0);
+            folder.put("artist",artist);
+            folder.put("art_uri",art_uri);
+            folder.put("year_str",year_str);
+            folder.put("genre",genre);
+            folder.put("dirtype","album");
+            last_virtual_folder = folder;
+            return folder;
+        }
+
+        Folder folder = last_virtual_folder;
+        String folder_title = folder.getTitle();
+        String folder_artist = folder.getArtist();
+        String folder_art_uri = folder.getLocalArtUri();
+        String folder_year_str = folder.getYearString();
+        String folder_genre = folder.getGenre();
+        String folder_id = folder.getId();
+        int num_elements = folder.getNumElements();
+        int folder_duration = folder.getInt("duration");
+
+        folder.putInt("num_elements",num_elements + 1);
+        folder.putInt("duration",folder_duration + duration);
+        if (folder_title.isEmpty())
+            folder.put("title",title);
+        if (folder_art_uri.isEmpty())
+            folder.put("art_uri",art_uri);
+        if (folder_year_str.isEmpty())
+            folder.put("year_str",year_str);
+        if (folder_genre.isEmpty())
+            folder.put("genre",genre);
+        if (folder_id.isEmpty())
+            folder.put("id",id);
+
+        String sep = folder_genre.isEmpty() ? "" : "|";
+        if (!genre.isEmpty() &&
+            !folder.getGenre().contains(genre))
+            folder.put("genre",folder_genre + sep + genre);
+        if (!artist.isEmpty() &&
+            !folder.getArtist().contains(artist))
+            folder.put("artist","Various");
+
+        return null;
+    }
+
+
+    @Override public Fetcher.fetchResult getFetchRecords(Fetcher fetcher, boolean initial_fetch, int num)
+    {
+        // synchronized (this)
+        {
+            recordList records = fetcher.getRecordsRef();
+            int num_records = records.size();
+            Utils.log(dbg_pl,0,"LocalPlaylist(" + getName() + ").getFetchRecords(" + initial_fetch + "," + num + "," + fetcher.getHow() + ") " +
+                num_records + "/" + num_tracks + " tracks already gotten, and " +
+                num_virtual_folders + " existing virtual folders");
+
+            // cannot have more virtual folders than records and
+            // we treat special case of num_records == 0 as restarting
+            // the virtual folders
+
+            if (num_records == 0 ||
+                num_virtual_folders >= num_records)
+                num_virtual_folders = 0;
+
+            // starting at the number of records in the fetcher
+            // subtract the number of virtual folders if fetching that way
+            // to get the actual 0 based track to get ...
+
+            int num_added = 0;
+            int next_index = num_records;
+            if (fetcher.getHow() == fetchHow.WITH_ALBUMS)
+                next_index -= num_virtual_folders;
+
+            // if fetcher was invalidated start over
+            // but go all the way up to the previous size + num
+
+            if (!fetcher_valid)
+            {
+                Utils.log(dbg_pl,1,"LocalPlaylist(" + getName() + ").getFetchRecords(" + initial_fetch + "," + num + ") invalidated fetcher resetting next=0 and num=" + (num + next_index));
+                num = num + next_index;
+                next_index = 0;
+                records.clear();
+            }
+
+            while (next_index < num_tracks && num_added < num)
+            {
+                Track track = getTrack(next_index + 1);    // one based
+                if (fetcher.getHow() == fetchHow.WITH_ALBUMS)
+                {
+                    Folder folder = addVirtualFolder(track);
+                    if (folder != null)
+                    {
+                        records.add(folder);
+                        num_added++;
+                        num_virtual_folders++;
+                        track = null;
+
+                        Utils.log(dbg_pl+1,1,"added virtual_folder[" + num_virtual_folders + "] " + folder.getTitle());
+                        Utils.log(dbg_pl+1,2,"at record[" + records.size() + "] as the " + num_added + " record in the fetch");
+                    }
+                }
+                if (track != null)
+                {
+                    records.add(track);
+                    num_added++;
+                    next_index++;
+                }
+            }
+
+            Fetcher.fetchResult result =
+                next_index >= num_tracks ? Fetcher.fetchResult.FETCH_DONE :
+                    num_added > 0 ? Fetcher.fetchResult.FETCH_RECS :
+                        Fetcher.fetchResult.FETCH_NONE;
+
+            // if (num_fetched > 0)
+            //     artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CONTENT_CHANGED,this);
+
+
+            Utils.log(dbg_pl,1,"LocalPlaylist.getFetchRecords() returning " + result + " with " + records.size() + " records");
+            return result;
+        }
+    }
+
 
 
 

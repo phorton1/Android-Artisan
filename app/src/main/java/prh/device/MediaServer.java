@@ -12,7 +12,6 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import prh.artisan.Artisan;
-import prh.artisan.EventHandler;
 import prh.artisan.Folder;
 import prh.artisan.Library;
 import prh.artisan.Track;
@@ -24,25 +23,11 @@ import prh.utils.ImageLoader;
 import prh.utils.Utils;
 import prh.types.stringHash;
 
-public class MediaServer extends Device implements Library
+public class MediaServer extends Device implements
+    Library
 {
-    private static final int dbg_ms = 0;
-    private static final int dbg_fp = 0;
-    private static final int dbg_fetcher = 0;
-
-    // Fetcher configuration constants
-
-    private final static int FETCH_NUM = 80;
-        // number gotten on fetch thread per hit
-    private final static int FETCH_INITIAL_NUM = 20;
-        // number gotten synchronously for initial hit
-    private final static int SLEEP_FETCH_RETRIES = 20;
-    private final static int SLEEP_FETCH_MILLIS = 240;
-        // wait loop for a fetcher to stop when we have a
-        // new request to physically fetch records
-    private final static int SLEEP_FETCH_INTERNAL_MILLIS = 0;
-        // In the fetcher thread itself this is the delay between
-        // subsequent synchronized calls ...
+    private static final int dbg_ms = 1;    // mediaServer
+    private static final int dbg_fp = 1;    // folder plus
 
     // Tracks are only returned as sub-items of folders.
     // Therefore to support the getTrack() api, and generally
@@ -62,8 +47,8 @@ public class MediaServer extends Device implements Library
     private class trackHash extends HashMap<String,Track> {}
     folderHash folders = null;
     trackHash tracks = null;
+
     private FolderPlus current_fetcher_folder = null;
-    private int num_fetchers_running = 0;
 
 
     //----------------------------------------
@@ -111,10 +96,8 @@ public class MediaServer extends Device implements Library
     }
 
 
-    @Override public void stop()
+    @Override public void stop(boolean wait_for_stop)
     {
-        // artisan.showArtisanProgressIndicator(false);
-
         if (tracks != null)
             tracks.clear();
         tracks = null;
@@ -125,7 +108,7 @@ public class MediaServer extends Device implements Library
             {
                 Fetcher fetcher = folder.getFetcher();
                 if (fetcher != null)
-                    fetcher.stop(true);
+                    fetcher.stop(true,wait_for_stop);
             }
         }
         folders.clear();
@@ -191,8 +174,8 @@ public class MediaServer extends Device implements Library
             current_fetcher_folder != folder)
         {
             Utils.log(dbg_ms,0,"folder changed from (" + current_fetcher_folder.getTitle() + ") to (" + folder.getTitle() + ") in getSubItems()");
-            Utils.log(dbg_ms,1,"STOPPING OLD FETCHER");
-            current_fetcher_folder.getFetcher().stop(false);
+            Utils.log(dbg_ms,1,"Pausing OLD FETCHER");
+            current_fetcher_folder.getFetcher().pause();
         }
         
         current_fetcher_folder = folder;
@@ -205,9 +188,10 @@ public class MediaServer extends Device implements Library
     public void setCurrentFolder(Folder folder)
         // Called by aLibrary when going up or down the stack
     {
-        Utils.log(dbg_fetcher,0,"MediaServer.setCurrentFolder("  + folder.getTitle() + ")");
+        Utils.log(dbg_fp,0,"MediaServer.setCurrentFolder("  + folder.getTitle() + ")");
         if (current_fetcher_folder != null)
-            current_fetcher_folder.getFetcher().stop(false);
+            current_fetcher_folder.getFetcher().stop(false,false);
+
         current_fetcher_folder = (FolderPlus) folder;
         if (current_fetcher_folder.getFetcher() != null)
             current_fetcher_folder.getFetcher().start();
@@ -219,19 +203,25 @@ public class MediaServer extends Device implements Library
     // Implementation
     //-------------------------------------------------
     // Derived in memory folder that keeps it's children.
+    // In this case the 'client" of the fetcher is artisan
+    // which will pass the the client calls down to aLibrary
+    // a
 
-    public class FolderPlus extends Folder implements Fetcher.FetcherUser
+    public class FolderPlus extends Folder implements Fetcher.FetcherSource
         // it is expected that the records will be requested in order,
         // that is, a search will never start off with start>0
     {
         int num_found = 0;
         int update_id;
 
-        private recordList records = null;
         private Fetcher fetcher = null;
         public Fetcher getFetcher() { return fetcher; }
-        public recordList getRecords() { return records; }
+        public recordList getRecords() { return fetcher.getRecords(); }
 
+
+        //---------------------------------------
+        // FolderPlus API
+        //---------------------------------------
 
         public FolderPlus(objectHash params)
         {
@@ -244,6 +234,14 @@ public class MediaServer extends Device implements Library
         {
             return num_found;
         }
+
+
+        // Fetcher configuration constants
+
+        private final static int FETCH_NUM = 80;
+            // number gotten on fetch thread per hit
+        private final static int FETCH_INITIAL_NUM = 20;
+            // number gotten synchronously for initial hit
 
 
         public libraryBrowseResult getBrowseResult(int start,int count,boolean meta_data)
@@ -269,44 +267,49 @@ public class MediaServer extends Device implements Library
             }
             
             // otherwise, do the only initial get if records==null
-            
-            if (records == null)
+            // in MediaServer, the "client" is artisan itself, who
+            // passes the calls onto aLibrary
+
+            if (fetcher == null)
             {
-                records = new recordList();
                 fetcher = new Fetcher(
                     artisan,
                     this,
-                    records,           // the record list we will count records in
-                    getNumElements(),  // int num_to_fetch = number of total records to get
-                    FETCH_NUM,         // number to get per call to getFetcherItems
-                    getTitle());
-                Utils.log(dbg_fetcher,1,"FolderPlus.getBrowseResult(" + getTitle() + ") calling synchGetItems(" + start + "," + count + ")");
-                if (!getFetchItems(start,FETCH_INITIAL_NUM,null))
+                    artisan,
+                    FETCH_INITIAL_NUM,
+                    FETCH_NUM,
+                    "MediaServer::" + getTitle());
+
+                // calls back to our getFetchRecords() method
+                // which sets our member variables num_found, update_id, etc
+
+                Utils.log(dbg_fp,1,"FolderPlus.getBrowseResult(" + getTitle() + ") calling fetcher.start()");
+                if (!fetcher.start())
                 {
-                    Utils.error("synchGetItems(" + start + "," + count + ") failed for " + getTitle());
+                    Utils.error("fetcher.start() return false in FolderPlus.getBrowseResult(" + getTitle() + ")");
                     return result;
                 }
             }
 
             // return whatever's there
             // flesh out the return result
+            // the result was empty, but we still have to
+            // add the records one at a time, to work with
+            // the start,count scheme, since, there is no
+            // get_splice() method on an array list
+
+            recordList records_ref = fetcher.getRecordsRef();
+            int num_records = records_ref.size();
+            int num_returned = num_records - start;
+            if (num_returned < 0) num_returned = 0;
 
             result.setTotalFound(num_found);
+            result.setNumReturned(num_returned);
             result.setUpdateId(update_id);
-            int use_count = records == null ? 0 : records.size();
-            for (int pos=start; pos<use_count; pos++)
-            {
-                result.addItem(records.get(pos));
-            }
-            
-            // fire off the fetcher if there's more
-            
-            if (records.size() < getNumElements())
-            {
-                Utils.log(dbg_fetcher,2,"FolderPlus.getBrowseResult(" + getTitle() + ") calling STARTING_FETCHER");
-                fetcher.start();
-            }
-            
+
+            if (num_returned > 0)
+                result.addAll(start,records_ref.subList(start,num_records));
+
             // finished
             
             Utils.log(dbg_fp,1,"FolderPlus.getBrowseResult(" + getTitle() + ") returning " + result.getNumReturned() + " items");
@@ -315,14 +318,18 @@ public class MediaServer extends Device implements Library
         }   // getBrowseResult()
         
 
+
         //------------------------------------------
-        // parsing
+        // private implementation parseResultDidl()
         //------------------------------------------
 
         private boolean parseResultDidl(String didl)
         {
             Document result_doc = null;
             Utils.log(dbg_fp+1,5,"FolderPlus.parseDidl() didl=" + didl);
+
+            if (fetcher.stop_fetch())
+                return true;
 
             ByteArrayInputStream stream = new ByteArrayInputStream(/*clean_*/didl.getBytes());
             try
@@ -336,8 +343,8 @@ public class MediaServer extends Device implements Library
                 return false;
             }
 
-            if (fetcher.forcingStop())
-                return false;
+            if (fetcher.stop_fetch())
+                return true;
 
             // Parse the result into folder/track subitems
             // By the way, this is a duplicated, and somewhat better
@@ -348,8 +355,8 @@ public class MediaServer extends Device implements Library
             Node node = result_ele.getFirstChild();
             while (node != null)
             {
-                if (fetcher.forcingStop())
-                    return false;
+                if (fetcher.stop_fetch())
+                    return true;
 
                 Element node_ele = (Element) node;
                 objectHash params = new objectHash();
@@ -434,11 +441,12 @@ public class MediaServer extends Device implements Library
                         params.put("type",Track.extractType(protocol));
                     }
 
-                    if (fetcher.forcingStop())
-                        return false;
+                    if (fetcher.stop_fetch())
+                        return true;
 
                     Track add_track = new Track(params);
-                    records.add(add_track);
+                    recordList records_ref = fetcher.getRecordsRef();
+                    records_ref.add(add_track);
                     tracks.put(item_id,add_track);
                 }
 
@@ -446,8 +454,8 @@ public class MediaServer extends Device implements Library
 
                 else
                 {
-                    if (fetcher.forcingStop())
-                        return false;
+                    if (fetcher.stop_fetch())
+                        return true;
 
                     String dirtype =
                         is_album ? "album" :
@@ -460,7 +468,8 @@ public class MediaServer extends Device implements Library
                     params.put("dirtype",dirtype);
 
                     FolderPlus add_folder = new FolderPlus(params);
-                    records.add(add_folder);
+                    recordList records_ref = fetcher.getRecordsRef();
+                    records_ref.add(add_folder);
                     folders.put(item_id,add_folder);
                 }
 
@@ -492,23 +501,33 @@ public class MediaServer extends Device implements Library
 
 
 
-        //------------------------------------------
-        // synchGetItems()
-        //------------------------------------------
+        //---------------------------------------
+        // FetcherSource interface
+        //---------------------------------------
 
+        @Override public boolean isDynamicFetcherSource()
+        {
+            return false;
+        }
 
-        @Override public boolean getFetchItems(int start, int count, Fetcher fromFetcher)
+        @Override public Fetcher.fetchResult getFetchRecords(Fetcher fetcher, boolean initial_fetch, int num)
         {
             // get the sub_items from the remote server
 
-            int cur_num_items = records.size();
-            Utils.log(dbg_fetcher,3,"syncGetItems(" + start + "," + count + ") cur_num_items=" + cur_num_items +"/" + getNumElements());
+            int current_num = fetcher.getNumRecords();
+            Utils.log(dbg_fp,3,"FolderPlus(" + getTitle() + ").getFetchRecords(" + initial_fetch + "," + num + ")  current_num=" + current_num + " getNumElements()=" + getNumElements());
+            if (!initial_fetch && current_num >= getNumElements())
+            {
+                Utils.log(dbg_fp,3,"FETCHER.DONE at top of FolderPlus(" + getTitle() + ").getFetchRecords( " + num + ")  current_num=" + current_num);
+                return Fetcher.fetchResult.FETCH_DONE;
+            }
+
 
             stringHash args = new stringHash();
             args.put("InstanceID","0");
             args.put("ObjectID",getId());
-            args.put("StartingIndex",Integer.toString(start));
-            args.put("RequestedCount",Integer.toString(count));
+            args.put("StartingIndex",Integer.toString(current_num));
+            args.put("RequestedCount",Integer.toString(num));
             args.put("Filter","*");
             args.put("SortCriteria","");
             args.put("BrowseFlag","BrowseDirectChildren");
@@ -516,13 +535,14 @@ public class MediaServer extends Device implements Library
 
             Document doc = doAction(Service.serviceType.ContentDirectory,"Browse",args);
             if (doc == null)
-                return false;
+                return Fetcher.fetchResult.FETCH_ERROR;
 
             // if we are being forced to stop, don't go any further
             // otherwise, for a normal stop, we keep the results
 
-            if (fetcher.forcingStop())
-                return false;
+            if (fetcher.stop_fetch())
+                return Fetcher.fetchResult.FETCH_NONE;
+
 
             // parse library result contents
             // num_found and update_id always set to most recent search
@@ -537,32 +557,32 @@ public class MediaServer extends Device implements Library
             if (num_returned_str.isEmpty())
             {
                 Utils.warning(0,4,"BrowseResult: NumberReturned is empty");
-                return false;
+                return Fetcher.fetchResult.FETCH_ERROR;
             }
             else if (num_returned == 0)
             {
                 Utils.warning(0,4,"BrowseResult: NumberReturned is zero");
-                return false;
+                return Fetcher.fetchResult.FETCH_NONE;
             }
             else if (didl.isEmpty())
             {
                 Utils.warning(0,4,"BrowseResult: Didl is unexpectedly empty");
-                return false;
+                return Fetcher.fetchResult.FETCH_ERROR;
             }
             else if (!parseResultDidl(didl))
-                return false;
-
-
-            if (fromFetcher != null &&
-                !fromFetcher.forcingStop() &&
-                records.size() > cur_num_items)
             {
-                artisan.handleArtisanEvent(EventHandler.EVENT_ADDL_FOLDERS_AVAILABLE,FolderPlus.this);
+                return Fetcher.fetchResult.FETCH_ERROR;
             }
 
-            return true;
+            int new_num = fetcher.getNumRecords();
+            Fetcher.fetchResult result =
+                new_num >= getNumElements() ? Fetcher.fetchResult.FETCH_DONE :
+                new_num > current_num ? Fetcher.fetchResult.FETCH_RECS :
+                Fetcher.fetchResult.FETCH_NONE;
+            Utils.log(dbg_fp,3,"FolderPlus(" + getTitle() + ").getFetchRecords(" + num + "/" + getNumElements() +") returning " + result + " with list containing " + new_num + " records");
+            return result;
 
-        }   // synchGetItems()
+        }   // MediaServer.FolderPlus.getFetchRecords()
 
 
     }   // class FolderPlus
