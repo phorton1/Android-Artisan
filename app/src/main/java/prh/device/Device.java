@@ -121,7 +121,7 @@ public abstract class Device implements Comparable<Device>
     // Constructors
     //-------------------------------------------
 
-    public Device(Artisan ma, SSDPSearch.SSDPDevice ssdp_device)
+    public Device(Artisan ma, SSDPSearchDevice ssdp_device)
     {
         artisan = ma;
         friendlyName = ssdp_device.getFriendlyName();
@@ -251,10 +251,10 @@ public abstract class Device implements Comparable<Device>
     // from SSDPSearch after validating sufficient services, etc,
     // this creates the services from an SSDP_Device
 
-    public boolean createSSDPServices(SSDPSearch.SSDPDevice ssdp_device)
+    public boolean createSSDPServices(SSDPSearchDevice ssdp_device)
     {
-        SSDPSearch.SSDPDevice.ServiceHash ssdp_services = ssdp_device.getServices();
-        for (SSDPSearch.SSDPService ssdp_service : ssdp_services.values())
+        SSDPSearchDevice.ServiceHash ssdp_services = ssdp_device.getServices();
+        for (SSDPSearchService ssdp_service : ssdp_services.values())
         {
             Service service = null;
             Service.serviceType service_type = ssdp_service.getServiceType();

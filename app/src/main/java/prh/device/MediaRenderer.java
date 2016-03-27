@@ -38,7 +38,7 @@ public class MediaRenderer extends Device implements Renderer
     //          the expected track that we expect it to be playing
 {
 
-    public MediaRenderer(Artisan artisan, SSDPSearch.SSDPDevice ssdp_device)
+    public MediaRenderer(Artisan artisan, SSDPSearchDevice ssdp_device)
     {
         super(artisan,ssdp_device);
         Utils.log(0,1,"new MediaRenderer(" + ssdp_device.getFriendlyName() + "," + ssdp_device.getDeviceType() + "," + ssdp_device.getDeviceUrl());

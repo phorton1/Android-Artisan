@@ -6,6 +6,7 @@ import org.w3c.dom.Document;
 import prh.artisan.Artisan;
 import prh.device.Device;
 import prh.device.SSDPSearch;
+import prh.device.SSDPSearchService;
 import prh.device.Service;
 
 public class OpenInfo extends Service
@@ -13,7 +14,7 @@ public class OpenInfo extends Service
     public OpenInfo(
         Artisan artisan,
         Device device,
-        SSDPSearch.SSDPService ssdp_service )
+        SSDPSearchService ssdp_service )
     {
         super(artisan,device,ssdp_service);
     }

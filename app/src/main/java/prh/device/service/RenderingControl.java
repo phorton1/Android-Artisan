@@ -24,6 +24,7 @@ import prh.artisan.Volume;
 import prh.artisan.VolumeControl;
 import prh.device.Device;
 import prh.device.SSDPSearch;
+import prh.device.SSDPSearchService;
 import prh.device.Service;
 import prh.utils.Utils;
 import prh.types.stringHash;
@@ -106,7 +107,7 @@ public class RenderingControl extends Service implements Volume
     public RenderingControl(
         Artisan artisan,
         Device device,
-        SSDPSearch.SSDPService ssdp_service )
+        SSDPSearchService ssdp_service )
     {
         super(artisan,device,ssdp_service);
         max_values = new int[]{0,0,0,0,0,0,0,0};

@@ -11,6 +11,7 @@ import java.util.HashMap;
 import prh.artisan.Artisan;
 import prh.artisan.EventHandler;
 import prh.utils.Utils;
+import prh.utils.httpUtils;
 
 
 public class DeviceManager
@@ -90,7 +91,7 @@ public class DeviceManager
 {
 
     private static int dbg_dm = 1;
-    private static int dbg_cache = 1;
+    private static int dbg_cache = 0;
     private static String cache_file_name = "device_cache.txt";
     public static boolean USE_DEVICE_CACHE = true;
 
@@ -102,6 +103,8 @@ public class DeviceManager
     // variables
 
     Artisan artisan;
+    private int busy_count = 0;
+    private int num_devices_added = 0;
     private SSDPSearch ssdp_search = null;
     private DeviceHash devices = new DeviceHash();
     private DeviceGroupHash devices_by_group = new DeviceGroupHash();
@@ -311,31 +314,60 @@ public class DeviceManager
 
 
 
+
     public void stop()
-        // wait for any pending device search to finishe
+        // wait for any pending device search to finish
     {
+        if (busy_count > 0)
+        {
+            int count = 0;
+            int RETRIES = 8;
+            while (busy_count>0 && count++ < RETRIES)
+            {
+                Utils.log(0,0,"waiting for ssdp search on deviceManager.stop() busy="  + busy_count);
+                Utils.sleep(1000);
+            }
+            busy_count = 0;
+        }
+        ssdp_search = null;
     }
+
 
 
     public boolean searchInProgress()
     {
-        return
-            ssdp_search != null &&
-                !ssdp_search.finished();
+        return busy_count > 0;
     }
 
     public boolean canDoDeviceSearch()
     {
-        return
-            ssdp_search == null ||
-            ssdp_search.finished();
+        return busy_count == 0;
     }
+
+
+    public int incDecBusy(int inc)
+    {
+        busy_count += inc;
+        if (inc == 1 && busy_count == 1)
+        {
+            num_devices_added = 0;
+            artisan.handleArtisanEvent(EventHandler.EVENT_SSDP_SEARCH_STARTED,null);
+        }
+        else if (inc == -1 && busy_count == 0)
+        {
+            // finished!
+            if (USE_DEVICE_CACHE && num_devices_added > 0)
+                writeCache();
+            artisan.handleArtisanEvent(EventHandler.EVENT_SSDP_SEARCH_FINISHED,null);
+        }
+        return busy_count;
+    }
+
 
 
     public void doDeviceSearch(boolean clear_cache)
     {
-        if (ssdp_search != null &&
-            !ssdp_search.finished())
+        if (ssdp_search != null && busy_count > 0)
         {
             Utils.error("There is already a device search under way");
             return;
@@ -350,6 +382,7 @@ public class DeviceManager
             addDevice(artisan.getLocalRenderer());
             addDevice(artisan.getLocalPlaylistSource());
         }
+
         ssdp_search = new SSDPSearch(this,artisan);
         Thread search_thread = new Thread(ssdp_search);
         search_thread.start();
@@ -357,7 +390,92 @@ public class DeviceManager
 
 
 
-    public void createDevice(SSDPSearch.SSDPDevice ssdp_device)
+    public boolean threadedDeviceCheck(
+        String location,
+        String device_usn  )
+        // Called from SSDPSearch and SSDPServer
+        //
+        // if we got a location and, and it's not ourselves
+        // and we got a device type and it's allowed
+        // start the asynchronous XML request for the service description/
+        //
+        // the check for ourselves is important since we fire off an SSDP
+        // search right after constructing the http server, which may
+        // not have had time to start (so I got errors here anyways
+        // cuz the doc could not be loaded).
+    {
+        if (location != null && !location.isEmpty() &&
+            // device_st != null && !device_st.isEmpty() &&
+            device_usn != null && !device_usn.isEmpty() &&
+            !location.contains(Utils.server_ip + ":" + Utils.server_port) &&
+            isValidDeviceUSN(device_usn))
+        {
+            SSDPSearchDevice device = new SSDPSearchDevice(
+                this,
+                location,
+                device_usn);
+
+            // The devices take place on separate threads
+            // Which leads to a race condition tyring to figure out if
+            // the search is completed by counting number started - number_finished
+
+            if (device.isValid())
+            {
+                Utils.log(dbg_dm,0,"creating SSDPDevice(" + device_usn + ")");
+                Thread device_thread = new Thread(device);
+                device_thread.start();
+                return true;
+            }
+        }
+        else
+        {
+            Utils.warning(dbg_dm + 2,1,"Skipping reply from device(" + device_usn + " at " + location);
+        }
+        return false;
+    }
+
+
+
+    // validation
+
+    public boolean isValidDeviceUSN(String usn)
+    // Checks USN for uuid, urn, and device:
+    // Makes sure device_type is one we want
+    // Validates the urn versus the expected_urn
+    {
+        String uuid = Utils.extract_re("uuid:(.*?):",usn);
+        String urn = Utils.extract_re("urn:(.*?):",usn);
+        String device_type_string = Utils.extract_re("device:(.*?):",usn);
+
+        if (uuid.isEmpty())
+            return false;
+        if (urn.isEmpty())
+            return false;
+        if (device_type_string.isEmpty())
+            return false;
+
+        String expected_urn = "";
+        if (device_type_string.equals(Device.deviceType.MediaRenderer.toString()))
+            expected_urn = httpUtils.upnp_urn;
+        if (device_type_string.equals(Device.deviceType.MediaServer.toString()))
+            expected_urn = httpUtils.upnp_urn;
+        if (device_type_string.equals(Device.deviceType.OpenHomeRenderer.toString()))
+            expected_urn = httpUtils.open_device_urn;
+
+        if (expected_urn.isEmpty())
+            return false;
+        if (!urn.equals(expected_urn))
+        {
+            Utils.warning(0,0,"mismatched urn " + urn + " for " + device_type_string);
+            return false;
+        }
+
+        return true;
+    }
+
+
+
+    public boolean createDevice(SSDPSearchDevice ssdp_device)
         // Called from SSDPSearch when a valid, createable,
         // Device and set of Services are found.
         //
@@ -385,7 +503,7 @@ public class DeviceManager
         if (device != null)
         {
             Utils.log(dbg_dm,3,"device already exists" + dbg_msg);
-            return;
+            return false;
         }
 
 
@@ -417,10 +535,13 @@ public class DeviceManager
 
         if (device != null)
         {
+            num_devices_added ++;
             device.createSSDPServices(ssdp_device);
             addDevice(device);
             artisan.handleArtisanEvent(EventHandler.EVENT_NEW_DEVICE,device);
+            return true;
         }
+        return false;
     }
 
 

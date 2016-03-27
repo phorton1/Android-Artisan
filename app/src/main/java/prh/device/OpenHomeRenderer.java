@@ -11,7 +11,7 @@ import prh.utils.Utils;
 public class OpenHomeRenderer extends Device implements Renderer
 {
 
-    public OpenHomeRenderer(Artisan artisan, SSDPSearch.SSDPDevice ssdp_device)
+    public OpenHomeRenderer(Artisan artisan, SSDPSearchDevice ssdp_device)
     {
         super(artisan,ssdp_device);
         Utils.log(0,1,"new OpenHomeRenderer(" + ssdp_device.getFriendlyName() + "," + ssdp_device.getDeviceType() + "," + ssdp_device.getDeviceUrl());

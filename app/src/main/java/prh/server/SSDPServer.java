@@ -22,6 +22,8 @@ import android.os.Handler;
 import android.os.Looper;
 
 import prh.artisan.Artisan;
+import prh.device.Device;
+import prh.device.DeviceManager;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
@@ -282,9 +284,19 @@ public class SSDPServer implements Runnable
                 byte[] buf = new byte[1024];
                 DatagramPacket dp = new DatagramPacket(buf, buf.length);
                 mMulticastSocket.receive(dp);
-
                 String startLine = parseStartLine(dp);
-                if (startLine.equals("M-SEARCH * HTTP/1.1"))
+
+                // skip ourselves
+
+                if (dp.getAddress().toString().equals(Utils.server_ip) &&
+                    Integer.toString(dp.getPort()).equals(Utils.server_port))
+                {
+                    Utils.log(0,0,"skipping " + startLine + " from ourselves " + dp.getAddress() + ":" + dp.getPort());
+                }
+
+                // listen for M_SEARCH
+
+                else if (startLine.equals("M-SEARCH * HTTP/1.1"))
                 {
                     String man = parseHeaderValue(dp, "MAN");
 
@@ -335,10 +347,47 @@ public class SSDPServer implements Runnable
                     }   // man==ssdp:discover
                 }   // M_SEARCH message
 
-                else if (false)
+
+                // More recent code to listen for Servers broadcasting M_NOTIFY
+                // and to call device manager to create them if they're good and interesting
+
+                else if (startLine.equals("NOTIFY * HTTP/1.1")) synchronized (this)
                 {
-                    Utils.log(0,0,"NOT M_SEARCH: " + dp.getAddress() + ":" + dp.getPort() + " = " + new String(dp.getData()));
+                    String nts = parseHeaderValue(dp,"NTS");
+                    String usn = parseHeaderValue(dp,"USN");
+                    String location = parseHeaderValue(dp,"LOCATION");
+                    String action = nts == null ? "" : Utils.extract_re("ssdp:(.*)$",nts);
+
+                    // Utils.log(0,5,"M_NOTIFY(" + action + ") from  " + dp.getAddress() + ":" + dp.getPort());
+
+                    if (usn != null &&
+                        location != null &&
+                        !location.isEmpty() &&
+                        action.equals("alive") && (
+                        usn.contains("MediaServer:1") ||
+                        usn.contains("MediaRenderer:1") ||
+                        usn.contains("Source:1")))
+                    {
+                        DeviceManager dm = artisan.getDeviceManager();
+                        String device_uuid = Utils.extract_re("uuid:(.*?):",usn);
+                        if (dm.getDevice(device_uuid) == null)
+                        {
+                            Utils.log(dbg_ssdp,1,"processing M_NOTIFY from  " + dp.getAddress() + ":" + dp.getPort() + " location=" + location + "usn=" + usn);
+                            if (dm.threadedDeviceCheck(location,usn))
+                                dm.incDecBusy(1);
+                            else
+                                Utils.log(dbg_ssdp+1,2,"not interested");
+
+                        }
+                        else
+                            Utils.log(dbg_ssdp+1,5,"device already exists:" + location + "usn=" + usn);
+
+                    }
                 }
+                // unknown response
+
+                //else Utils.log(0,0,"NOT M_SEARCH: " + dp.getAddress() + ":" + dp.getPort() + " = " + new String(dp.getData()));
+
             }
             catch (Exception e)
             {
@@ -363,16 +412,26 @@ public class SSDPServer implements Runnable
         Scanner s = new Scanner(content);
         s.nextLine(); // Skip the start line
 
-        while (s.hasNextLine())
-        {
-            String line = s.nextLine();
-            int index = line.indexOf(':');
-            String header = line.substring(0, index);
-            if (headerName.equalsIgnoreCase(header.trim()))
-                return line.substring(index + 1).trim();
-        }
+        String header;
+        String line;
+        int index;
 
-        return null;
+        try
+        {
+            while (s.hasNextLine())
+            {
+                line = s.nextLine();
+                index = line.indexOf(':');
+                header = (index < 0) ? "" : line.substring(0, index);
+                if (headerName.equalsIgnoreCase(header.trim()))
+                    return line.substring(index + 1).trim();
+            }
+        }
+        catch (Exception e)
+        {
+            Utils.warning(0,0,"exception: " + e);
+        }
+        return "";
     }
 
     private String parseHeaderValue(DatagramPacket dp, String headerName) {

@@ -61,7 +61,7 @@ public class MediaServer extends Device implements
     }
 
 
-    public MediaServer(Artisan artisan, SSDPSearch.SSDPDevice ssdp_device)
+    public MediaServer(Artisan artisan, SSDPSearchDevice ssdp_device)
     {
         super(artisan,ssdp_device);
         Utils.log(dbg_ms,1,"new MediaServer(" + ssdp_device.getFriendlyName() + "," + ssdp_device.getDeviceType() + "," + ssdp_device.getDeviceUrl());

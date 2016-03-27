@@ -37,7 +37,7 @@ public abstract class Service
 
     public Service(Artisan ma,
                    Device d,
-                   SSDPSearch.SSDPService ssdp_service)
+                   SSDPSearchService ssdp_service)
     {
         artisan = ma;
         device = d;
