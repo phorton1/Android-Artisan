@@ -35,11 +35,13 @@ class ListItemAdapter extends ArrayAdapter<Record>
     private ListItem.ListItemListener listener;
 
     boolean fast_scroll_setup = false;
-    // boolean fast_scroll_enabled = false;
-    // boolean fast_scroll_visible = false;
-
+        // boolean fast_scroll_enabled = false;
+        // boolean fast_scroll_visible = false;
 
     public Folder getFolder() { return folder; }
+
+    public void setLargeFolders(boolean lf) { large_folders = lf; }
+    public void setLargeTracks(boolean lt)  { large_tracks = lt; }
 
     // ctor
 
@@ -64,7 +66,7 @@ class ListItemAdapter extends ArrayAdapter<Record>
         this.large_folders = large_folders;
         this.large_tracks = large_tracks;
 
-        setScrollBar();
+        setScrollBar(false);
 
     }
 
@@ -111,41 +113,82 @@ class ListItemAdapter extends ArrayAdapter<Record>
         records.clear();
         records.addAll(new_records);
         num_items = records.size();
-        notifyDataSetChanged();
-        setScrollBar();
+        setScrollBar(false);
+        // handlePendingScroll();
     }
 
+
+    //----------------------------------------------
+    // Pending Scroll Support
+    //----------------------------------------------
+    /***
+
+     int pending_scroll_index = -1;
+     int pending_scroll_offset;
+
+     private void handlePendingScroll
+        // called at end of setItems()
+     {
+        if (pending_scroll_index >= 0 && records.size() > pending_scroll_index)
+        {
+            Utils.log(0,0,"SET_DEFERRED_POSITION(" + pending_scroll_index + "," + pending_scroll_offset + ")");
+            list_view.setSelectionFromTop(pending_scroll_index,pending_scroll_offset);
+            pending_scroll_index = -1;
+        }
+     }
+
+     public void setScrollPosition(int index, int offset)
+        // Called by client
+     {
+         if (records.size() > index)
+         {
+             Utils.log(0,0,"SET_SCROLL_POSITION(" + index + "," + offset + ")");
+             list_view.setSelectionFromTop(index,offset);
+         }
+         else
+         {
+             Utils.log(0,0,"SET_SCROLL_POSITION_DEFERRED(" + index + "," + offset + ")");
+             pending_scroll_index = index;
+             pending_scroll_offset = offset;
+         }
+     }
+     ***/
 
     //----------------------------------
     // SCROLL BARS
     //----------------------------------
 
-    private void setScrollBar()
+    public void setScrollBar(final boolean force_thumb)
     {
         // we are forcing it to show if the USE_SCROLL_BARS
         // and the number of records exceeds it
 
-        boolean enabled = records.size() >= USE_SCROLL_BARS;
-        Utils.log(dbg_la,0,"SETSCROLLBAR() enabled=" + enabled);
-
-        // SHRINK the right hand text
-        // shrink the list_view if the scroll bar visible
-
-        int margin_width = enabled ? 16 : 0;
-        list_view.setPadding(0,0,margin_width,0);
-
-        // set the scrolling enabled and visible
-
-       list_view.setFastScrollEnabled(enabled);
-       list_view.setFastScrollAlwaysVisible(enabled);
-        // use our thumb if enabled
-
-        if (enabled && !fast_scroll_setup)
+        artisan.runOnUiThread( new Runnable() { public void run()
         {
-            fast_scroll_setup = true;
-            Utils.log(dbg_la,0,"Setting up FastScroll thumb");
-            setFastScrollThumb();
-        }
+
+            boolean enabled = records.size() >= USE_SCROLL_BARS;
+            Utils.log(dbg_la,0,"SETSCROLLBAR() enabled=" + enabled);
+
+            // SHRINK the right hand text
+            // shrink the list_view if the scroll bar visible
+
+            int margin_width = enabled ? 16 : 0;
+            list_view.setPadding(0,0,margin_width,0);
+
+            // set the scrolling enabled and visible
+
+            list_view.setFastScrollEnabled(enabled);
+            list_view.setFastScrollAlwaysVisible(enabled);
+
+            // use our thumb if enabled
+
+            if (enabled && (force_thumb || !fast_scroll_setup))
+            {
+                fast_scroll_setup = true;
+                Utils.log(dbg_la,0,"Setting up FastScroll thumb");
+                setFastScrollThumb();
+            }
+        }});
     }   // setScrollBar()
 
 

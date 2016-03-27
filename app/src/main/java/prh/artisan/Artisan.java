@@ -487,7 +487,21 @@ public class Artisan extends FragmentActivity implements
         // EVENT_NEW_DEVICE will be called for any devices not in
         // the initial cache.
 
-        device_manager.doDeviceSearch(false);
+        if (Utils.server_ip != null)
+            device_manager.doDeviceSearch(false);
+        else
+        {
+            if (!default_library_name.isEmpty())
+                Utils.error("Could not find DEFAULT LIBRARY(" + default_library_name + ")");
+            if (!default_renderer_name.isEmpty())
+                Utils.error("Could not find DEFAULT RENDERER(" + default_renderer_name + ")");
+            if (!default_playlist_source_name.isEmpty())
+                Utils.error("Could not find DEFAULT PLAYLIST_SOURCE(" + default_playlist_source_name + ")");
+                default_library_name = "";
+                default_renderer_name = "";
+                default_playlist_source_name = "";
+        }
+
         Utils.log(dbg_main,0,"------ Artisan.onCreate() finished ------");
         artisan_created = true;
 

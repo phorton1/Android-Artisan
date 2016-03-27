@@ -5,6 +5,11 @@ import prh.utils.Utils;
 
 
 public class Fetcher implements Runnable
+
+{
+    private static int dbg_fetcher = 0;
+    private static int SLEEP_FETCH_INTERNAL_MILLIS = 0;
+
     // A Fetcher is an object that connects a source of Records
     //
     //         Playlist (i.e. LocalPlaylist)
@@ -64,70 +69,12 @@ public class Fetcher implements Runnable
     // likewise the ListItemAdapter) OWN lists of records, and
     // users of those objects MAY NOT CHANGE the record list
     // returned by them.
-    //
 
-    //-------------------------------------------
-    // Usage and Public Client API Recap
-    //-------------------------------------------
-    //
-    //      public boolean start()
-    //      public void stop(boolean force)
-    //      public void pause()
-    //      public recordList getRecords()
-    //      public recordList getRecordsRef()
-    //
-    // These methods can be called by clients or sources on a fetcher.
-    // They are protected against re-entrancy, and synchronized
-    // with calls to clients and sources into atomic operations.
-    //
-    //
-    //     boolean start()
-    //         Called immediately after construction and to restart
-    //         a possibly paused fetcher. On cold start, it does the
-    //         initial fetch and returns true, indicating to the caller
-    //         that the record list is current and can be used.
-    //
-    //         If called on an IDLE fetcher (that can be restarted)
-    //         it simply restarts the thread. The caller may assume
-    //         that the call did not change the record list, and that
-    //         clients will be notified if the thread subsequently does.
-    //
-    //         if start() return false, it should be considered an error,
-    //         and the fetcher is no longer valid, and should probably be
-    //         disconnected.  THERE IS CURRENTLY NO WAY FOR MediaServer's
-    //         fetcher(s) to notify the library that they have died.
-    //
-    //     stop(boolean force)
-    //         Stop the fetcher.
-    //         If force, do it as quickly as possible and do
-    //              not make any more client or source calls
-    //         otherwise, finish the fetch in progress
-    //              add the records, if any
-    //         Notify the client if it's a force_stop.
-    //         Notify the client when STOPPED is reached
-    //
-    //     pause()
-    //          Bring the fetcher to state IDLE by finishing
-    //          the current fetch in progress.  The client is
-    //          no longer interested, so will not be notified
-    //          of the results of the new fetch.
-    //
-    //
-    //  recordList getRecords()
-    //       Return a cloned copy of the record list.
-    //       To be used by client consumers of the records,
-    //       to ensure that they cannot change the record list.
-    //
-    //  recordList getRecordsRef()
-    //       Return the actual record list.
-    //       Used by sources during calls to getFetchRecords
-    //       so that they may activly modify the list of records.
 
-{
-    private static int dbg_fetcher = 1;
-    private static int SLEEP_FETCH_INTERNAL_MILLIS = 0;
 
+    //-------------------------------------
     // types
+    //-------------------------------------
 
     public static enum fetchResult
         // The result of a call by the Fetcher to the Source
@@ -286,13 +233,13 @@ public class Fetcher implements Runnable
 
     // configuration variables
 
-    Artisan artisan;
-    FetcherSource source;
-    FetcherClient client;
-    int num_per_fetch;
-    int num_initial_fetch;
-    Playlist.fetchHow how_playlist;
-    String dbg_title;
+    private Artisan artisan;
+    private FetcherSource source;
+    private FetcherClient client;
+    private int num_per_fetch;
+    private int num_initial_fetch;
+    private boolean album_mode;
+    private String dbg_title;
         // a string identifying this fetcher,
         // for debugging purposes, i.e. the name
         // of the folder or playlist being fetched.
@@ -301,10 +248,11 @@ public class Fetcher implements Runnable
 
     // state variables.
 
-    fetcherState state;
-    recordList records;
-    boolean in_fetch;
+    private fetcherState state;
+    private recordList records;
+    private boolean in_fetch;
 
+    public fetcherState getState() { return state; };
 
     //-------------------------------------------------------------------
     // Simple Public API
@@ -328,18 +276,18 @@ public class Fetcher implements Runnable
         in_fetch = false;
         state = fetcherState.FETCHER_INIT;
         records = new recordList();
-        how_playlist = Playlist.fetchHow.DEFAULT;
+        album_mode = false;
     }
 
     // simple accessors
 
-    public Playlist.fetchHow getHow()
+    public boolean getAlbumMode()
     {
-        return how_playlist;
+        return album_mode;
     }
-    public void setHow(Playlist.fetchHow how)
+    public void setAlbumMode(boolean on)
     {
-        how_playlist = how;
+        album_mode = on;
     }
 
     public int getNumRecords()
@@ -376,6 +324,19 @@ public class Fetcher implements Runnable
         return false;
     }
 
+
+    public boolean rebuild()
+        // special call to change album_mode
+        // and rebuild all records from the
+        // playlist we know is fully loaded.
+        // OR it will take a long time if the thing
+        // was not fully loaded.
+    {
+        Utils.log(dbg_fetcher,1,"Fetcher.rebuild(" + dbg_title + ") playlist num_tracks((Playlist)source).getNumTracks()");
+        records.clear();
+        fetchResult rslt = source.getFetchRecords(this,true,999999);
+        return rslt != fetchResult.FETCH_ERROR;
+    }
 
     //-------------------------------------------------------------------
     // Functional Public API
@@ -589,7 +550,7 @@ public class Fetcher implements Runnable
             // DID NOT GET ALL .. notify client of changes
             // and continue loop
 
-            if (!stop_fetch())
+            if (!stop_fetch()) synchronized (this)
             {
                 artisan.runOnUiThread(new Runnable()
                 {

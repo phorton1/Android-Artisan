@@ -34,8 +34,8 @@ public class PlaylistExposer
     private static int NUM_TO_EXPOSE = 20;
     // number that we expose in ExposeMore
     // set to the number BubbleUp normally asks for / 2
+    private static int EXPOSE_MORE_SLEEP_TIMES = 6;
     private static int EXPOSE_MORE_SLEEP_MILLIS = 200;
-    private static int EXPOSE_MORE_SLEEP_TIMES = 20;
         // how long ThreadedExposeMore sleeps before it
         // calls exposeMore()
 
@@ -86,11 +86,15 @@ public class PlaylistExposer
         int id = track.getOpenId();
         if (set_it && exposed.get(id) == null)
         {
+            num_exposed++;
             exposed.put(id,true);
+            return true;
         }
         else if (!set_it && exposed.get(id) != null)
         {
+            num_exposed--;
             exposed.remove(exposed.get(id));
+            return true;
         }
         return false;
     }

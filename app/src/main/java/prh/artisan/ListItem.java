@@ -49,7 +49,11 @@ public class ListItem extends RelativeLayout implements
 
     public interface ListItemListener extends
         View.OnClickListener,
-        View.OnLongClickListener {}
+        View.OnLongClickListener
+    {
+        public void setSelected(Record record, boolean selected);
+        public boolean getSelected(Record record);
+    }
 
     // member variables
 
@@ -60,7 +64,6 @@ public class ListItem extends RelativeLayout implements
     private boolean is_album = false;
     private boolean is_track = false;
     private boolean large = false;
-    private boolean selected = false;
     private boolean open = false;
     private boolean visited = false;
 
@@ -76,16 +79,10 @@ public class ListItem extends RelativeLayout implements
         return track;
     }
 
-    public boolean getSelected()
+    public Record getRecord()
     {
-        return selected;
+        return is_track ? track : folder;
     }
-
-    public void setSelected(boolean b)
-    {
-        selected = b;
-    }
-
 
     //-------------------------------------------------
     // post-inflate configuration
@@ -175,7 +172,7 @@ public class ListItem extends RelativeLayout implements
         // set background color
 
         int color =
-            selected ? SELECTED_COLOR :
+            listener.getSelected(getRecord()) ? SELECTED_COLOR :
             large && !is_track ? 0xFF002222 : 0;
         setBackgroundColor(color);
 
@@ -404,8 +401,10 @@ public class ListItem extends RelativeLayout implements
         if (v.getId() == R.id.list_item_layout)
         {
             ListItem list_item = (ListItem) v;
-            list_item.setSelected(!list_item.getSelected());
-            if (list_item.getSelected())
+            Record record = list_item.getRecord();
+            boolean selected = !listener.getSelected(record);
+            listener.setSelected(record,selected);
+            if (selected)
                 list_item.setBackgroundColor(SELECTED_COLOR);
             else
                 list_item.setBackgroundColor(Color.BLACK);

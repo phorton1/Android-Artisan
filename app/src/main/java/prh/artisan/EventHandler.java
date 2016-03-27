@@ -28,11 +28,13 @@ public interface EventHandler
         // called from LocalRenderer refresh loop each time
         // triggers sending of openHome events
 
-    public static String EVENT_PLAYLIST_CONTENT_CHANGED= "PLAYLIST_CONTENTS_CHANGED";     // data = Playlist
+    public static String EVENT_PLAYLIST_CONTENT_CHANGED = "PLAYLIST_CONTENTS_CHANGED";     // data = Playlist
+        // from LocalPlaylist if playlist is changed incrementally locally
+        // intercepted by Artisan to call incUseCount() to event subscribers
+        // and/or update the UI
     public static String EVENT_PLAYLIST_TRACKS_EXPOSED = "PLAYLIST_TRACKS_EXPOSED";       // data = Playlist
-        // from LocalPlaylist to http.OpenPlaylist if playlist is changed incrementally locally
-        // intercepted by Artisan to call incUseCount() to event subscribers.
         // Not otherwise received as events
+
 
     // control commands
 

@@ -15,6 +15,7 @@ package prh.device;
 // the new positions in-memory.
 
 
+import android.app.usage.UsageEvents;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
@@ -23,6 +24,7 @@ import java.util.LinkedList;
 
 import prh.artisan.Artisan;
 import prh.artisan.Database;
+import prh.artisan.EventHandler;
 import prh.artisan.Folder;
 import prh.artisan.Playlist;
 import prh.artisan.Prefs;
@@ -45,7 +47,7 @@ public class LocalPlaylist implements
     private int dbg_pl = 1;
     private int dbg_open_pl = 1;
 
-    public static int MAX_TRACKS = 1000;
+    public static int MAX_TRACKS = 0;
 
     // playlist member variables
     // it is not necessary to call start on a new default
@@ -347,6 +349,100 @@ public class LocalPlaylist implements
     }
 
 
+    public boolean removeTrack(Track track)
+        // Assumes that track is in the playlist
+        // Takes track and not integer position
+    {
+        int position = tracks_by_position.indexOf(track) + 1;
+        if (track_db != null)
+        {
+            String query1 = "DELETE FROM playlists WHERE position=" + position;
+            String query2 = "UPDATE tracks SET position=position-1 WHERE position>" + position;
+            try
+            {
+                playlist_db.rawQuery(query1,new String[]{});
+                playlist_db.rawQuery(query2,new String[]{});
+            }
+            catch (Exception e)
+            {
+                Utils.error("Could not remove track(" + position + ") from playlist(" + name + "): " + e.toString());
+                return false;
+            }
+        }
+
+        HTTPServer http_server = artisan.getHTTPServer();
+        OpenPlaylist open_playlist = http_server == null ? null :
+            (OpenPlaylist) http_server.getHandler("Playlist");
+        if (open_playlist != null)
+            open_playlist.exposeTrack(track,false);
+
+        num_tracks--;
+        tracks_by_open_id.remove(track);
+        tracks_by_position.remove(track);
+
+        int old_track_index = track_index;
+        if (track_index > num_tracks)
+            track_index = num_tracks;
+
+        dirty |= 2;
+        if (old_track_index != track_index)
+            dirty |= 1;
+
+        save(false);
+        invalidateFetcher();
+        artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CONTENT_CHANGED,this);
+        return true;
+    }
+
+
+
+    public Track insertTrack(int position, Track track)
+        // ONE-BASED POSITION SIGNATURE
+    {
+        int new_id = next_open_id++;
+        track.setOpenId(new_id);
+        track.setPosition(position);
+
+        Utils.log(dbg_open_pl,0,"addding  " + track.getTitle() + " to Playlist(" + name + ") at position=" + position);
+
+        if (track_db != null)
+        {
+            if (!track.insert(track_db))
+            {
+                Utils.error("Could not insert track in playlist db");
+                return null;
+            }
+
+            String query = "UPDATE tracks SET position=position+1 WHERE position>=" + position;
+
+            try
+            {
+                playlist_db.rawQuery(query,new String[]{});
+            }
+            catch (Exception e)
+            {
+                Utils.error("Could not update track positions(" + track.getPosition() + ")=" + track.getTitle() + " from playlist(" + name + "): " + e.toString());
+                return null;
+            }
+        }
+
+        tracks_by_open_id.put(new_id,track);
+        tracks_by_position.add(position-1,track);
+        num_tracks++;
+
+        int old_track_index = track_index;
+        if (track_index == 0) track_index = 1;
+
+        dirty |= 2;
+        if (old_track_index != track_index)
+            dirty |= 1;
+        save(false);
+
+        invalidateFetcher();
+        artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CONTENT_CHANGED,this);
+        return track;
+    }
+
     //------------------------------------------------------
     // OpenHome Support
     //------------------------------------------------------
@@ -380,7 +476,7 @@ public class LocalPlaylist implements
     public Track insertTrack(int after_id, String uri, String metadata)
     {
         Track track = new Track(uri,metadata);
-        return insertTrack(after_id,track);
+        return insertTrack(track,after_id);
     }
 
 
@@ -410,17 +506,12 @@ public class LocalPlaylist implements
     }
 
 
-    public Track insertTrack(int after_id, Track track)
+    public Track insertTrack(Track track, int after_id)
+        // OPEN HOME SIGNATURE
         // insert the item after the given open id
         // where 0 means front of the list.
         // returns the item on success
     {
-        if (num_tracks == MAX_TRACKS)
-        {
-            Utils.error("MAX_TRACKS reached");
-            return null;    // should result in 801 error
-        }
-
         int insert_idx = 0; // zero base
         if (after_id > 0)
         {
@@ -431,54 +522,17 @@ public class LocalPlaylist implements
                 return null;    // should result in 800 error
             }
             insert_idx = tracks_by_position.indexOf(after_track) + 1;
-                // insert_pos is zero based
+            // insert_pos is zero based
         }
 
-        int new_id = next_open_id++;
         int position = insert_idx + 1;
-        track.setPosition(position);
-        track.setOpenId(new_id);
-        Utils.log(dbg_open_pl,0,"addding  " + track.getTitle() + " to Playlist(" + name + ") at position=" + position);
-
-
-        if (track_db != null)
-        {
-            if (!track.insert(track_db))
-            {
-                Utils.error("Could not insert track in playlist db");
-                return null;
-            }
-
-            String query = "UPDATE tracks SET position=position+1 WHERE position>=" + position;
-
-            try
-            {
-                playlist_db.rawQuery(query,new String[]{});
-            }
-            catch (Exception e)
-            {
-                Utils.error("Could not update track positions(" + track.getPosition() + ")=" + track.getTitle() + " from playlist(" + name + "): " + e.toString());
-                return null;
-            }
-        }
-
-        tracks_by_open_id.put(new_id,track);
-        tracks_by_position.add(insert_idx,track);
-        num_tracks++;
-
-        int old_track_index = track_index;
-        if (track_index == 0) track_index = 1;
-
-        dirty |= 2;
-        if (old_track_index != track_index)
-            dirty |= 1;
-        save(false);
-
-        return track;
+        return insertTrack(position,track);
     }
 
 
-    public boolean removeTrack(int open_id)
+
+    public boolean removeTrack(int open_id, boolean dummy_for_open_id)
+        // OPEN_ID SIGNATURE
     {
         Track track = tracks_by_open_id.get(open_id);
         if (track == null)
@@ -486,45 +540,7 @@ public class LocalPlaylist implements
             Utils.error("Could not remove(" + open_id + ") from playlist(" + name + ")");
             return false;
         }
-        int position = tracks_by_position.indexOf(track) + 1;
-
-        if (track_db != null)
-        {
-            String query1 = "DELETE FROM playlists WHERE position=" + position;
-            String query2 = "UPDATE tracks SET position=position-1 WHERE position>" + position;
-            try
-            {
-                playlist_db.rawQuery(query1,new String[]{});
-                playlist_db.rawQuery(query2,new String[]{});
-            }
-            catch (Exception e)
-            {
-                Utils.error("Could not remove track(" + track.getPosition() + ")=" + track.getTitle() + " from playlist(" + name + "): " + e.toString());
-                return false;
-            }
-        }
-
-        HTTPServer http_server = artisan.getHTTPServer();
-        OpenPlaylist open_playlist = http_server == null ? null :
-            (OpenPlaylist) http_server.getHandler("Playlist");
-        if (open_playlist != null)
-            open_playlist.exposeTrack(track,false);
-
-
-        num_tracks--;
-        tracks_by_open_id.remove(track);
-        tracks_by_position.remove(track);
-
-        int old_track_index = track_index;
-        if (track_index > num_tracks)
-            track_index = num_tracks;
-
-        dirty |= 2;
-        if (old_track_index != track_index)
-            dirty |= 1;
-
-        save(false);
-        return true;
+        return removeTrack(track);
     }
 
 
@@ -760,7 +776,7 @@ public class LocalPlaylist implements
             folder.setNumElements(0);   // implicit
             folder.setDuration(0);      // implicit
             folder.setArtist(artist);
-            folder.setPath(art_uri);    // use of path for art_uri requires internal knowledge
+            folder.setArtUri(art_uri);    // requires internal knowledge
             folder.setYearString(year_str);
             folder.setGenre(genre);
             folder.setType("album");
@@ -782,7 +798,7 @@ public class LocalPlaylist implements
         if (folder_title.isEmpty())
             folder.setTitle(title);
         if (folder_art_uri.isEmpty())
-            folder.setPath(art_uri);        // requires special knowledge
+            folder.setArtUri(art_uri);        // requires special knowledge
         if (folder_year_str.isEmpty())
             folder.setYearString(year_str);
         if (folder_genre.isEmpty())
@@ -808,7 +824,7 @@ public class LocalPlaylist implements
         {
             recordList records = fetcher.getRecordsRef();
             int num_records = records.size();
-            Utils.log(dbg_pl,0,"LocalPlaylist(" + getName() + ").getFetchRecords(" + initial_fetch + "," + num + "," + fetcher.getHow() + ") " +
+            Utils.log(dbg_pl,0,"LocalPlaylist(" + getName() + ").getFetchRecords(" + initial_fetch + "," + num + "," + fetcher.getAlbumMode() + ") " +
                 num_records + "/" + num_tracks + " tracks already gotten, and " +
                 num_virtual_folders + " existing virtual folders");
 
@@ -826,7 +842,7 @@ public class LocalPlaylist implements
 
             int num_added = 0;
             int next_index = num_records;
-            if (fetcher.getHow() == fetchHow.WITH_ALBUMS)
+            if (fetcher.getAlbumMode())
                 next_index -= num_virtual_folders;
 
             // if fetcher was invalidated start over
@@ -843,7 +859,7 @@ public class LocalPlaylist implements
             while (next_index < num_tracks && num_added < num)
             {
                 Track track = getTrack(next_index + 1);    // one based
-                if (fetcher.getHow() == fetchHow.WITH_ALBUMS)
+                if (fetcher.getAlbumMode())
                 {
                     Folder folder = addVirtualFolder(track);
                     if (folder != null)

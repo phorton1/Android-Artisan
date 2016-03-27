@@ -398,8 +398,8 @@ public class MediaServer extends Device implements
                     Folder base_folder = new Folder(node);
                     base_folder.setType(
                         is_album ? "album" :
-                            is_container ? "folder" :
-                                "unknown");
+                        is_container ? "folder" :
+                        "unknown");
 
                     if (base_folder.getType().equals("unknown"))
                         Utils.warning(0,0,"Unknown folder type(" + node_class + ") for " + base_folder.getTitle());

@@ -307,7 +307,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
             // 800 if not in list
             int open_id = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"open_id=" + open_id);
-            if (!local_playlist.removeTrack(open_id))
+            if (!local_playlist.removeTrack(open_id,true))
                 return error_response(http_server,800,open_id);
             incUpdateCount();
             artisan.setDeferOpenHomeEvents();

@@ -49,7 +49,7 @@ public class Folder extends Record
         setTitle(Utils.getTagValue(node_ele,"dc:title"));
         setId(Utils.getNodeAttr(didl_node,"id"));
         setParentId(Utils.getNodeAttr(didl_node,"parentID"));
-        setPath(Utils.getTagValue(node_ele,"upnp:albumArtURI"));    // special knowledge
+        setArtUri(Utils.getTagValue(node_ele,"upnp:albumArtURI"));    // special knowledge
         setGenre(Utils.getTagValue(node_ele,"upnp:genre"));
         setYearString(Utils.getTagValue(node_ele,"dc:date"));
 
@@ -77,8 +77,7 @@ public class Folder extends Record
     //------------------------------------------
     // accessors
     //------------------------------------------
-    // don't need to overload the folder_error to open_id
-    // as these never show up in an openHome Renderer
+    // in memory only
 
     public boolean isLocal()                { return getInt("is_local") > 0; }
     private String getPath()                { return getString("path"); }
@@ -108,10 +107,10 @@ public class Folder extends Record
 
     public void setIsLocal            (boolean value){ putInt("is_local",value? 1 : 0); }
     public void setHasArt             (boolean value){ putInt("has_art",value ? 1 : 0); }
-        // if is_local, art is folder.jpg at path/folder.jpg,
-        // and this boolean indicates it's presence.
-        // otherwise, the path IS the art_uri
     public void setPath               (String  value){ putString("path",value); }
+        // if is_local, art is folder.jpg at path/folder.jpg,
+        // and art_uri is blank
+    public void setArtUri             (String  value){ putString("art_uri",value); }
         // this is the art_uri for external folders
         // if is_local, it is the mp3's relative path for the folder
 
