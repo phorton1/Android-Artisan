@@ -9,9 +9,11 @@ import java.util.HashMap;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
+import prh.artisan.CurrentPlaylist;
 import prh.artisan.Playlist;
 import prh.artisan.Renderer;
 import prh.artisan.Track;
+import prh.device.LocalRenderer;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
 import prh.server.utils.httpRequestHandler;
@@ -54,10 +56,15 @@ public class AVTransport extends httpRequestHandler
             UpnpEventSubscriber unused_subscriber)
     {
         // Only handles actions, expects doc != null, and never looks at uri
-        // All actions get, and ignore, an InstanceID parameter
+        // All actions get, and ignore, an InstanceID parameter ...
 
-       HashMap<String,String> hash = new HashMap<String,String>();
-        Renderer renderer = artisan.getRenderer();
+        // Really should make the local_renderer the current_renderer
+        // as otherwise, music can start playing in the background of
+        // a control point !!
+
+        HashMap<String,String> hash = new HashMap<String,String>();
+        LocalRenderer local_renderer = artisan.getLocalRenderer();
+            // shall never be null ..
 
         if (action.equals("GetDeviceCapabilities"))
         {
@@ -73,7 +80,7 @@ public class AVTransport extends httpRequestHandler
             Utils.log(dbg_av,0,"cur_uri="+cur_uri);
             Utils.log(dbg_av,0,"metadata=" + metadata);
             Track track = new Track(cur_uri,metadata);
-            renderer.setTrack(track,true);
+            local_renderer.setTrack(track,true);
             response = httpUtils.ok_response(http_server,urn,service,action);
         }
         else if (action.equals("Play"))
@@ -81,27 +88,27 @@ public class AVTransport extends httpRequestHandler
             int speed = httpUtils.getXMLInt(doc,"Speed",false);
             Utils.log(dbg_av,0,"speed="+speed);
             if (speed == 0) speed = 1;
-            renderer.play();
+            local_renderer.play();
             response = httpUtils.ok_response(http_server,urn,service,action);
         }
         else if (action.equals("Stop"))
         {
-            renderer.stop();
+            local_renderer.stop();
             response = httpUtils.ok_response(http_server,urn,service,action);
         }
         else if (action.equals("Pause"))
         {
-            renderer.pause();
+            local_renderer.pause();
             response = httpUtils.ok_response(http_server,urn,service,action);
         }
         else if (action.equals("Next"))
         {
-            renderer.incAndPlay(1);
+            local_renderer.incAndPlay(1);
             response = httpUtils.ok_response(http_server,urn,service,action);
         }
         else if (action.equals("Previous"))
         {
-            renderer.incAndPlay(-1);
+            local_renderer.incAndPlay(-1);
             response = httpUtils.ok_response(http_server,urn,service,action);
         }
         else if (action.equals("Seek"))
@@ -111,7 +118,7 @@ public class AVTransport extends httpRequestHandler
             String target = httpUtils.getXMLString(doc,"Target",true);
             Utils.log(dbg_av,0,"unit="+unit+" target="+target);
             int position = Utils.stringToDuration(target);
-            renderer.seekTo(position);
+            local_renderer.seekTo(position);
             response = httpUtils.ok_response(http_server,urn,service,action);
         }
         else if (action.equals("SetPlayMode"))
@@ -122,19 +129,18 @@ public class AVTransport extends httpRequestHandler
         }
         else if (action.equals("GetTransportInfo"))
         {
-            hash.put("CurrentTransportStatus",renderer.getRendererStatus());
-            hash.put("CurrentTransportState",renderer.getRendererState());
-            hash.put("CurrentSpeed",renderer.getPlaySpeed());
+            hash.put("CurrentTransportStatus",local_renderer.getRendererStatus());
+            hash.put("CurrentTransportState",local_renderer.getRendererState());
+            hash.put("CurrentSpeed",local_renderer.getPlaySpeed());
             response = httpUtils.hash_response(http_server,urn,service,action,hash);
         }
         else if (action.equals("GetPositionInfo"))
         {
-            Track track = renderer.getTrack();
+            Track track = local_renderer.getTrack();
             String track_index = "1";
 
-            Playlist playlist = renderer.getPlaylist();
-            if (playlist != null)
-                track_index = Integer.toString(playlist.getCurrentIndex());
+            CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
+            track_index = Integer.toString(current_playlist.getCurrentIndex());
             hash.put("Track",track_index);
 
             hash.put("RelCount","0");
@@ -146,7 +152,7 @@ public class AVTransport extends httpRequestHandler
             hash.put("TrackURI",track == null ? "" :
                 track.getPublicUri());
             hash.put("RelTime",track == null ? "0:00" :
-                Utils.durationToString(renderer.getPosition(),Utils.how_precise.FOR_SEEK));
+                Utils.durationToString(local_renderer.getPosition(),Utils.how_precise.FOR_SEEK));
             hash.put("TrackMetaData",track == null ? "" :
                 track.getDidl());
 
@@ -157,7 +163,7 @@ public class AVTransport extends httpRequestHandler
         else if (action.equals("GetTransportSettings"))
         {
             Utils.log(dbg_av,0,"");
-            hash.put("PlayMode",renderer.getPlayMode());
+            hash.put("PlayMode",local_renderer.getPlayMode());
             hash.put("RecQualityMode","NOT_IMPLEMENTED");
             response = httpUtils.hash_response(http_server,urn,service,action,hash);
         }

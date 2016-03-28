@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import prh.artisan.Artisan;
+import prh.artisan.CurrentPlaylist;
 import prh.artisan.Database;
 import prh.artisan.Playlist;
 import prh.artisan.PlaylistSource;
@@ -21,11 +22,14 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
 {
     private static int dbg_pls = 1;
 
-
     private ArrayList<LocalPlaylist> playlists = null;
     private HashMap<String,LocalPlaylist> playlists_by_name = null;
     private SQLiteDatabase playlist_db = null;
 
+
+    //------------------------------------
+    // Extend Device
+    //------------------------------------
 
     public LocalPlaylistSource(Artisan a)
     {
@@ -45,11 +49,35 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
         Utils.log(dbg_pls+1,1,"new LocalPlaylistSource()");
     }
 
-    @Override public boolean isLocal() { return true; }
+
+    @Override public boolean isLocal()
+    {
+        return true;
+    }
 
     @Override public String getName()
     {
         return getFriendlyName();
+    }
+
+
+    //------------------------------------
+    // PlaylistSource Interface
+    //------------------------------------
+
+    @Override public Playlist createEmptyPlaylist()
+    {
+        return new LocalPlaylist(artisan,this);
+    }
+
+
+    @Override public Playlist getPlaylist(String name)
+        // this should be the only place that
+        // new LocalPlaylist() is called
+    {
+        if (name.isEmpty())
+            return new LocalPlaylist(artisan,this);
+        return playlists_by_name.get(name);
     }
 
 
@@ -59,16 +87,6 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
         for (LocalPlaylist playlist : playlists)
             names.add(playlist.getName());
         return names.toArray(new String[names.size()]);
-    }
-
-
-    @Override public Playlist getPlaylist(String name)
-        // this should be the only place that
-        // new LocalPlaylist() is called
-    {
-        if (name.isEmpty())
-            return new LocalPlaylist(artisan);
-        return playlists_by_name.get(name);
     }
 
 
@@ -146,9 +164,29 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
 
     private void addLocalPlayList(String name)
     {
-        LocalPlaylist playlist = new LocalPlaylist(artisan,playlist_db,name);
+        LocalPlaylist playlist = new LocalPlaylist(artisan,this,playlist_db,name);
         playlists.add(playlist);
         playlists_by_name.put(name,playlist);
     }
+
+
+    //------------------------------------
+    // saveAs()
+    //------------------------------------
+
+    @Override public boolean saveAs(CurrentPlaylist current_playlist, String name)
+    {
+        if (playlists_by_name.get(name) != null)
+        {
+            Utils.error("Playlist(" + name + ") already exists in LocalPlaylistSource");
+            return false;
+        }
+
+        return current_playlist.saveAs(name);
+    }
+
+
+
+
 
 }   // class LocalPlaylistSource

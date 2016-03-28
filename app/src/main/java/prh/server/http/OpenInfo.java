@@ -58,14 +58,14 @@ public class OpenInfo extends httpRequestHandler implements UpnpEventHandler
         UpnpEventSubscriber unused_subscriber)
     {
         HashMap<String,String> hash = new HashMap<String,String>();
-        Renderer renderer = artisan.getRenderer();
-        Track track = renderer.getTrack();
+        Renderer local_renderer = artisan.getLocalRenderer();
+        Track track = local_renderer.getTrack();
 
         boolean ok = true;
 
         if (action.equals("Counters"))
         {
-            hash.put("TrackCount",Integer.toString(renderer.getTotalTracksPlayed()));
+            hash.put("TrackCount",Integer.toString(local_renderer.getTotalTracksPlayed()));
             hash.put("DetailsCount","0");
             hash.put("MetatextCount","0");
         }
@@ -110,8 +110,8 @@ public class OpenInfo extends httpRequestHandler implements UpnpEventHandler
     @Override public String getEventContent(UpnpEventSubscriber unused_subscriber)
     {
         HashMap<String,String> hash = new HashMap<String,String>();
-        Renderer renderer = artisan.getRenderer();
-        Track track = renderer.getTrack();
+        Renderer local_renderer = artisan.getLocalRenderer();
+        Track track = local_renderer.getTrack();
 
         // from renderer/song
 

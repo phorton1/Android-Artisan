@@ -19,7 +19,7 @@ package prh.artisan;
 // a TrashCan (delete), a PlusSign (add to playlist), and a Play button
 // (create a new empty playlist, add the albums and tracks, and play them)
 //
-// The aPlaying header shows the current library, and the title of
+// The aRenderer header shows the current library, and the title of
 // the current folder as a drop down menu which allows navigation
 // within the stack.
 

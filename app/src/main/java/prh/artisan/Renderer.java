@@ -56,9 +56,10 @@ public interface Renderer
     public Track getTrack();
     public void setTrack(Track track, boolean interrupt_playlist);
 
-    public Playlist getPlaylist();
-    public void setPlaylist(Playlist playlist);
-
+    public void notifyPlaylistChanged();
+        // called by Artisan when it gives a new LocalPlaylist
+        // to the CurrentPlaylist so that the renderer may be
+        // aware that num_tracks, track_index, etc, changed.
 }   // base class Renderer
 
 

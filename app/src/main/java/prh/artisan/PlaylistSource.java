@@ -11,5 +11,9 @@ public interface PlaylistSource
     String[] getPlaylistNames();
     Playlist getPlaylist(String name);
         // by convention "" creates a new empty playlist
+    Playlist createEmptyPlaylist();
+        // Creates a new, empty, started Playlist
+
+    boolean saveAs(CurrentPlaylist current_playlist, String name);
 
 }

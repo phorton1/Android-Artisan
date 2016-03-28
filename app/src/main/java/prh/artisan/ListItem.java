@@ -373,16 +373,25 @@ public class ListItem extends RelativeLayout implements
         {
             case R.id.list_item_right :
             case R.id.list_item_right_text :
+
                 String msg = "ListItem ContextMenu ";
                 View item = (View) v.getParent();
                 if (id == R.id.list_item_right_text)
                     item = (View) item.getParent();
                 list_item = (ListItem) item;
+
                 if (list_item.getFolder() != null)
+                {
                     msg += "Folder:" + list_item.getFolder().getTitle();
+                    Toast.makeText(artisan,msg,Toast.LENGTH_LONG).show();
+                }
                 else
-                    msg += "Track:" + list_item.getTrack().getTitle();
-                Toast.makeText(artisan,msg,Toast.LENGTH_LONG).show();
+                {
+                    Track track = list_item.getTrack();
+                    CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
+                    Utils.log(0,0,"Inserting Track(" + track.getTitle() + " into playlist");
+                    current_playlist.insertTrack(track,0);
+                }
                 break;
         }
 

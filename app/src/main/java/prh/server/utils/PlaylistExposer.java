@@ -4,6 +4,7 @@ import java.util.HashMap;
 
 import prh.artisan.Artisan;
 import prh.artisan.EventHandler;
+import prh.artisan.Playlist;
 import prh.device.LocalPlaylist;
 import prh.artisan.Track;
 import prh.server.http.OpenPlaylist;
@@ -70,7 +71,7 @@ public class PlaylistExposer
         return num_exposed;
     }
 
-    public void clearExposedBits(LocalPlaylist playlist)
+    public void clearExposedBits(Playlist playlist)
     {
         num_exposed = 0;
         exposed.clear();
@@ -100,7 +101,7 @@ public class PlaylistExposer
     }
 
 
-    public boolean exposeMore(LocalPlaylist playlist)
+    public boolean exposeMore(Playlist playlist)
         // think I should get the previous ones upto NUM_TO_EXPOSE/2 before the current track first
         // then to the end of the playlist, then from the beginning ... Bup playlist doesn't keep
         // the currentTrack in view if you stick things before it ...
@@ -152,7 +153,7 @@ public class PlaylistExposer
     }
 
 
-    public void ThreadedExposeMore(LocalPlaylist playlist)
+    public void ThreadedExposeMore(Playlist playlist)
     {
         Utils.log(dbg_expose,0,"ThreadedExposeMore() num_exposed=" + num_exposed + " num_tracks=" + playlist.getNumTracks());
         Thread thread = new Thread(new expose_more_thread(playlist));
@@ -162,8 +163,8 @@ public class PlaylistExposer
 
     public class expose_more_thread implements Runnable
     {
-        LocalPlaylist local_playlist;
-        public expose_more_thread(LocalPlaylist playlist)
+        Playlist local_playlist;
+        public expose_more_thread(Playlist playlist)
         {
             local_playlist = playlist;
         }

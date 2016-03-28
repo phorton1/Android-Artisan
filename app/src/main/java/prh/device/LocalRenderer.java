@@ -30,6 +30,7 @@ import android.os.Looper;
 import android.widget.Toast;
 
 import prh.artisan.Artisan;
+import prh.artisan.CurrentPlaylist;
 import prh.artisan.EventHandler;
 import prh.artisan.Playlist;
 import prh.artisan.PlaylistSource;
@@ -95,12 +96,11 @@ public class LocalRenderer extends Device implements
         // on transitions, and updated in updateState()
 
     private Track current_track = null;
-    private Playlist current_playlist = artisan.createEmptyPlaylist();
+    private CurrentPlaylist current_playlist;
         // what's playing, or playable
         // the LocalRenderer ALWAYS has a playlist,
         // even when stopped, as it serves as the
         // "current" playlist for the system.
-
 
     private boolean repeat = true;
     private boolean shuffle = false;
@@ -120,6 +120,11 @@ public class LocalRenderer extends Device implements
 
     @Override public boolean isLocal() { return true; }
 
+    @Override public void notifyPlaylistChanged()
+    {
+        if (current_playlist.getNumTracks()>0)
+            incAndPlay(0);
+    }
 
     //--------------------------------------------
     // construct, start, and stop
@@ -144,6 +149,7 @@ public class LocalRenderer extends Device implements
     @Override public boolean startRenderer()
     {
         Utils.log(dbg_ren,0,"LocalRenderer.startRenderer()");
+        current_playlist = artisan.getCurrentPlaylist();
 
         local_volume = new LocalVolume(artisan);
         local_volume.start();
@@ -153,8 +159,6 @@ public class LocalRenderer extends Device implements
         media_player.setOnErrorListener(this);
         media_player.setOnCompletionListener(this);
         mp_state = MP_STATE_IDLE;
-
-        current_playlist = artisan.createEmptyPlaylist();
 
         refresh_handler = new Handler();
         updater = new updateState();
@@ -204,15 +208,10 @@ public class LocalRenderer extends Device implements
         }
         in_refresh = false;
 
-        // the localRenderer ALWAYS has a playlist, even when
-        // it's stopped, as it is the "current" playlist for the
-        // entire system (for http.OpenHomeRenderer, particularly)
-
-        current_playlist = artisan.createEmptyPlaylist();
-
-        // forget the current track
+        // forget the current track and playlist
 
         current_track = null;
+        current_playlist = null;
 
         // stop the media_player and the volume control
 
@@ -249,7 +248,6 @@ public class LocalRenderer extends Device implements
     @Override public int getPosition()                  { return song_position; }
     @Override public void setRepeat(boolean value)      { repeat = value; }
     @Override public void setShuffle(boolean value)     { shuffle = value; };
-    @Override public Playlist getPlaylist()             { return current_playlist; }
 
 
     @Override public Track getTrack()
@@ -259,9 +257,9 @@ public class LocalRenderer extends Device implements
     {
         if (current_track != null)
             return current_track;
-        if (current_playlist != null)
+        //if (current_playlist != null)
             return current_playlist.getCurrentTrack();
-        return null;
+        //return null;
     }
 
 
@@ -275,33 +273,13 @@ public class LocalRenderer extends Device implements
             Utils.log(dbg_ren,0,"setTrack(" + track.getTitle() + ") interrupt=" + interrupt_playlist);
             // stop();
             if (interrupt_playlist)
-                current_playlist = artisan.createEmptyPlaylist();
+                artisan.setPlaylist("",true);
             current_track = track;
             artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
             play();
         }
     }
 
-
-    @Override public void setPlaylist(Playlist playlist)
-        // it is assumed that artisan will save the previous
-        // playlist as necessary, and call start() on the new one.
-        // This just sets it and starts playing it.
-    {
-        String dbg_name = playlist != null ? playlist.getName() : "null";
-        Utils.log(0,0,"setPlaylist(" + dbg_name + ")");
-        if (current_playlist != null)
-            current_playlist.stop();
-        stop();
-        current_track = null;
-        current_playlist = playlist == null ?
-            artisan.createEmptyPlaylist() :
-            playlist;
-        current_playlist.start();
-        artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
-        Utils.log(1,1,"setPlaylist() calling incAndPlay(0)");
-        incAndPlay(0);
-    }
 
 
 

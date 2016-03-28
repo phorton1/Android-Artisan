@@ -22,6 +22,8 @@ public class OpenHomeRenderer extends Device implements Renderer
         super(artisan);
     }
 
+    @Override public void notifyPlaylistChanged() {}
+
     @Override public String getName() { return getFriendlyName(); }
     @Override public boolean startRenderer() { return false; }
     @Override public void stopRenderer()  {  }
@@ -43,7 +45,5 @@ public class OpenHomeRenderer extends Device implements Renderer
     @Override public void seekTo(int progress)    {  }
     @Override public Track getTrack() { return null; }
     @Override public void setTrack(Track track, boolean interrupt_playlist)   {  }
-    @Override public void setPlaylist(Playlist playlist)  { ; }
-    @Override public Playlist getPlaylist() { return null; }
 
 }

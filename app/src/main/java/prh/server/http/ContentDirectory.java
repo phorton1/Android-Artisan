@@ -89,19 +89,8 @@ public class ContentDirectory extends httpRequestHandler
         {
             String name = uri.replace("select_playlist/","");
             name = name.replace(".mp3","");
-
-            PlaylistSource playlist_source = artisan.getPlaylistSource();
-                // NEVER NULL
-            Playlist playlist = playlist_source.getPlaylist(name);
-            if (playlist == null)
-            {
-                Utils.warning(0,0,"No playlist found called " + name);
-            }
-            else
-            {
-                Utils.log(dbg_dlna,0,"dlnaServer request to select playlist(" + name + ")");
-                artisan.getRenderer().setPlaylist(playlist);
-            }
+            Utils.log(dbg_dlna,0,"dlnaServer request to select playlist(" + name + ")");
+            artisan.setPlaylist(name,true);
         }
 
         // Album Art /ContentDirectory/folder_id/folder.jpg

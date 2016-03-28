@@ -98,7 +98,7 @@ package prh.artisan;
 
 // UI Thread and Network Requests
 //
-//      The UI Objects, like aPlaying, aPreferences, aPlaylist, etc, are free to
+//      The UI Objects, like aRenderer, aPreferences, aPlaylist, etc, are free to
 //      access each other and make directly method calls, as they all "live" in the
 //      main UI thread.
 //
@@ -209,8 +209,8 @@ public class Artisan extends FragmentActivity implements
 
     // child (fragment) activities
 
-    private aPrefs    aPrefs    = new aPrefs();
-    private aPlaying  aPlaying  = new aPlaying();
+    private aPlaylistSource aPrefs    = new aPlaylistSource();
+    private aRenderer aRenderer = new aRenderer();
     private aPlaylist aPlaylist = new aPlaylist();
     private aLibrary  aLibrary  = new aLibrary();
     private aExplorer aExplorer = new aExplorer();
@@ -233,23 +233,27 @@ public class Artisan extends FragmentActivity implements
     public LocalRenderer getLocalRenderer() { return local_renderer; }
     public LocalPlaylistSource getLocalPlaylistSource() { return local_playlist_source; }
 
-    // The currently selected renderer and library
+    // The current context for the Application
+    // The current Library, Renderer, Playlist, and PlaylistSource
 
     private Library library = null;
     private Renderer renderer = null;
     private PlaylistSource playlist_source = null;
+    private CurrentPlaylist current_playlist = null;
+
     public Library getLibrary() { return library; }
     public Renderer getRenderer() { return renderer; }
     public PlaylistSource getPlaylistSource() { return playlist_source; }
+    public CurrentPlaylist getCurrentPlaylist() { return current_playlist; }
 
-    // servers (no public access)
+    // Servers (no public access)
 
     private HTTPServer http_server = null;
     private LocalVolumeFixer volume_fixer = null;
     private SSDPServer ssdp_server = null;
     public HTTPServer getHTTPServer() { return http_server; }
 
-    // the device manager and default renderer and library names
+    // the Device Manager and default Device Names
 
     private DeviceManager device_manager = null;
     public DeviceManager getDeviceManager() { return device_manager; }
@@ -260,8 +264,11 @@ public class Artisan extends FragmentActivity implements
         // if these are non-blank, we have to keep trying until the
         // SSDPSearch finishes to set the correct renderer ...
 
-    OpenHomeEventDelayer oh_delayer = null;
-    Handler delay_handler = new Handler();
+    // private working variables
+
+    private OpenHomeEventDelayer oh_delayer = null;
+    private Handler delay_handler = new Handler();
+    private int num_progress = 0;
 
 
     //--------------------------------------------------------
@@ -299,7 +306,9 @@ public class Artisan extends FragmentActivity implements
             wifi_lock.acquire();
         }
 
+        //-------------------------------------------
         // 2. create views
+        //-------------------------------------------
         // create the main view and sub-views
         // set the main menu click handler
 
@@ -315,14 +324,14 @@ public class Artisan extends FragmentActivity implements
         // create the main "activity" fragments
         // and the pager, listener, and adapter
 
-        aPrefs    = new aPrefs();
-        aPlaying  = new aPlaying();
+        aPrefs    = new aPlaylistSource();
+        aRenderer = new aRenderer();
         aPlaylist = new aPlaylist();
         aLibrary  = new aLibrary();
         aExplorer = new aExplorer();
 
         aPrefs.setArtisan(this);
-        aPlaying.setArtisan(this);
+        aRenderer.setArtisan(this);
         aPlaylist.setArtisan(this);
         aLibrary.setArtisan(this);
         aExplorer.setArtisan(this);
@@ -336,11 +345,9 @@ public class Artisan extends FragmentActivity implements
         // get a pointer to the main menu and toolbar
         // disappear the main menu
 
+        main_toolbar = (MainMenuToolbar) findViewById(R.id.artisan_main_toolbar);
         main_menu = (MainMenu) findViewById(R.id.artisan_main_menu);
         hideMainMenu();
-
-        // main_menu.setVisibility(View.GONE);
-        main_toolbar = (MainMenuToolbar) findViewById(R.id.artisan_main_toolbar);
 
         // start the volume control and set full page
 
@@ -349,33 +356,56 @@ public class Artisan extends FragmentActivity implements
             // start off in full screen mode
             // with the menu showing
 
-
-        // 3 = Create the local library and renderer
-        // and set the default to them.  The renderer
-        // should always construct correctly, but we
-        // only construct the library if the database
-        // is present.
+        //-------------------------------------------
+        // 3 = Create the Object Context
+        //-------------------------------------------
+        // Local Library, PlaylistSource,  Playlist,
+        // and Renderer, as defaults
 
         if (database != null &&
             Prefs.getBoolean(Prefs.id.START_LOCAL_LIBRARY))
         {
+            Utils.log(dbg_main+1,0,"Creating LocalLibrary");
             local_library = new LocalLibrary(this);
+            Utils.log(dbg_main+1,0,"LocalLibrary created");
+            if (!local_library.start())
+                local_library = null;
         }
         library = local_library;
 
+        // The local_playlist_source SHALL ALWAYS CONSTRUCT
+        // and START, even if it empty, or does not have write
+        // privileges.
 
+        Utils.log(dbg_main+1,0,"Creating LocalPlaylistSource");
         local_playlist_source = new LocalPlaylistSource(this);
+        Utils.log(dbg_main+1,0,"PlaylistSource created");
+        local_playlist_source.start();
         playlist_source = local_playlist_source;
-            // we always create the LocalPlaylistSource,
-            // even without a database. And it must be
-            // started before the renderer, as the renderer
-            // will immediately create an empty playlist.
+
+        // The current playlist is a singleton, being Edited
+        // by aPlaylist and played by aRenderer. It can
+        // be associated with, and/or return a Playlist.
+
+        current_playlist = new CurrentPlaylist(this);
+        current_playlist.startCurrentPlaylist();
+
+        // Now the Renderer can be started with the CURRENT_PLAYLIST
+        // as a Queue ... It ALSO *should* also always construct,
+        // but might be null based on client pref.
 
         if (Prefs.getBoolean(Prefs.id.START_LOCAL_RENDERER))
+        {
+            Utils.log(dbg_main+1,0,"Creating LocalRenderer");
             local_renderer = new LocalRenderer(this);
+            Utils.log(dbg_main+1,0,"LocalRenderer created");
+            local_renderer.startRenderer();
+        }
         renderer = local_renderer;
 
+        //-------------------------------------------
         // set the start page
+        //-------------------------------------------
         // we have to call setPageSelected() because
         // view_pager.setCurrentItem() does not trigger
         // the onPageChange listener ...
@@ -383,42 +413,10 @@ public class Artisan extends FragmentActivity implements
         view_pager.setCurrentItem(START_PAGE);
         setPageSelected(START_PAGE);
 
-        // start the default, local, initial devices
-        // the playlist source must be started before
-        // the renderer, cuz the renderer gets it
-        // in startRenderer()
 
-        if (library != null)
-        {
-            Utils.log(dbg_main+1,0,"Local Library created ");
-            library.start();
-            // handleArtisanEvent(EventHandler.EVENT_LIBRARY_CHANGED,library);
-        }
-        else
-            Utils.warning(0,0,"Local Library not created");
-
-        if (playlist_source != null)
-        {
-            Utils.log(dbg_main+1,0,"Local PlaylistSource created ");
-            playlist_source.start();
-            // handleArtisanEvent(EventHandler.EVENT_PLAYLIST_SOURCE_CHANGED,playlist_source);
-        }
-        else
-            Utils.warning(0,0,"Local PlaylistSource not created");
-
-
-        if (renderer != null)
-        {
-            Utils.log(dbg_main+1,0,"Local Renderer created ");
-            renderer.startRenderer();
-            // handleArtisanEvent(EventHandler.EVENT_RENDERER_CHANGED,renderer);
-        }
-        else
-            Utils.warning(0,0,"Local Renderer not created");
-
-
-
+        //-------------------------------------------
         // 4 = start servers
+        //-------------------------------------------
 
         if (Prefs.getBoolean(Prefs.id.START_VOLUME_FIXER) &&
             Utils.ID_CAR_STEREO.equals(Build.ID))
@@ -475,6 +473,10 @@ public class Artisan extends FragmentActivity implements
         // to start, so we don't try again ... it won't be
         // the local device (cuz that's ""), so stop the local
         // devices if they exist before setting the new ones
+
+        // Changing the PlaylistSource may create a dangling
+        // Named current_playlist, which SHALL BE CONSIDERED DIRTY
+        // in the context of the new PlaylistSource ...
 
         if (findAndStartDefaultDevice(Device.deviceGroup.DEVICE_GROUP_LIBRARY,default_library_name))
             default_library_name = "";
@@ -550,7 +552,11 @@ public class Artisan extends FragmentActivity implements
         volume_fixer = null;
 
 
-        // 3 = stop the current and local devices
+        // 3 = stop the current and local objects
+
+        if (current_playlist != null)
+            current_playlist.stopCurrentPlaylist();
+        current_playlist = null;
 
         if (library != null)
             library.stop(true);
@@ -576,7 +582,6 @@ public class Artisan extends FragmentActivity implements
             local_playlist_source.stop();
         local_playlist_source = null;
 
-
         // 2 = unwind view pager and fragments
 
         if (volume_control != null)
@@ -589,7 +594,7 @@ public class Artisan extends FragmentActivity implements
         view_pager = null;
 
         aPrefs     = null;
-        aPlaying   = null;
+        aRenderer = null;
         aPlaylist  = null;
         aLibrary   = null;
         aExplorer  = null;
@@ -637,7 +642,7 @@ public class Artisan extends FragmentActivity implements
             switch (position)
             {
                 case PAGE_PREFS : return aPrefs;
-                case PAGE_PLAYING : return aPlaying;
+                case PAGE_PLAYING : return aRenderer;
                 case PAGE_PLAYLIST : return aPlaylist;
                 case PAGE_LIBRARY : return aLibrary;
                 case PAGE_EXPLORER : return aExplorer;
@@ -830,8 +835,6 @@ public class Artisan extends FragmentActivity implements
     }
 
 
-    private int num_progress = 0;
-
     public void showArtisanProgressIndicator(final boolean show_it)
     {
         runOnUiThread(new Runnable() { public void run() {
@@ -852,32 +855,39 @@ public class Artisan extends FragmentActivity implements
 
     public Playlist createEmptyPlaylist()
     {
-        return playlist_source.getPlaylist("");
+        return playlist_source.createEmptyPlaylist();
     }
 
 
-    public void setPlaylist(String name)
-    // called from station button, we select the new
-    // playlist and event it to any interested clients
-    // PRH - this should not be here
+    public boolean setPlaylist(String name, boolean force)
+        // called from station button, we select the new
+        // playlist and event it to any interested clients
     {
         Utils.log(dbg_main,0,"setPlaylist(" + name + ")");
-
-        // get the playlist
-
-        Playlist playlist = playlist_source.getPlaylist(name);
+        Playlist playlist = name.isEmpty() ?
+            playlist_source.createEmptyPlaylist() :
+            playlist_source.getPlaylist(name);
         if (playlist == null)
             Utils.error("Could not get Playlist named '" + name + "'");
 
-            // tell the renderer, and it will send the event
+        if (!force && !aPlaylist.closeOK())
+        {
+            Utils.log(dbg_main,1,"setPlaylist(" + name + ") cancelled by user");
+            return false;
+        }
 
-        else if (renderer != null)
-            renderer.setPlaylist(playlist);
+        // associate it with the renderer and the CurrentPlaylist
 
-            // or send the event ourselves if no renderer
+        current_playlist.setAssociatedPlaylist(playlist);
+        renderer.notifyPlaylistChanged();
 
-        else
-            aPlaying.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
+        // make it current, and send the event.
+        // it is up to Artisan to set the current_playlist into
+        // the appropriate Renderer Device ... aRenderer only responds
+        // to the UI events. and nobody else does it ...
+
+        handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
+        return true;
     }
 
 
@@ -1207,9 +1217,6 @@ public class Artisan extends FragmentActivity implements
         }
         if (renderer != null && !((Device)renderer).isLocal())
         {
-            Playlist playlist = renderer.getPlaylist();
-            if (playlist != null)
-                playlist.stop();
             renderer.stopRenderer();
             renderer = local_renderer;
             if (renderer != null)
@@ -1327,27 +1334,14 @@ public class Artisan extends FragmentActivity implements
 
                 if (!event_id.equals(EVENT_IDLE))
                 {
-                //if (//unused_main_menu.getVisibility() == View.VISIBLE && (
-                //    event_id.equals(EVENT_NEW_DEVICE) ||
-                //    event_id.equals(EVENT_LIBRARY_CHANGED) ||
-                //    event_id.equals(EVENT_RENDERER_CHANGED) ||
-                //    event_id.equals(EVENT_SSDP_SEARCH_STARTED) ||
-                //    event_id.equals(EVENT_SSDP_SEARCH_FINISHED) ||
-                //    event_id.equals(EVENT_PLAYLIST_SOURCE_CHANGED)) //)
-                //{
                     if (main_menu != null &&
                         main_menu.getAlpha() != 0F &&
                         main_menu.getVisibility() == View.VISIBLE)
                         main_menu.handleArtisanEvent(event_id,data);
-                //}
 
-
-                //if (!event_id.equals(EVENT_IDLE) &&
-                //    !event_id.equals(EVENT_VOLUME_CHANGED))
-                //{
-                    if (aPlaying != null &&
-                        aPlaying.getView() != null)
-                        aPlaying.handleArtisanEvent(event_id,data);
+                    if (aRenderer != null &&
+                        aRenderer.getView() != null)
+                        aRenderer.handleArtisanEvent(event_id,data);
 
                     if (aPlaylist != null &&
                         aPlaylist.getView() != null)
@@ -1361,13 +1355,6 @@ public class Artisan extends FragmentActivity implements
                         aPrefs.getView() != null)
                         aPrefs.handleArtisanEvent(event_id,data);
 
-                // }
-
-                // only send volume changes if it's open,
-                // but send config messages event if it's closed
-
-                // if (event_id.equals(EVENT_VOLUME_CHANGED))
-                //
                     if (volume_control != null &&
                         volume_control.isShowing())
                     {

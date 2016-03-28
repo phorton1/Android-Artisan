@@ -133,7 +133,7 @@ public class Prefs
     private static String defaultValue(id id)
     {
         // The Last_Selected library or renderer is set whenever artisan
-        // setLibrary() or setRenderer() is called. aPrefs has special
+        // setLibrary() or setRenderer() is called. aPlaylistSource has special
         // UI that presents lists of available items for the user to select.
         // The pref itself just keeps track of it for next boot in case
         // they use "Last Selected" as the Startup Default.
@@ -168,7 +168,7 @@ public class Prefs
         //               failure to start?  TELL THE USER
         //
         //    default_name != "" and not in the cache
-        //        Device Manager (aPrefs?) patiently waiting for SSDP to find the device
+        //        Device Manager (aPlaylistSource?) patiently waiting for SSDP to find the device
         //        *** NEED TO KNOW WHEN SSDP SEARCH HAS COMPLETED
         //        Still not found?  TELL THE USER
         //        Found!! Try to start it

@@ -10,10 +10,13 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import prh.device.LocalPlaylist;
 import prh.types.recordList;
 import prh.types.selectedHash;
 import prh.utils.Utils;
 
+
+// implements Playlist interface for aRenderer
 
 public class aPlaylist extends Fragment implements
     ArtisanPage,
@@ -27,13 +30,19 @@ public class aPlaylist extends Fragment implements
 
     private TextView page_title = null;
     private Artisan artisan = null;
-    private Playlist playlist = null;
     private LinearLayout my_view = null;
     private ListView the_list = null;
     private Fetcher fetcher = null;
+
     private boolean album_mode = false;
     private boolean is_current = false;
     private selectedHash selected;
+    private int playlist_count_id = -1;
+    private int playlist_content_count_id = -1;
+
+    // A copy of the reference to the CurrentPlaylist
+
+    private CurrentPlaylist current_playlist = null;
 
 
     // scroll position
@@ -42,6 +51,18 @@ public class aPlaylist extends Fragment implements
     private int scroll_offset = 0;
     private Track scroll_track = null;
 
+    public boolean closeOK()
+        // return TRUE if the current, in memory Playist
+        // which this object manages, can be discarded,
+        // before changing to another in-memory playlist.
+        // Like closeOK() on a dirty window in any language.
+        //
+        // If the playlist is dirty, the user is given a
+        // chance to Save, SaveAs, or Cancel, and the method
+        // returns false only on Cancel.
+    {
+        return true;
+    }
 
     //----------------------------------------------
     // top level accessors
@@ -69,16 +90,24 @@ public class aPlaylist extends Fragment implements
         // selected == null or if the playlist has changed
 
         boolean cold_init = false;
+
         if (selected == null)
         {
             selected = new selectedHash();
+            current_playlist = artisan.getCurrentPlaylist();
+
+            fetcher = new Fetcher(
+                artisan,
+                current_playlist,
+                this,
+                FETCH_INITIAL,
+                NUM_PER_FETCH,
+                "aPlaylist");
+
             cold_init = true;
         }
 
-        Renderer renderer = artisan.getRenderer();
-        Playlist pl = renderer == null ? null : renderer.getPlaylist();
-
-        init(pl,cold_init,cold_init);
+        init(cold_init);
         return my_view;
     }
 
@@ -122,88 +151,61 @@ public class aPlaylist extends Fragment implements
 
 
 
-    //------------------------------------------------
-    // init()
-    //------------------------------------------------
 
-    private void init(Playlist pl, boolean pl_changed, boolean content_changed)
+
+    private void init(boolean cold_init)
     {
-        if (playlist != pl)
+        // detect "playlist changed" or "playlist content" changed
+        // on the current_playlist, regardless of events or params
+
+        int new_id = current_playlist.getPlaylistCountId();
+        boolean pl_changed = playlist_count_id != new_id;
+        playlist_count_id = new_id;
+        if (cold_init)
             pl_changed = true;
-        playlist = pl;
 
-        // save the cursor position if the only that change was content
+        int new_content_id = current_playlist.getContentChangeId();
+        boolean content_changed = new_content_id != playlist_content_count_id;
+        playlist_content_count_id = new_content_id;
 
-        if (!pl_changed && content_changed)
-            saveScroll(true);
-
-        // clear the selection on playlist or content change
-
-        if (pl_changed || content_changed)
-            selected.clear();
-
-        // if the playlist changed, then everything changes
+        // clear the selection if the playlist changed
 
         if (pl_changed)
+            selected.clear();
+
+        // save the cursor position
+
+        if (!cold_init && !pl_changed)
+            saveScroll(true);
+
+        // set the album mode into the fetcher
+
+        boolean mode_changed = false;
+        if (fetcher.getAlbumMode() != album_mode)
+            mode_changed = true;
+        fetcher.setAlbumMode(album_mode);
+
+        // start or rebuild the fetcher
+
+        boolean ok = true;
+        if (pl_changed)
         {
-            if (fetcher != null)
-                fetcher.stop(true,false);
-            fetcher = null;
+            ok = fetcher.restart();
+        }
+        else if (mode_changed || content_changed)
+        {
+            ok = fetcher.rebuild();
         }
 
-        // same playlist == same fetcher
+        // get the records
 
-        boolean new_fetcher = false;
-        if (fetcher == null && playlist != null)
-        {
-            new_fetcher = true;
-            fetcher = new Fetcher(
-                artisan,
-                playlist,
-                this,
-                FETCH_INITIAL,
-                NUM_PER_FETCH,
-                "Playlist::" + playlist.getName());
-        }
-
-        // create empty record list in case things go bad
-
-        recordList records = new recordList();
-
-        // start, rebuild, or use the fetcher as is
-
-        if (fetcher != null)
-        {
-            boolean mode_changed = false;
-            if (fetcher.getAlbumMode() != album_mode)
-                mode_changed = true;
-            fetcher.setAlbumMode(album_mode);
-
-            boolean ok = true;
-            if (pl_changed || new_fetcher)
-            {
-                ok = fetcher.start();
-            }
-
-            // this should work ok for now with localPlaylists
-            // but if this was a remote playlist, then how does
-            // content_changed get the new records?
-
-            else if (mode_changed || content_changed)
-            {
-                ok = fetcher.rebuild();
-            }
-
-            // falls thru to use as is in warm-init case
-
-            if (ok)
-                records = fetcher.getRecords();
-        }
+        recordList records = ok ?
+            fetcher.getRecords() :
+            new recordList();
 
         // and away we go ...
 
         ListItemAdapter adapter = (ListItemAdapter) the_list.getAdapter();
-
         if (adapter == null)
         {
             adapter = new ListItemAdapter(
@@ -240,7 +242,7 @@ public class aPlaylist extends Fragment implements
         // restore the scroll position anytime
         // the playlist did not change
 
-        if (!pl_changed)
+        if (!cold_init && !pl_changed)
             restoreScroll(content_changed);
 
     }   // init()
@@ -270,7 +272,7 @@ public class aPlaylist extends Fragment implements
         {
             saveScroll(true);
             this.album_mode = album_mode;
-            init(playlist,false,false);
+            init(false);
         }
     }
 
@@ -305,11 +307,12 @@ public class aPlaylist extends Fragment implements
     public void restoreScroll(boolean content_changed)
     {
         Utils.log(0,0,"restoreScroll(" + scroll_index + "," + scroll_offset + ") track=" + (scroll_track==null ? null : scroll_track.getTitle()));
-        Utils.log(0,3,"fetcher count=" + fetcher.getNumRecords());
         Utils.log(0,3,"adapter count=" + the_list.getAdapter().getCount());
 
-        if (scroll_track != null)
+        if (fetcher != null && scroll_track != null)
         {
+            Utils.log(0,3,"fetcher count=" + fetcher.getNumRecords());
+
             // if switching TO album_mode, start looking for the track forwards
             // if switching FROM album_mode, start looking backwards.
             // Note that care has been taken to ensure that the entire
@@ -364,13 +367,8 @@ public class aPlaylist extends Fragment implements
         if (current)
         {
             page_title = new TextView(artisan);
-            page_title.setText(getTitleBarText());
             artisan.setArtisanPageTitle(page_title);
-            MainMenuToolbar toolbar = artisan.getToolbar();
-            toolbar.showButtons(new int[]{ album_mode ?
-                R.id.command_playlist_tracks :
-                R.id.command_playlist_albums });
-
+            updateTitleBar();
         }
     }
 
@@ -381,25 +379,27 @@ public class aPlaylist extends Fragment implements
             page_title.setText(getTitleBarText());
             MainMenuToolbar toolbar = artisan.getToolbar();
             toolbar.initButtons();
-            toolbar.showButtons(new int[]{ album_mode ?
+            toolbar.showButton(album_mode ?
                 R.id.command_playlist_tracks :
-                R.id.command_playlist_albums });
+                R.id.command_playlist_albums, true);
+
+            if (!current_playlist.getName().isEmpty() ||
+                current_playlist.isDirty())
+            {
+                toolbar.showButton(R.id.command_home,true);
+            }
         }
     }
 
 
     private String getTitleBarText()
     {
-        String msg =
-            playlist == null ? "Playlist" :
-                playlist.isLocal() ? "LocalPlaylist " :
-                    "RemotePlaylist";
-        String name =
-            playlist == null ? "" :
-                playlist.getName();
-
+        String msg = "Playlist: ";
+        String name = current_playlist.getName();
         if (!name.isEmpty())
-            msg += "(" + name + ")";
+            msg += name;
+        if (current_playlist.isDirty())
+            msg += "*";
         return msg;
     }
 
@@ -460,21 +460,9 @@ public class aPlaylist extends Fragment implements
 
     @Override public void handleArtisanEvent(final String event_id,final Object data)
     {
-        if (event_id.equals(EVENT_PLAYLIST_CHANGED))
-
-            init((Playlist) data,true,true);
-
-        else if (event_id.equals(EVENT_PLAYLIST_CONTENT_CHANGED))
-
-            init((Playlist) data,false,true);
-
-        else if (event_id.equals(EVENT_RENDERER_CHANGED))
-        {
-            Renderer renderer = (Renderer) data;
-            Playlist pl = renderer == null ? null :
-                renderer.getPlaylist();
-            init(pl,true,true);
-        }
+        if (event_id.equals(EVENT_PLAYLIST_CHANGED) ||
+            event_id.equals(EVENT_PLAYLIST_CONTENT_CHANGED))
+            init(false);
     }
 
 

@@ -18,7 +18,7 @@ import prh.types.intViewHash;
 import prh.utils.Utils;
 
 
-public class aPrefs extends Fragment implements
+public class aPlaylistSource extends Fragment implements
     ArtisanPage,
     View.OnClickListener,
     EventHandler
@@ -45,7 +45,7 @@ public class aPrefs extends Fragment implements
     @Override
     public void onAttach(Activity activity)
     {
-        Utils.log(dbg_aprefs,0,"aPrefs.onAttach() called");
+        Utils.log(dbg_aprefs,0,"aPlaylistSource.onAttach() called");
         super.onAttach(activity);
     }
 
@@ -53,7 +53,7 @@ public class aPrefs extends Fragment implements
     @Override
     public void onDetach()
     {
-        Utils.log(dbg_aprefs,0,"aPrefs.onDetach() called");
+        Utils.log(dbg_aprefs,0,"aPlaylistSource.onDetach() called");
         super.onDetach();
     }
 
@@ -62,7 +62,7 @@ public class aPrefs extends Fragment implements
     @Override
     public View onCreateView(LayoutInflater inflater,ViewGroup container,Bundle savedInstanceState)
     {
-        Utils.log(dbg_aprefs,0,"aPrefs.onCreateView() called");
+        Utils.log(dbg_aprefs,0,"aPlaylistSource.onCreateView() called");
 
         // inflate my_view and set the PrefListAdapater
 
@@ -191,7 +191,7 @@ public class aPrefs extends Fragment implements
     private class DefaultDevicePref implements View.OnClickListener
     {
         Artisan artisan;
-        aPrefs aprefs;
+        aPlaylistSource aprefs;
         Prefs.id pref_id;
         View item;
         String thing;
@@ -359,4 +359,4 @@ public class aPrefs extends Fragment implements
 
 
 
-}   // class aPrefs
+}   // class aPlaylistSource

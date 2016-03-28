@@ -7,6 +7,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import prh.artisan.Artisan;
+import prh.artisan.CurrentPlaylist;
 import prh.artisan.EventHandler;
 import prh.artisan.Playlist;
 import prh.artisan.PlaylistSource;
@@ -38,19 +39,6 @@ public class MediaRenderer extends Device implements Renderer
     //          the expected track that we expect it to be playing
 {
 
-    public MediaRenderer(Artisan artisan, SSDPSearchDevice ssdp_device)
-    {
-        super(artisan,ssdp_device);
-        Utils.log(0,1,"new MediaRenderer(" + ssdp_device.getFriendlyName() + "," + ssdp_device.getDeviceType() + "," + ssdp_device.getDeviceUrl());
-    }
-
-
-    public MediaRenderer(Artisan artisan)
-    {
-        super(artisan);
-    }
-
-
     private static int dbg_mr = 0;
 
     private static int REFRESH_INTERVAL = 400;
@@ -66,6 +54,8 @@ public class MediaRenderer extends Device implements Renderer
     //------------------------------------------
 
     private RenderingControl volume;
+    private CurrentPlaylist current_playlist = null;
+
 
     // Status and State
 
@@ -78,14 +68,11 @@ public class MediaRenderer extends Device implements Renderer
 
     private int song_position = 0;
         // The current position gotten from the renderer
-
     private Track current_track = null;
         // The current track playing on the remote renderer, which
         // may be the current track we are playing OVER the playlist,
         // the current track we are playing FROM the playlist,
         // or some other track completely local to the renderer.
-    private Playlist current_playlist = null;
-        // The playlist, if any, that we are playing.
 
     // pseudo constants
 
@@ -103,26 +90,41 @@ public class MediaRenderer extends Device implements Renderer
 
     int last_position = 0;
     String last_track_uri = "";
-
-    // counter of tracks played
-
     private int total_tracks_played = 0;
-
-    // pending play
-
+        // counter of tracks played
     private int do_play_on_next_update = 0;
+        // pending play
 
 
     //--------------------------------------------
     // construct, start, and stop
     //--------------------------------------------
 
+    public MediaRenderer(Artisan artisan, SSDPSearchDevice ssdp_device)
+    {
+        super(artisan,ssdp_device);
+        current_playlist = artisan.getCurrentPlaylist();
+        Utils.log(0,1,"new MediaRenderer(" + ssdp_device.getFriendlyName() + "," + ssdp_device.getDeviceType() + "," + ssdp_device.getDeviceUrl());
+    }
 
-    public boolean startRenderer()
+
+    public MediaRenderer(Artisan artisan)
+    {
+        super(artisan);
+        current_playlist = artisan.getCurrentPlaylist();
+    }
+
+
+    @Override public void notifyPlaylistChanged()
+    {
+        if (current_playlist.getNumTracks()>0)
+            incAndPlay(0);
+    }
+
+
+    @Override public boolean startRenderer()
     {
         Utils.log(dbg_mr,0,"MediaRenderer.startRenderer()");
-
-        current_playlist = artisan.createEmptyPlaylist();
 
         // Hit the DLNA Renderer to make sure it is online,
         // Return false if it is not.
@@ -184,7 +186,7 @@ public class MediaRenderer extends Device implements Renderer
     }
 
 
-    public void stopRenderer()
+    @Override public void stopRenderer()
     // parent is responsible for sending out RENDERER_CHANGED event
     {
         Utils.log(dbg_mr,1,"MediaRenderer.stopRenderer()");
@@ -212,7 +214,6 @@ public class MediaRenderer extends Device implements Renderer
         // get rid of any references to
         // external objects
 
-        current_playlist = null;
         current_track = null;
 
         // stop the volume control
@@ -241,21 +242,18 @@ public class MediaRenderer extends Device implements Renderer
     // Renderer API
     //----------------------------------------
 
-    public String getName()                   { return getFriendlyName(); }
-    public Volume getVolume()                 { return volume; }
-    public String getRendererStatus()         { return renderer_status; }
-    public String getPlayMode()               { return play_mode; }
-    public String getPlaySpeed()              { return play_speed; }
-    public boolean getShuffle()               { return shuffle; }
-    public boolean getRepeat()                { return repeat; }
-    public int getTotalTracksPlayed()         { return total_tracks_played; }
-    public Playlist getPlaylist()             { return current_playlist; }
-    public String getRendererState()          { return renderer_state; }
-    public int getPosition()                  { return song_position; }
-    public void setRepeat(boolean value)      { repeat = value; }
-    public void setShuffle(boolean value)     { shuffle = value; };
-
-    // public void setPlaylistSource(PlaylistSource source) { current_playlist_source = source; }
+    @Override public String getName()                   { return getFriendlyName(); }
+    @Override public Volume getVolume()                 { return volume; }
+    @Override public String getRendererStatus()         { return renderer_status; }
+    @Override public String getPlayMode()               { return play_mode; }
+    @Override public String getPlaySpeed()              { return play_speed; }
+    @Override public boolean getShuffle()               { return shuffle; }
+    @Override public boolean getRepeat()                { return repeat; }
+    @Override public int getTotalTracksPlayed()         { return total_tracks_played; }
+    @Override public String getRendererState()          { return renderer_state; }
+    @Override public int getPosition()                  { return song_position; }
+    @Override public void setRepeat(boolean value)      { repeat = value; }
+    @Override public void setShuffle(boolean value)     { shuffle = value; };
 
 
     //-----------------------------------------------
@@ -265,17 +263,15 @@ public class MediaRenderer extends Device implements Renderer
     // but Renderer is an interface (as Device is more fundamental),
     // and cannot currently have default implementations
 
-    public Track getTrack()
+    @Override public Track getTrack()
     {
         if (current_track != null)
             return current_track;
-        if (current_playlist != null)
-            return current_playlist.getCurrentTrack();
-        return null;
+        return current_playlist.getCurrentTrack();
     }
 
 
-    public void setTrack(Track track, boolean interrupt_playlist)
+    @Override public void setTrack(Track track, boolean interrupt_playlist)
         // Start playing the given track in "immediate mode"
         // possibly interrupting the current playlist, if any,
         // in which case we substitute a new empty playlist
@@ -286,35 +282,10 @@ public class MediaRenderer extends Device implements Renderer
             Utils.log(dbg_mr,0,"setTrack(" + track.getTitle() + ") interrupt=" + interrupt_playlist);
             // stop();
             if (interrupt_playlist)
-                current_playlist = artisan.createEmptyPlaylist();
+                artisan.setPlaylist("",true);
             current_track = track;
             Utils.log(1,1,"setTrack() calling play()");
             play();
-        }
-    }
-
-
-    public void setPlaylist(Playlist playlist)
-        // stop the current playlist, if any, and
-        // start the new one if not null
-    {
-        String dbg_name = playlist != null ? playlist.getName() : "null";
-        Utils.log(0,0,"setPlaylist(" + dbg_name + ")");
-
-        if (current_playlist != null)
-            current_playlist.stop();
-
-        stop();     // lower level?
-
-        current_playlist = playlist != null ? playlist :
-            artisan.createEmptyPlaylist();
-        current_playlist.start();
-        artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
-
-        if (playlist != null)
-        {
-            Utils.log(1,1,"setPlaylist() calling incAndPlay(0)");
-            incAndPlay(0);
         }
     }
 
@@ -361,7 +332,7 @@ public class MediaRenderer extends Device implements Renderer
     //--------------------------------------------------------------------
 
 
-    public void seekTo(int position)
+    @Override public void seekTo(int position)
     {
         Utils.log(dbg_mr + 1,0,"seekTo(" + position + ") state=" + getRendererState());
         if (getTrack() != null)
@@ -377,7 +348,7 @@ public class MediaRenderer extends Device implements Renderer
     }
 
 
-    public void stop()
+    @Override public void stop()
     {
         Utils.log(dbg_mr,0,"stop() state=" + getRendererState());
         if (!renderer_state.equals(RENDERER_STATE_NONE))
@@ -390,7 +361,7 @@ public class MediaRenderer extends Device implements Renderer
     }
 
 
-    public void pause()
+    @Override public void pause()
     {
         Utils.log(dbg_mr,0,"pause() state=" + getRendererState());
         if (renderer_state.equals(RENDERER_STATE_PLAYING))
@@ -399,7 +370,7 @@ public class MediaRenderer extends Device implements Renderer
 
 
 
-    public void play()
+    @Override public void play()
     {
         Utils.log(dbg_mr,0,"play() state=" + getRendererState());
         Track track = current_track;

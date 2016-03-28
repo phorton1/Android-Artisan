@@ -332,11 +332,27 @@ public class Fetcher implements Runnable
         // OR it will take a long time if the thing
         // was not fully loaded.
     {
-        Utils.log(dbg_fetcher,1,"Fetcher.rebuild(" + dbg_title + ") playlist num_tracks((Playlist)source).getNumTracks()");
+        Utils.log(dbg_fetcher,1,"Fetcher.rebuild(" + dbg_title + ") playlist num_tracks=" + ((Playlist)source).getNumTracks());
         records.clear();
         fetchResult rslt = source.getFetchRecords(this,true,999999);
         return rslt != fetchResult.FETCH_ERROR;
     }
+
+
+    public boolean restart()
+        // different than start() on an IDLE fetcher,
+        // this clears the records, resets to STATE_INIT,
+        // and starts over ..
+    {
+        if (state != fetcherState.FETCHER_INIT)
+        {
+            stop(true,true);
+            records.clear();
+            setState(fetcherState.FETCHER_INIT);
+        }
+        return start();
+    }
+
 
     //-------------------------------------------------------------------
     // Functional Public API
