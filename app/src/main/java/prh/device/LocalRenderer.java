@@ -96,11 +96,8 @@ public class LocalRenderer extends Device implements
         // on transitions, and updated in updateState()
 
     private Track current_track = null;
-    private CurrentPlaylist current_playlist;
-        // what's playing, or playable
-        // the LocalRenderer ALWAYS has a playlist,
-        // even when stopped, as it serves as the
-        // "current" playlist for the system.
+        // Renderers are always playling the CurrentPlaylist,
+        // but a Track can be pushed on top of it.
 
     private boolean repeat = true;
     private boolean shuffle = false;
@@ -122,7 +119,7 @@ public class LocalRenderer extends Device implements
 
     @Override public void notifyPlaylistChanged()
     {
-        if (current_playlist.getNumTracks()>0)
+        if (artisan.getCurrentPlaylist().getNumTracks()>0)
             incAndPlay(0);
     }
 
@@ -149,7 +146,6 @@ public class LocalRenderer extends Device implements
     @Override public boolean startRenderer()
     {
         Utils.log(dbg_ren,0,"LocalRenderer.startRenderer()");
-        current_playlist = artisan.getCurrentPlaylist();
 
         local_volume = new LocalVolume(artisan);
         local_volume.start();
@@ -208,10 +204,9 @@ public class LocalRenderer extends Device implements
         }
         in_refresh = false;
 
-        // forget the current track and playlist
+        // forget the current track
 
         current_track = null;
-        current_playlist = null;
 
         // stop the media_player and the volume control
 
@@ -258,9 +253,11 @@ public class LocalRenderer extends Device implements
         if (current_track != null)
             return current_track;
         //if (current_playlist != null)
-            return current_playlist.getCurrentTrack();
+            return artisan.getCurrentPlaylist().getCurrentTrack();
         //return null;
     }
+
+
 
 
     @Override public void setTrack(Track track, boolean interrupt_playlist)
@@ -291,29 +288,24 @@ public class LocalRenderer extends Device implements
         song_position = 0;
 
         Track track = null;
+         current_track = null;
 
-        // if (current_playlist != null)
+        CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
+        current_playlist.incGetTrack(inc);
+        track = current_playlist.getCurrentTrack();
+        if (track == null)
         {
-            current_track = null;
-            current_playlist.incGetTrack(inc);
-            track = current_playlist.getCurrentTrack();
-            if (track == null)
-            {
-                if (!current_playlist.getName().equals(""))
-                    noSongsMsg();
-            }
-            else
-            {
-                Utils.log(dbg_ren,1,"incAndPlay(" + inc + ") got " + track.getPosition() + ":" + track.getTitle());
-                play();
-            }
+            if (!current_playlist.getName().equals(""))
+                noSongsMsg();
         }
-        // else
-        //    Utils.log(dbg_ren,1,"incAndPlay(" + inc + ") no playlist - stopping");
+        else
+        {
+            Utils.log(dbg_ren,1,"incAndPlay(" + inc + ") got " + track.getPosition() + ":" + track.getTitle());
+            play();
+        }
 
         if (track == null)
             stop();
-
         artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
     }
 
@@ -358,6 +350,7 @@ public class LocalRenderer extends Device implements
     {
         Utils.log(dbg_ren,0,"play() mp=" + getMediaPlayerState() + " rend=" + getRendererState());
         Track track = current_track;
+        CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
         if (current_track==null && current_playlist != null)
             track = current_playlist.getCurrentTrack();
 
@@ -418,7 +411,8 @@ public class LocalRenderer extends Device implements
 
     public void noSongsMsg()
     {
-        String msg = "No supported songs types found in playlist '" + current_playlist.getName() + "'";
+        String msg = "No supported songs types found in playlist '" +
+            artisan.getCurrentPlaylist().getName() + "'";
         Utils.error(msg);
         Toast.makeText(artisan.getApplicationContext(),msg,Toast.LENGTH_LONG).show();
     }

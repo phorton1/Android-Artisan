@@ -151,11 +151,13 @@ import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
 
 import android.view.KeyEvent;
+import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
@@ -169,6 +171,7 @@ import prh.server.HTTPServer;
 import prh.server.LocalVolumeFixer;
 import prh.server.SSDPServer;
 import prh.server.utils.UpnpEventManager;
+import prh.types.intList;
 import prh.utils.Utils;
 
 
@@ -1126,6 +1129,17 @@ public class Artisan extends FragmentActivity implements
                 break;
 
             case R.id.command_context :
+                myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
+                ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
+
+                PopupMenu context_menu = new PopupMenu(this,v);
+                context_menu.setOnMenuItemClickListener(page);
+
+                Menu menu = context_menu.getMenu();
+                intList res_ids = page.getContextMenuIds();
+                for (int res_id:res_ids)
+                    menu.add(0,res_id,0,res_id);
+                context_menu.show();
                 break;
 
             case R.id.command_playlist_albums :

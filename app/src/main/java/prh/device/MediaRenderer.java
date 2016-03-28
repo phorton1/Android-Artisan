@@ -54,8 +54,6 @@ public class MediaRenderer extends Device implements Renderer
     //------------------------------------------
 
     private RenderingControl volume;
-    private CurrentPlaylist current_playlist = null;
-
 
     // Status and State
 
@@ -103,7 +101,6 @@ public class MediaRenderer extends Device implements Renderer
     public MediaRenderer(Artisan artisan, SSDPSearchDevice ssdp_device)
     {
         super(artisan,ssdp_device);
-        current_playlist = artisan.getCurrentPlaylist();
         Utils.log(0,1,"new MediaRenderer(" + ssdp_device.getFriendlyName() + "," + ssdp_device.getDeviceType() + "," + ssdp_device.getDeviceUrl());
     }
 
@@ -111,13 +108,12 @@ public class MediaRenderer extends Device implements Renderer
     public MediaRenderer(Artisan artisan)
     {
         super(artisan);
-        current_playlist = artisan.getCurrentPlaylist();
     }
 
 
     @Override public void notifyPlaylistChanged()
     {
-        if (current_playlist.getNumTracks()>0)
+        if (artisan.getCurrentPlaylist().getNumTracks()>0)
             incAndPlay(0);
     }
 
@@ -267,7 +263,8 @@ public class MediaRenderer extends Device implements Renderer
     {
         if (current_track != null)
             return current_track;
-        return current_playlist.getCurrentTrack();
+        return artisan.getCurrentPlaylist().
+            getCurrentTrack();
     }
 
 
@@ -295,6 +292,8 @@ public class MediaRenderer extends Device implements Renderer
     // does nothing if no playlist
     {
         Utils.log(dbg_mr,0,"incAndPlay(" + inc + ")");
+
+        CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
         Track track = current_playlist.incGetTrack(inc);
 
         if (track == null)
@@ -355,7 +354,6 @@ public class MediaRenderer extends Device implements Renderer
         {
             song_position = 0;
             current_track = null;
-            current_playlist = null;
             doCommand("Stop",null);
         }
     }
@@ -374,8 +372,9 @@ public class MediaRenderer extends Device implements Renderer
     {
         Utils.log(dbg_mr,0,"play() state=" + getRendererState());
         Track track = current_track;
-        if (current_track == null && current_playlist != null)
-            track = current_playlist.getCurrentTrack();
+        if (current_track == null)
+            track = artisan.getCurrentPlaylist().
+                getCurrentTrack();
 
         if (track == null)
         {
@@ -526,7 +525,7 @@ public class MediaRenderer extends Device implements Renderer
         // see if they pressed STOP on the renderer, and/or
         // to advance the song automatically
 
-        if (current_track != null && current_playlist != null)      // playlist is playing
+        if (current_track != null)
         {
             int cur_duration = current_track.getDuration()/1000;
                 // last_position is in SECONDS
@@ -541,7 +540,6 @@ public class MediaRenderer extends Device implements Renderer
 
                 song_position = 0;
                 current_track = null;
-                current_playlist = null;
 
                 // event that the playlist has gone to null
                 // the track and position changes will be evented below

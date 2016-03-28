@@ -28,6 +28,7 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
@@ -38,6 +39,7 @@ import java.util.ArrayList;
 
 import prh.device.Device;
 import prh.device.MediaServer;
+import prh.types.intList;
 import prh.types.recordList;
 import prh.types.selectedHash;
 import prh.utils.Utils;
@@ -410,6 +412,17 @@ public class aLibrary extends Fragment implements
     @Override public boolean getSelected(Record record)
     {
         return this.selected.getSelected(record);
+    }
+
+
+    @Override public boolean onMenuItemClick(MenuItem item)
+    {
+        return true;
+    }
+
+    @Override public intList getContextMenuIds()
+    {
+        return new intList();
     }
 
 

@@ -47,7 +47,6 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
 
     private Artisan artisan;
     private HTTPServer http_server;
-    private CurrentPlaylist current_playlist;
     private String urn;
 
     // BubbleUp incremental playlist exposure support.
@@ -94,7 +93,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         String user_agent = subscriber.getUserAgent();
         String ipua = ip + ":" + user_agent;
         PlaylistExposer exposer = exposers.get(ipua);
-        LocalRenderer local_renderer = artisan.getLocalRenderer();
+        CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
 
         if (subscribe)
         {
@@ -194,6 +193,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         boolean ok = true;
         HashMap<String,String> hash = new HashMap<>();
         LocalRenderer local_renderer = artisan.getLocalRenderer();
+        CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
 
         String ipua =
             session.getHeaders().get("remote-addr") + ":" +
@@ -520,6 +520,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
     {
         HashMap<String,String> hash = new HashMap<>();
         LocalRenderer local_renderer = artisan.getLocalRenderer();
+        CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
         Track track = local_renderer.getTrack();
             // Our track may possibly NOT be in the playlist ...
 

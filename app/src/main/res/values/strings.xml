@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">Artisan</string>
+    <string name="context_menu_save" id="@+id/context_menu_rename">Save</string>
+    <string name="context_menu_saveas" id="@+id/context_menu_rename">SaveAs</string>
+    <string name="context_menu_rename" id="@+id/context_menu_rename">Rename</string>
 </resources>

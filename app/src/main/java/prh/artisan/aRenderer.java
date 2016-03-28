@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
@@ -24,6 +25,7 @@ import java.io.File;
 import java.io.FileInputStream;
 
 import prh.device.LocalPlaylist;
+import prh.types.intList;
 import prh.utils.ImageLoader;
 import prh.utils.Utils;
 
@@ -234,6 +236,7 @@ public class aRenderer extends Fragment implements
                 break;
         }
     }
+
 
 
     class trackSeekBarListener implements SeekBar.OnSeekBarChangeListener
@@ -644,6 +647,15 @@ public class aRenderer extends Fragment implements
     }
 
 
+    @Override public boolean onMenuItemClick(MenuItem item)
+    {
+        return true;
+    }
+
+    @Override public intList getContextMenuIds()
+    {
+        return new intList();
+    }
 
 
 }   // class aRenderer

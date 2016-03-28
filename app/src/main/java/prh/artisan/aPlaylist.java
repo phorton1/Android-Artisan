@@ -1,16 +1,21 @@
 package prh.artisan;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import prh.device.LocalPlaylist;
+import prh.types.intList;
 import prh.types.recordList;
 import prh.types.selectedHash;
 import prh.utils.Utils;
@@ -381,14 +386,30 @@ public class aPlaylist extends Fragment implements
             toolbar.initButtons();
             toolbar.showButton(album_mode ?
                 R.id.command_playlist_tracks :
-                R.id.command_playlist_albums, true);
+                R.id.command_playlist_albums,true);
 
             if (!current_playlist.getName().isEmpty() ||
                 current_playlist.isDirty())
             {
-                toolbar.showButton(R.id.command_home,true);
+                toolbar.showButton(R.id.command_context,true);
             }
         }
+    }
+
+
+    @Override public intList getContextMenuIds()
+    {
+        intList res_ids = new intList();
+
+        if (current_playlist.isDirty())
+        {
+            res_ids.add(R.string.context_menu_save);
+            res_ids.add(R.string.context_menu_saveas);
+        }
+        if (!current_playlist.getName().isEmpty())
+            res_ids.add(R.string.context_menu_rename);
+
+        return res_ids;
     }
 
 
@@ -403,6 +424,49 @@ public class aPlaylist extends Fragment implements
         return msg;
     }
 
+
+    @Override public boolean onMenuItemClick(MenuItem item)
+    {
+        int id = item.getItemId();
+
+        switch (id)
+        {
+            case R.string.context_menu_saveas:
+                break;
+            case R.string.context_menu_save:
+                confirm(
+                    "Save playlist " +
+                    current_playlist.getName() + " ??",
+                    new Runnable() { public void run() {
+                        current_playlist.save();
+                    }});
+                break;
+            case R.string.context_menu_rename:
+        }
+        return true;
+    }
+
+
+        public void confirm(
+            //String title,
+            String msg,
+            final Runnable run_on_yes)
+        {
+            new AlertDialog.Builder(artisan)
+                //.setTitle(title)
+                .setMessage(msg)
+                //.setIcon(android.R.drawable.ic_dialog_alert)
+                .setPositiveButton(android.R.string.yes,
+                    new DialogInterface.OnClickListener()
+                    {
+                        public void onClick(DialogInterface dialog,int id)
+                        {
+                           run_on_yes.run();
+                        }
+                    })
+                //.setNegativeButton(android.R.string.no,null)
+                .show();
+        }
 
 
     //--------------------------------------------------------------

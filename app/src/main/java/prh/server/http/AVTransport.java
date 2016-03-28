@@ -139,8 +139,8 @@ public class AVTransport extends httpRequestHandler
             Track track = local_renderer.getTrack();
             String track_index = "1";
 
-            CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
-            track_index = Integer.toString(current_playlist.getCurrentIndex());
+            track_index = Integer.toString(artisan.getCurrentPlaylist().
+                getCurrentIndex());
             hash.put("Track",track_index);
 
             hash.put("RelCount","0");
