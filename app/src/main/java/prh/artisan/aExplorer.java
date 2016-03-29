@@ -10,6 +10,7 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import prh.types.intList;
+import prh.types.stringList;
 import prh.utils.Utils;
 
 

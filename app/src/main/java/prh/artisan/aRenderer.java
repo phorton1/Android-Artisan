@@ -26,6 +26,7 @@ import java.io.FileInputStream;
 
 import prh.device.LocalPlaylist;
 import prh.types.intList;
+import prh.types.stringList;
 import prh.utils.ImageLoader;
 import prh.utils.Utils;
 
@@ -653,6 +654,7 @@ public class aRenderer extends Fragment implements
     {
         return true;
     }
+
 
     @Override public intList getContextMenuIds()
     {

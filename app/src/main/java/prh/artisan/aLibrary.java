@@ -42,6 +42,7 @@ import prh.device.MediaServer;
 import prh.types.intList;
 import prh.types.recordList;
 import prh.types.selectedHash;
+import prh.types.stringList;
 import prh.utils.Utils;
 
 
@@ -424,6 +425,7 @@ public class aLibrary extends Fragment implements
     {
         return new intList();
     }
+
 
 
     //---------------------------------------------------------------------
