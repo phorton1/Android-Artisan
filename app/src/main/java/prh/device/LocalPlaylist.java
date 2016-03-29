@@ -115,6 +115,7 @@ public class LocalPlaylist extends Playlist
         num_tracks = cursor.getInt(fields.get("num_tracks"));
         track_index = cursor.getInt(fields.get("track_index"));
         my_shuffle = cursor.getInt(fields.get("shuffle"));
+        playlist_num = cursor.getInt(fields.get("num"));
         pl_query = cursor.getString(fields.get("query"));
         Utils.log(dbg_lp+1,1,"LocalPlaylist(" + name + ") num_tracks=" + num_tracks + " track_index=" + track_index + " my_shuffle=" + my_shuffle);
 
@@ -215,10 +216,12 @@ public class LocalPlaylist extends Playlist
             track_db.close();
             track_db = null;
         }
-        tracks_by_open_id.clear();
+        if (tracks_by_open_id != null)
+            tracks_by_open_id.clear();
         tracks_by_open_id = null;
 
-        tracks_by_position.clear();
+        if (tracks_by_position != null)
+            tracks_by_position.clear();
         tracks_by_position.clear();
 
         super.stop();   // does nothing

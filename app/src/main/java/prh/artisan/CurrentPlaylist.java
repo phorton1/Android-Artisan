@@ -152,9 +152,8 @@ public class CurrentPlaylist extends Playlist
     Folder last_virtual_folder = null;
 
 
-    private void invalidateFetcher()
+    private void initVirtualFolders()
     {
-        fetcher_valid = false;
         num_virtual_folders = 0;
         last_virtual_folder = null;
     }
@@ -244,7 +243,7 @@ public class CurrentPlaylist extends Playlist
 
             if (num_records == 0 ||
                 num_virtual_folders >= num_records)
-                num_virtual_folders = 0;
+                initVirtualFolders();
 
             // starting at the number of records in the fetcher
             // subtract the number of virtual folders if fetching that way

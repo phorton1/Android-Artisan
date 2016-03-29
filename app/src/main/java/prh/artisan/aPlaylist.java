@@ -3,7 +3,6 @@ package prh.artisan;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
-import android.content.DialogInterface;
 import android.os.Bundle;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
@@ -25,6 +24,7 @@ import android.widget.TextView;
 import prh.types.intList;
 import prh.types.recordList;
 import prh.types.selectedHash;
+import prh.types.stringList;
 import prh.utils.confirmDialog;
 import prh.utils.Utils;
 import prh.utils.getStringDialog;
@@ -65,18 +65,6 @@ public class aPlaylist extends Fragment implements
     private int scroll_offset = 0;
     private Track scroll_track = null;
 
-    public boolean closeOK()
-        // return TRUE if the current, in memory Playist
-        // which this object manages, can be discarded,
-        // before changing to another in-memory playlist.
-        // Like closeOK() on a dirty window in any language.
-        //
-        // If the playlist is dirty, the user is given a
-        // chance to Save, SaveAs, or Cancel, and the method
-        // returns false only on Cancel.
-    {
-        return true;
-    }
 
     //----------------------------------------------
     // top level accessors
@@ -187,9 +175,10 @@ public class aPlaylist extends Fragment implements
         if (pl_changed)
             selected.clear();
 
-        // save the cursor position
+        // save the cursor position if the content changed
+        // but not the playlist ....
 
-        if (!cold_init && !pl_changed)
+        if (!cold_init && !pl_changed && content_changed)
             saveScroll(true);
 
         // set the album mode into the fetcher
@@ -298,6 +287,13 @@ public class aPlaylist extends Fragment implements
     {
         scroll_track = null;
         scroll_index = the_list.getFirstVisiblePosition();
+
+        // special case .. if switching to album mode from the 0th item
+        // don't use track relative searching .. just show top of page
+
+        if (!album_mode && scroll_index == 0)
+            by_track = false;
+
         ListItem list_item = (ListItem) the_list.getChildAt(0);
         if (by_track && list_item != null)
         {
@@ -359,9 +355,9 @@ public class aPlaylist extends Fragment implements
         the_list.setSelectionFromTop(scroll_index,scroll_offset);
 
         // more attempts to get scrolling and thumb reliable
-        //ListItemAdapter adapter = (ListItemAdapter) the_list.getAdapter();
-        //adapter.setScrollPosition(scroll_index,scroll_offset);
-        //adapter.setScrollBar(true);
+        // ListItemAdapter adapter = (ListItemAdapter) the_list.getAdapter();
+        // adapter.setScrollPosition(scroll_index,scroll_offset);
+        // adapter.setScrollBar(true);
 
         scroll_index = 0;
         scroll_offset = 0;
@@ -414,14 +410,40 @@ public class aPlaylist extends Fragment implements
         // though if they add a track, and delete the track,
         // making it dirty, they can save it empty, cuz it's dirty
 
-        if (current_playlist.isDirty())
+        if (selected.size() == 0)   // Playlist Context
         {
-            res_ids.add(R.string.context_menu_save);
+            res_ids.add(R.string.context_menu_new);
+
+            if (current_playlist.isDirty())
+            {
+                res_ids.add(R.string.context_menu_save);
+            }
+            if (!current_playlist.getName().isEmpty())
+            {
+                res_ids.add(R.string.context_menu_saveas);
+                res_ids.add(R.string.context_menu_rename);
+                res_ids.add(R.string.context_menu_delete);
+                if (current_playlist.getNumTracks()>0)
+                {
+                    res_ids.add(R.string.context_menu_shuffle);
+                    res_ids.add(R.string.context_menu_edit_header);
+                }
+            }
         }
-        if (!current_playlist.getName().isEmpty())
+        else    // Selected Items Context
         {
-            res_ids.add(R.string.context_menu_saveas);
-            res_ids.add(R.string.context_menu_rename);
+            res_ids.add(R.string.context_menu_cut);
+            res_ids.add(R.string.context_menu_copy);
+            res_ids.add(R.string.context_menu_add);
+
+            res_ids.add(R.string.context_menu_move);
+            res_ids.add(R.string.context_edit_metadata);
+        }
+
+        if (!current_playlist.getName().isEmpty() &&
+            current_playlist.getNumTracks()>0)
+        {
+            res_ids.add(R.string.context_menu_download);
         }
 
         return res_ids;
@@ -441,20 +463,23 @@ public class aPlaylist extends Fragment implements
 
 
     //--------------------------------------
-    // saveAsDialog
+    // playlistFileDialog
     //--------------------------------------
 
-    private static enum saveState
+    private static enum dlgState
     {
         save,
         saveas,
+        confirm_new,
+        confirm_delete,
         confirm_overwrite,
         confirm_save,
-        do_save
+        do_save,
+        set_playlist
     };
 
 
-    public static class saveAsDialog extends DialogFragment
+    public static class playlistFileDialog extends DialogFragment
         implements
             TextWatcher,
             View.OnClickListener,
@@ -463,21 +488,63 @@ public class aPlaylist extends Fragment implements
         private Artisan artisan;
         private aPlaylist parent;
         private String name_for_inflate;
-        private saveState state = saveState.save;
+        private dlgState state = dlgState.save;
         private View my_view;
         private TextView prompt;
         private RelativeLayout combo;
         private EditText value;
         private Button ok_button;
+        String command;
 
 
-        public void setup(aPlaylist a_playlist, Artisan ma, boolean save_as)
+        public void setup(aPlaylist a_playlist, Artisan ma, String what, String param)
         {
             artisan = ma;
+            command = what;
             parent = a_playlist;
-            name_for_inflate = artisan.getCurrentPlaylist().getName();
-            if (save_as || name_for_inflate.isEmpty())
-                state = saveState.saveas;
+            CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
+            name_for_inflate = current_playlist.getName();
+
+            if (what.equals("set_playlist") && param.isEmpty())
+                what = "new";
+
+            if (what.equals("save") || what.equals("save_as"))
+            {
+                if (what.equals("save_as") ||
+                    name_for_inflate.isEmpty())
+                    state = dlgState.saveas;
+            }
+            else if (what.equals("delete"))
+            {
+                if (name_for_inflate.isEmpty())
+                    return;     // bad call
+                state = dlgState.confirm_delete;
+            }
+            else if (what.equals("new"))
+            {
+                state = dlgState.confirm_new;
+            }
+
+            // otherwise what is a playlist name for set_playlist
+
+            else if (what.equals("set_playlist"))
+            {
+                Playlist exists = artisan.getPlaylistSource().getPlaylist(param);
+                if (exists == null)
+                {
+                    Utils.error("Could not find playlist: " + param);
+                    return;
+                }
+                if (!current_playlist.isDirty())
+                {
+                    parent.do_setPlaylist(param);
+                    return;
+                }
+                name_for_inflate = param;
+                state = dlgState.set_playlist;
+            }
+            show(artisan.getSupportFragmentManager(),what);
+
         }
 
         @Override
@@ -511,17 +578,26 @@ public class aPlaylist extends Fragment implements
             combo.setVisibility(View.GONE);
             String new_name = value.getText().toString();
 
-            if (state == saveState.confirm_overwrite)
+            if (state == dlgState.set_playlist ||
+                state == dlgState.confirm_new)
+            {
+                prompt.setText("Discard changed playlist '" + new_name + "' ?");
+            }
+            else if (state == dlgState.confirm_delete)
+            {
+                prompt.setText("Delete playlist '" + new_name + "' ?");
+            }
+            else if (state == dlgState.confirm_overwrite)
             {
                 prompt.setText("Overwrite existing playlist '" + new_name + "' ?");
             }
-            else if (state == saveState.saveas)
+            else if (state == dlgState.saveas)
             {
                 prompt.setText("Save As");
                 combo.setVisibility(View.VISIBLE);
                 enable_ok = !value.getText().toString().isEmpty();
             }
-            else
+            else  // state MUST be save
             {
                 prompt.setText("Save playlist '" + new_name + "' ?");
             }
@@ -546,16 +622,16 @@ public class aPlaylist extends Fragment implements
 
         @Override public void onClick(View v)
         {
+            PlaylistSource source = artisan.getPlaylistSource();
             if (v.getId() == R.id.saveas_dialog_dropdown_button)
             {
-                PlaylistSource pls = artisan.getPlaylistSource();
                 PopupMenu drop_down = new PopupMenu(artisan,v);
                 drop_down.setOnMenuItemClickListener(this);
-                String pl_names[] = pls.getPlaylistNames();
+                stringList pl_names = source.getPlaylistNames();
                 Menu menu = drop_down.getMenu();
-                for (int i=0; i<pl_names.length; i++)
+                for (int i=0; i<pl_names.size(); i++)
                 {
-                    String name = pl_names[i];
+                    String name = pl_names.get(i);
                     menu.add(0,i,0,name);
                 }
                 drop_down.show();
@@ -563,25 +639,42 @@ public class aPlaylist extends Fragment implements
             else if (v.getId() == R.id.saveas_dialog_ok)
             {
                 String new_name = value.getText().toString();
-                if (state == saveState.saveas && !new_name.isEmpty())
+                if (state == dlgState.saveas && !new_name.isEmpty())
                 {
-                    if (artisan.getPlaylistSource().getPlaylist(new_name) != null)
-                        state = saveState.confirm_overwrite;
+                    if (source.getPlaylist(new_name) != null)
+                        state = dlgState.confirm_overwrite;
                     else
-                        state = saveState.do_save;
+                        state = dlgState.do_save;
                 }
-                else if (state == saveState.save ||
-                         state == saveState.confirm_overwrite)
+                else if (state == dlgState.save ||
+                         state == dlgState.confirm_overwrite)
                 {
-                    state = saveState.do_save;
+                    state = dlgState.do_save;
                 }
-                if (state == saveState.do_save)
+                if (state == dlgState.do_save)
                 {
                     String name = value.getText().toString();
                     if (artisan.getLocalPlaylistSource().saveAs(
                         artisan.getCurrentPlaylist(),name))
                         artisan.getCurrentPlaylist().setName(name);
                     parent.updateTitleBar();
+                    this.dismiss();
+                }
+                else if (state == dlgState.confirm_new)
+                {
+                    parent.do_setPlaylist("");
+                    this.dismiss();
+                }
+                else if (state == dlgState.confirm_delete)
+                {
+                    artisan.getCurrentPlaylist().setAssociatedPlaylist(null);
+                    source.deletePlaylist(new_name);
+                    parent.do_setPlaylist("");
+                    this.dismiss();
+                }
+                else if (state == dlgState.set_playlist)
+                {
+                    parent.do_setPlaylist(new_name);
                     this.dismiss();
                 }
                 else
@@ -593,7 +686,6 @@ public class aPlaylist extends Fragment implements
                 this.dismiss();
         }
 
-
         // PopupMenu.OnMenuItemClickListener
 
         @Override public boolean onMenuItemClick(MenuItem item)
@@ -601,13 +693,54 @@ public class aPlaylist extends Fragment implements
             // set the edit_text to the playlist name
         {
             int id = item.getItemId();
-            String names[] = artisan.getPlaylistSource().getPlaylistNames();
-            String name = names[id];
-            value.setText(name);
+            stringList names = artisan.getPlaylistSource().getPlaylistNames();
+            value.setText(names.get(id));
             return true;
         }
 
+
     }   // class saveAsDialog
+
+
+
+    //-------------------------------
+    // DOERS
+    //-------------------------------
+
+    public void setPlaylist(String name, boolean force)
+    {
+        playlistFileDialog dlg = new playlistFileDialog();
+        if (force || !current_playlist.isDirty())
+            do_setPlaylist(name);
+        else
+            dlg.setup(this,artisan,"set_playlist",name);
+    }
+
+
+    public void do_setPlaylist(String name)
+    {
+        PlaylistSource source = artisan.getPlaylistSource();
+        Renderer renderer = artisan.getRenderer();
+        Playlist new_playlist = name.isEmpty() ?
+            source.createEmptyPlaylist() :
+            source.getPlaylist(name);
+        if (new_playlist == null)
+        {
+            Utils.error("Could not get Playlist named '" + name + "'");
+            return;
+        }
+
+        // associate it with the renderer and the CurrentPlaylist
+
+        current_playlist.setAssociatedPlaylist(new_playlist);
+        renderer.notifyPlaylistChanged();
+
+        // send the event.
+
+        artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,new_playlist);
+    }
+
+
 
 
     //--------------------------------------------------------------
@@ -620,24 +753,42 @@ public class aPlaylist extends Fragment implements
 
         switch (id)
         {
+            case R.string.context_menu_new:
+            {
+                if (!current_playlist.isDirty())
+                {
+                    do_setPlaylist("");
+                }
+                else
+                {
+                    playlistFileDialog dlg = new playlistFileDialog();
+                    dlg.setup(this,artisan,"new",null);
+                }
+                break;
+            }
             case R.string.context_menu_saveas:
             {
-                saveAsDialog dlg = new saveAsDialog();
-                dlg.setup(this,artisan,true);
-                dlg.show(artisan.getSupportFragmentManager(),"save_as");
+                playlistFileDialog dlg = new playlistFileDialog();
+                dlg.setup(this,artisan,"save_as",null);
                 break;
             }
             case R.string.context_menu_save:
             {
-                saveAsDialog dlg = new saveAsDialog();
-                dlg.setup(this,artisan,false);
-                dlg.show(artisan.getSupportFragmentManager(),"save");
+                playlistFileDialog dlg = new playlistFileDialog();
+                dlg.setup(this,artisan,"save",null);
                 break;
             }
-            case R.string.context_menu_rename:
+            case R.string.context_menu_delete:
+            {
+                playlistFileDialog dlg = new playlistFileDialog();
+                dlg.setup(this,artisan,"delete",null);
+                break;
+            }
         }
         return true;
     }
+
+
 
 
     @Override public void onClick(View v)

@@ -1,6 +1,58 @@
 <resources>
+
     <string name="app_name">Artisan</string>
-    <string name="context_menu_save" id="@+id/context_menu_rename">Save</string>
-    <string name="context_menu_saveas" id="@+id/context_menu_rename">SaveAs</string>
-    <string name="context_menu_rename" id="@+id/context_menu_rename">Rename</string>
+
+    <!-- Playlist File level commands
+
+    The context menu commands are primarily for the Playlist,
+    or for moving things to the playlist from the Library.
+
+    However, some of these *could* be available on the Library,
+    in the future.  At that time, more explicit names will be
+    needed for the destination when in the Library i.e. there
+    might need to be a context_menu_add_playlist command.
+
+    -->
+
+    <string name="context_menu_new"         >New</string>
+    <string name="context_menu_save"        >Save</string>
+    <string name="context_menu_saveas"      >SaveAs</string>
+    <string name="context_menu_rename"      >Rename</string>
+    <string name="context_menu_delete"      >Delete</string>
+
+    <!-- Generic File level commands -->
+    <!-- these commands could have sense in the Library -->
+
+    <string name="context_menu_sort"        >Sort</string>
+
+    <!-- Selected Item Commmands -->
+    <!-- these commands could have sense in the Library -->
+    <!-- paste implies delete before insert which is dangerous -->
+
+    <string name="context_menu_cut"         >Cut</string>
+    <string name="context_menu_copy"        >Copy</string>
+    <string name="context_menu_unused_paste">Paste</string>
+    <string name="context_menu_add"         >Add</string>
+    <string name="context_menu_insert_top"  >InsertTop</string>
+    <string name="context_menu_insert_next" >Insert</string>
+    <string name="context_menu_insert_sel"  >InsertSel</string>
+    <string name="context_menu_undo1"       >Undo</string>
+    <string name="context_menu_redo1"       >Redo</string>
+
+    <string name="context_edit_metadata"    >Paste</string>
+
+
+    <!-- these would seem to have no sense in the Library -->
+
+    <string name="context_menu_move"        >Move</string>
+
+    <string name="context_menu_shuffle"     >Shuffle</string>
+    <string name="context_menu_edit_header" >Edit ...</string>
+
+
+
+
+
+    <string name="context_menu_download" >Download</string>
+
 </resources>

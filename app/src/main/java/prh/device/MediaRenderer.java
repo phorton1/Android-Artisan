@@ -312,6 +312,7 @@ public class MediaRenderer extends Device implements Renderer
 
             // for better local behavior with Next/Prev buttons
             // we send the new track event right away for the UI
+            // so they will get two events
 
             artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
 

@@ -5,8 +5,10 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Set;
@@ -20,6 +22,7 @@ import prh.artisan.PlaylistSource;
 import prh.artisan.Prefs;
 import prh.artisan.Track;
 import prh.server.SSDPServer;
+import prh.types.stringList;
 import prh.utils.Utils;
 import prh.utils.httpUtils;
 
@@ -90,15 +93,25 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
     }
 
 
+
     @Override
-    public String[] getPlaylistNames()
+    public stringList getPlaylistNames()
     {
-        ArrayList<String> names = new ArrayList<String>();
         Playlist by_name[] = playlists.values().toArray(new Playlist[playlists.size()]);
-        Arrays.sort(by_name);
+        Arrays.sort(by_name,new Comparator<Playlist>() {
+            public int compare(Playlist lhs,Playlist rhs)
+            {
+                int lhn = lhs.getPlaylistNum();
+                int rhn = rhs.getPlaylistNum();
+                int cmp = lhn-rhn;
+                if (cmp != 0) return cmp;
+                return lhs.getName().compareTo(rhs.getName());
+            }});
+
+        stringList names = new stringList();
         for (Playlist playlist : by_name)
             names.add(playlist.getName());
-        return names.toArray(new String[names.size()]);
+        return names;
     }
 
 
@@ -222,6 +235,40 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
 
     }   // LocalPlaylistSource.saveAs()
 
+
+    public boolean deletePlaylist(String name)
+    {
+        LocalPlaylist exists = playlists.get(name);
+        if (exists != null)
+        {
+            Utils.log(dbg_pls,0,"deletePlaylist(" + name + " deleting playlist");
+            exists.stop();
+            playlists.remove(name);
+            try
+            {
+                playlist_db.execSQL("DELETE FROM playlists WHERE name='" + name + "'");
+            }
+            catch (Exception e)
+            {
+                Utils.error("Could not delete playlist " + name + ":" + e);
+                return false;
+            }
+
+            String db_name = Prefs.getString(Prefs.id.DATA_DIR) + "/playlists/" + name + ".db";
+            File check = new File(db_name);
+            if (check.exists())
+            {
+                Utils.log(dbg_pls,0,"deletePlaylist(" + name + " deleting tracks");
+                if (!check.delete())
+                {
+                    Utils.error("Could not delete file db_name");
+                    return false;
+                }
+            }
+        }
+        artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_SOURCE_CHANGED,this);
+        return true;
+    }
 
 
 }   // class LocalPlaylistSource

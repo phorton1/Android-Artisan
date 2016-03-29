@@ -867,30 +867,8 @@ public class Artisan extends FragmentActivity implements
         // playlist and event it to any interested clients
     {
         Utils.log(dbg_main,0,"setPlaylist(" + name + ")");
-        Playlist playlist = name.isEmpty() ?
-            playlist_source.createEmptyPlaylist() :
-            playlist_source.getPlaylist(name);
-        if (playlist == null)
-            Utils.error("Could not get Playlist named '" + name + "'");
-
-        if (!force && !aPlaylist.closeOK())
-        {
-            Utils.log(dbg_main,1,"setPlaylist(" + name + ") cancelled by user");
-            return false;
-        }
-
-        // associate it with the renderer and the CurrentPlaylist
-
-        current_playlist.setAssociatedPlaylist(playlist);
-        renderer.notifyPlaylistChanged();
-
-        // make it current, and send the event.
-        // it is up to Artisan to set the current_playlist into
-        // the appropriate Renderer Device ... aRenderer only responds
-        // to the UI events. and nobody else does it ...
-
-        handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,playlist);
-        return true;
+        aPlaylist.setPlaylist(name,force);
+        return true;    // whatever
     }
 
 

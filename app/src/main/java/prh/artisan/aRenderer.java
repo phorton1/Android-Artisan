@@ -287,10 +287,8 @@ public class aRenderer extends Fragment implements
     {
         // get the names, if any, from the playlist_source
 
-        String names[] = new String[0];
         PlaylistSource source = artisan.getPlaylistSource();
-        names = source.getPlaylistNames();
-
+        stringList names = source.getPlaylistNames();
         GridView gridview = (GridView) my_view.findViewById(R.id.horizontal_gridView);
 
         // setup the gridview
@@ -299,7 +297,7 @@ public class aRenderer extends Fragment implements
         DisplayMetrics dm = new DisplayMetrics();
         artisan.getWindowManager().getDefaultDisplay().getMetrics(dm);
         float density = dm.density;
-        int totalWidth = (int) (width * names.length * density);
+        int totalWidth = (int) (width * names.size() * density);
         int singleItemWidth = (int) (width * density);
 
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -309,7 +307,7 @@ public class aRenderer extends Fragment implements
         gridview.setColumnWidth(singleItemWidth);
         gridview.setHorizontalSpacing(2);
         gridview.setStretchMode(GridView.STRETCH_SPACING);
-        gridview.setNumColumns(names.length);
+        gridview.setNumColumns(names.size());
 
         // set the adapter
 
@@ -327,14 +325,17 @@ public class aRenderer extends Fragment implements
         // prh - need to handle changes to length of list
     {
         private int ID_BASE = 93393;
-        public String playlist_names[];
+        public stringList playlist_names;
 
-
+        PlayListButtonAdapter(stringList names)
+        {
+            playlist_names = names;
+        }
         public Button getButton(String name)
         {
-            for (int i=0; i < playlist_names.length; i++)
+            for (int i=0; i < playlist_names.size(); i++)
             {
-                if (playlist_names[i].equals(name))
+                if (playlist_names.get(i).equals(name))
                 {
                     return (Button) getItem(i);
                 }
@@ -344,14 +345,26 @@ public class aRenderer extends Fragment implements
 
         // All remaining methods are necessary overrides of abstract base class.
 
-        public PlayListButtonAdapter(String names[])	{ playlist_names = names; }
-        // Ctor gets the context so it can be used in getView
-        public int getCount()					{ return playlist_names.length; }
-        // Return number of items in the adapter
-        public Object getItem(int position)   	{ return my_view.findViewById(position + ID_BASE);  }
-        // unimplemented, required by base class
-        public long getItemId(int position) 	{ return position; }
-        // return the position as the id for quick impl
+        public int getCount()
+        {
+            return playlist_names.size();
+        }
+
+        public Object getItem(int position)
+        {
+            if (true)
+                return my_view.findViewById(position + ID_BASE);
+            else
+            {
+                GridView gridview = (GridView) my_view.findViewById(R.id.horizontal_gridView);
+                return getView(position,null,gridview);
+            }
+        }
+
+        public long getItemId(int position)
+        {
+            return position;
+        }
 
 
         public View getView(int position, View exists, ViewGroup parent)
@@ -362,7 +375,7 @@ public class aRenderer extends Fragment implements
             Button btn;
             if (exists == null)
             {
-                Utils.log(dbg_anp+1,3,"new playlist button " + playlist_names[position]);
+                Utils.log(dbg_anp+1,3,"new playlist button " + playlist_names.get(position));
                 btn = new Button(my_view.getContext());
                 btn.setLayoutParams(new GridView.LayoutParams(120, 70));
                 // params are width, height of the button
@@ -373,7 +386,7 @@ public class aRenderer extends Fragment implements
                 btn = (Button) exists;
             }
 
-            String name = playlist_names[position];
+            String name = playlist_names.get(position);
             Utils.log(dbg_anp + 2,3,"playlist button(" + position + ")=" + name);
 
             btn.setTextSize(10);
@@ -384,44 +397,22 @@ public class aRenderer extends Fragment implements
                     int position = v.getId() - ID_BASE;
 
                     Utils.log(dbg_anp,2,"onClick(" + v.getId() + ") position=" + position);
-                    String name = playlist_names[position];
+                    String name = playlist_names.get(position);
                     Utils.log(dbg_anp,3,"playlist name=" + name);
-
-                    // tell artisan that the playlist has changed
-                    // it will event the change back to us
-
                     artisan.setPlaylist(name,false);
-
+                        // tell artisan that the playlist has changed
+                        // it will event the change back to us
                 }
             });
 
             if (name.equals(""))
                 name = "default";
 
+            CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
+            btn.setTextColor(name.equals(current_playlist.getName())? 0xFFff9900:Color.WHITE);
             btn.setText(name);
             btn.setId(ID_BASE + position);
             return btn;
-        }
-    }
-
-
-    String cur_selected_button = "";
-    public void setPlayListButtonSelected(String name, boolean sel)
-    {
-        if (buttonAdapter != null)
-        {
-            if (!cur_selected_button.isEmpty() &&
-                !cur_selected_button.equals(name))
-            {
-                Button old_btn = buttonAdapter.getButton(
-                    cur_selected_button);
-                if (old_btn != null)
-                    old_btn.setTextColor(Color.WHITE);
-            }
-            cur_selected_button = name;
-            Button btn = buttonAdapter.getButton(name);
-            if (btn != null)
-                btn.setTextColor(sel ? Color.BLUE : Color.WHITE);
         }
     }
 
@@ -497,6 +488,8 @@ public class aRenderer extends Fragment implements
             String art_uri = "";
             boolean enable_play = false;
 
+            current_track = track;
+
             if (track != null)
             {
                 enable_play = true;
@@ -555,7 +548,7 @@ public class aRenderer extends Fragment implements
         if (my_view != null)
         {
             CurrentPlaylist cur = artisan.getCurrentPlaylist();
-            setPlayListButtonSelected(cur.getName(),true);
+            //setPlayListButtonSelected(cur.getName(),true);
 
             boolean enable_next =
                 current_track != null &&
@@ -599,11 +592,14 @@ public class aRenderer extends Fragment implements
             current_position = renderer.getPosition();
             current_track = renderer.getTrack();
 
+            setPlayListNames();
+
             update_playlist();
             update_track(current_track);
             update_position(current_position);
             update_state(current_state);
             updateTitleBar();
+
         }
 
 

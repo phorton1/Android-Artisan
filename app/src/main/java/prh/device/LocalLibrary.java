@@ -21,6 +21,7 @@ import prh.server.SSDPServer;
 import prh.types.libraryBrowseResult;
 import prh.types.objectHash;
 import prh.types.recordList;
+import prh.types.stringList;
 import prh.utils.Utils;
 import prh.utils.httpUtils;
 
@@ -176,7 +177,7 @@ public class LocalLibrary extends Device implements Library
             folder.setParentId("1");
             folder.setTitle("Select Playlist");
             folder.setType("folder");
-            folder.setNumElements(playlist_source.getPlaylistNames().length);
+            folder.setNumElements(playlist_source.getPlaylistNames().size());
             return folder;
         }
 
@@ -235,11 +236,11 @@ public class LocalLibrary extends Device implements Library
 
             int position = start;
             location = start;
-            String lists[] = playlist_source.getPlaylistNames();
-            total_found += lists.length;
-            while (position < lists.length && retval.size() < count)
+            stringList lists = playlist_source.getPlaylistNames();
+            total_found += lists.size();
+            while (position < lists.size() && retval.size() < count)
             {
-                String name = lists[position++];
+                String name = lists.get(position++);
                 Record vtrack = getTrack("select_playlist_" + name);
                 location = addItem(retval,start,location,count,vtrack);
             }

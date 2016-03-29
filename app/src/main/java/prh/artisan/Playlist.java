@@ -189,7 +189,9 @@ public class Playlist implements Comparable<Playlist>
         tracks_by_position.remove(track);
 
         int old_track_index = track_index;
-        if (track_index > num_tracks)
+        if (position < track_index)
+            track_index--;
+        else if (track_index > num_tracks)
             track_index = num_tracks;
 
         if (old_track_index != track_index)
@@ -216,7 +218,10 @@ public class Playlist implements Comparable<Playlist>
         tracks_by_position.add(position-1,track);
         num_tracks++;
 
-        if (track_index == 0) track_index = 1;
+        if (track_index > position)
+            track_index++;
+        else if (track_index == 0)
+            track_index = 1;
 
         if (old_track_index != track_index)
             saveIndex(track_index);
