@@ -54,10 +54,15 @@ public class CurrentPlaylist extends Playlist
     {
     }
 
-    public Playlist getAssociatedPlaylist()
+    public void setName(String new_name)
     {
-        return associated_playlist;
+        if (!name.equals(new_name))
+        {
+            name = new_name;
+            artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,this);
+        }
     }
+
 
 
     public void setAssociatedPlaylist(Playlist other)

@@ -10,7 +10,7 @@ import prh.utils.Utils;
 import prh.utils.httpUtils;
 
 
-public class Playlist
+public class Playlist implements Comparable<Playlist>
     // Base class of all Playlists
     //
     // Implements an in-memory list of items, with
@@ -38,6 +38,7 @@ public class Playlist
     protected int num_tracks;
     protected int track_index;
     protected int my_shuffle;
+    protected String pl_query;
 
     protected static int next_open_id;
     protected trackList tracks_by_position;
@@ -53,25 +54,26 @@ public class Playlist
     public int getCurrentIndex()    { return track_index; }
     public Track getCurrentTrack()  { return getTrack(track_index); }
     public int getMyShuffle()       { return my_shuffle; }
+    public String getQuery()        { return pl_query; }
     public int getContentChangeId() { return content_change_id; }
 
     // methods that do nothing in base class
 
     public boolean isStarted() { return true; }
     public void saveIndex(int index) {}
-    public boolean save() { return true; }
-    public boolean saveAs(String name) { return true; }
 
     public void start() {}
-    public void stop()
+    public void stop() {}
+
+    @Override public int compareTo(Playlist other)
     {
-        if (tracks_by_open_id != null)
-            tracks_by_open_id.clear();
-        tracks_by_open_id = null;
-        if (tracks_by_position != null)
-            tracks_by_position.clear();
-        tracks_by_position = null;
+        if (playlist_num < other.playlist_num)
+            return -1;
+        if (playlist_num > other.playlist_num)
+            return 1;
+        return name.compareTo(other.name);
     }
+
 
 
     protected void clean_init_playlist()
@@ -82,6 +84,7 @@ public class Playlist
         num_tracks = 0;
         track_index = 0;
         playlist_num = 0;
+        pl_query = "";
         next_open_id = 1;
         tracks_by_position =  new trackList();
         tracks_by_open_id = new intTrackHash();

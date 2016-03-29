@@ -172,6 +172,8 @@ public class aRenderer extends Fragment implements
         CurrentPlaylist cur = artisan.getCurrentPlaylist();
         msg += ":: " +
             cur.getName();
+        if (cur.isDirty())
+            msg += "*";
         if (cur.getCurrentIndex()>0)
             msg += "(" +
                 cur.getCurrentIndex() + "/" +

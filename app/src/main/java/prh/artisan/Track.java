@@ -1,6 +1,7 @@
 package prh.artisan;
 
 
+import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
@@ -399,37 +400,6 @@ public class Track extends Record
             "</item>";
     }
 
-
-    //----------------------------------------------------------
-    // openHomeSupport
-    //----------------------------------------------------------
-
-    // public void setExposed(int bit_mask, boolean value)
-    // {
-    //     // Utils.log(0,5,"setExposed(" + bit_mask + "," + value + ") for " + getTitle());
-    //     int cur = getInt("exposed");
-    //     cur = cur & ~bit_mask;
-    //     if (value) cur = cur | bit_mask;
-    //     putInt("exposed",cur);
-    // }
-//
-    // public boolean getExposed(int bit_mask)
-    // {
-    //     int cur = getInt("exposed");
-    //     boolean b = (cur & bit_mask) == 0 ? false : true;
-    //     // Utils.log(0,5,"getExposed(" + bit_mask + ")=" + b + " for " + getTitle());
-    //     return b;
-    // }
-//
-    // public void clearExposed()
-    // {
-    //     putInt("exposed",0);
-    // }
-
-    public boolean insert(SQLiteDatabase track_db)
-    {
-        return true;
-    }
 
 
 }   // class Track

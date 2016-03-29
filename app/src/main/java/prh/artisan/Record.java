@@ -1,6 +1,8 @@
 package prh.artisan;
 
+import android.content.ContentValues;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 
 import java.sql.Blob;
 import java.util.HashMap;
@@ -76,10 +78,6 @@ public class Record extends objectHash
         return value;
     }
 
-    protected void pet(String field_name,Object value)
-    {
-        super.put(field_name,value);
-    }
     protected void putString(String field_name, String value)
     {
         super.put(field_name,value);
@@ -92,5 +90,7 @@ public class Record extends objectHash
     {
         super.put(field_name,value);
     }
+
+
 
 }

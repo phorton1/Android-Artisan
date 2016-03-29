@@ -1,8 +1,10 @@
 package prh.artisan;
 
+import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import prh.utils.Utils;
@@ -74,6 +76,13 @@ public class Database
     // static initialization
     //-------------------------------------------------------------
 
+    public static fieldNameHash get_fields(String table)
+    {
+        Cursor cursor = db.rawQuery("SELECT * FROM " + table + " LIMIT 0",null);
+        return get_fields(table,cursor);
+    }
+
+
     public static fieldNameHash get_fields(String table, Cursor cursor)
     // initialize the list of fields in the database files if not already done
     {
@@ -113,6 +122,124 @@ public class Database
         }
         return rslt;
     }
+
+
+    // static field definitions
+
+    public static class fieldDefs extends HashMap<String,String []> {}
+    public static fieldDefs field_defs = new fieldDefs();
+
+
+    private static void init_field_defs()
+    {
+        field_defs.put("playlists",new String[]{
+            "num         INTEGER",
+            "name        VARCHAR(16)",
+            "num_tracks  INTEGER",
+            "track_index INTEGER",
+            "shuffle     INTEGER",
+            "query       VARCHAR(2048)"});
+
+        field_defs.put("tracks",new String[]{
+            "position       INTEGER",
+            "is_local       INTEGER",
+            "id             VARCHAR(40)",
+            "parent_id      VARCHAR(40)",
+            "has_art        INTEGER",
+            "path           VARCHAR(1024)",
+            "art_uri        VARCHAR(1024)",
+            "duration       BIGINT",
+            "size           BIGINT",
+            "type           VARCHAR(8)",
+            "title          VARCHAR(128)",
+            "artist         VARCHAR(128)",
+            "album_title    VARCHAR(128)",
+            "album_artist   VARCHAR(128)",
+            "tracknum       VARCHAR(6)",
+            "genre          VARCHAR(128)",
+            "year_str       VARCHAR(4)",
+            "timestamp      BIGINT",
+            "file_md5       VARCHAR(40)",
+            "error_codes    VARCHAR(128)",
+            "highest_error  INTEGER"});
+
+        field_defs.put("folders",new String[]{
+            "is_local       INTEGER",
+            "id             VARCHAR(40)",
+            "parent_id      VARCHAR(40)",
+            "dirtype        VARCHAR(16)",
+            "has_art        INTEGER",
+            "path           VARCHAR(1024)",
+            "art_uri        VARCHAR(1024)",
+            "num_elements   INTEGER",
+            "title          VARCHAR(128)",
+            "artist         VARCHAR(128)",
+            "genre          VARCHAR(128)",
+            "year_str       VARCHAR(4)",
+            "folder_error          INTEGER",
+            "highest_folder_error  INTEGER",
+            "highest_track_error   INTEGER"});
+
+    }   // init_field_defs()
+
+
+    public static boolean createTable(SQLiteDatabase in_db, String table)
+    {
+        init_field_defs();
+        String defs[] = field_defs.get(table);
+        if (defs == null)
+        {
+            Utils.error("No field_defs for '" + table + "'");
+            return false;
+        }
+
+        String query = "";
+        for (String def:defs)
+        {
+            if (!query.isEmpty())
+                query += ",";
+            query += def;
+
+        }
+        query = "CREATE TABLE " + table + " (" + query + ")";
+        try
+        {
+            in_db.execSQL(query);
+        }
+        catch (Exception e)
+        {
+            Utils.error("Could not execute query: " + query + " exception=" + e.toString());
+            return false;
+        }
+        return true;
+    }
+
+
+
+
+    public static ContentValues getContentValues(String table, Record rec)
+        // set ContentValues to only those fields in the database
+        // missing fields set to null ....
+    {
+        ContentValues values = new ContentValues();
+        fieldNameHash fields = get_fields(table);
+        for (String key : rec.keySet())
+        {
+            if (fields.get(key) != null)
+            {
+                Object value = rec.get(key);
+                if (value instanceof Integer)
+                    values.put(key,(Integer) value);
+                else if (value instanceof String)
+                    values.put(key,(String) value);
+                else if (value instanceof Float)
+                    values.put(key,(Float) value);
+            }
+        }
+        return values;
+    }
+
+
 
 
 }   // class Database

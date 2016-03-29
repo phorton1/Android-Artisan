@@ -2,23 +2,32 @@ package prh.artisan;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.DialogInterface;
 import android.os.Bundle;
+import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.PopupMenu;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import prh.device.LocalPlaylist;
 import prh.types.intList;
 import prh.types.recordList;
 import prh.types.selectedHash;
+import prh.utils.confirmDialog;
 import prh.utils.Utils;
+import prh.utils.getStringDialog;
 
 
 // implements Playlist interface for aRenderer
@@ -388,8 +397,8 @@ public class aPlaylist extends Fragment implements
                 R.id.command_playlist_tracks :
                 R.id.command_playlist_albums,true);
 
-            if (!current_playlist.getName().isEmpty() ||
-                current_playlist.isDirty())
+
+            if (getContextMenuIds().size()>0)
             {
                 toolbar.showButton(R.id.command_context,true);
             }
@@ -401,13 +410,19 @@ public class aPlaylist extends Fragment implements
     {
         intList res_ids = new intList();
 
+        // we don't allow them to create empty un-named playlists,
+        // though if they add a track, and delete the track,
+        // making it dirty, they can save it empty, cuz it's dirty
+
         if (current_playlist.isDirty())
         {
             res_ids.add(R.string.context_menu_save);
-            res_ids.add(R.string.context_menu_saveas);
         }
         if (!current_playlist.getName().isEmpty())
+        {
+            res_ids.add(R.string.context_menu_saveas);
             res_ids.add(R.string.context_menu_rename);
+        }
 
         return res_ids;
     }
@@ -425,6 +440,180 @@ public class aPlaylist extends Fragment implements
     }
 
 
+    //--------------------------------------
+    // saveAsDialog
+    //--------------------------------------
+
+    private static enum saveState
+    {
+        save,
+        saveas,
+        confirm_overwrite,
+        confirm_save,
+        do_save
+    };
+
+
+    public static class saveAsDialog extends DialogFragment
+        implements
+            TextWatcher,
+            View.OnClickListener,
+            PopupMenu.OnMenuItemClickListener
+    {
+        private Artisan artisan;
+        private aPlaylist parent;
+        private String name_for_inflate;
+        private saveState state = saveState.save;
+        private View my_view;
+        private TextView prompt;
+        private RelativeLayout combo;
+        private EditText value;
+        private Button ok_button;
+
+
+        public void setup(aPlaylist a_playlist, Artisan ma, boolean save_as)
+        {
+            artisan = ma;
+            parent = a_playlist;
+            name_for_inflate = artisan.getCurrentPlaylist().getName();
+            if (save_as || name_for_inflate.isEmpty())
+                state = saveState.saveas;
+        }
+
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState)
+        {
+            LayoutInflater inflater = artisan.getLayoutInflater();
+            AlertDialog.Builder builder = new AlertDialog.Builder(artisan);
+            my_view = inflater.inflate(R.layout.save_as_layout,null);
+
+            my_view.findViewById(R.id.saveas_dialog_cancel).setOnClickListener(this);
+            my_view.findViewById(R.id.saveas_dialog_dropdown_button).setOnClickListener(this);
+
+            ok_button = (Button) my_view.findViewById(R.id.saveas_dialog_ok);
+            ok_button.setOnClickListener(this);
+
+            prompt = (TextView) my_view.findViewById(R.id.saveas_dialog_prompt);
+
+            combo = (RelativeLayout) my_view.findViewById(R.id.saveas_dialog_combo);
+            value = (EditText) my_view.findViewById(R.id.saveas_dialog_value);
+            value.setText(name_for_inflate);
+            value.addTextChangedListener(this);
+
+            builder.setView(my_view);
+            populate();
+            return builder.create();
+        }
+
+        private void populate()
+        {
+            boolean enable_ok = true;
+            combo.setVisibility(View.GONE);
+            String new_name = value.getText().toString();
+
+            if (state == saveState.confirm_overwrite)
+            {
+                prompt.setText("Overwrite existing playlist '" + new_name + "' ?");
+            }
+            else if (state == saveState.saveas)
+            {
+                prompt.setText("Save As");
+                combo.setVisibility(View.VISIBLE);
+                enable_ok = !value.getText().toString().isEmpty();
+            }
+            else
+            {
+                prompt.setText("Save playlist '" + new_name + "' ?");
+            }
+            ok_button.setEnabled(enable_ok);
+        }
+
+
+        // TextWatcher
+
+        @Override public void afterTextChanged(Editable s)
+        {
+            String name = s.toString();
+            ok_button.setEnabled(!name.isEmpty());
+        }
+        @Override public void beforeTextChanged(CharSequence s, int start, int count, int after)
+        {}
+        @Override public void onTextChanged(CharSequence s, int start, int before, int count)
+        {}
+
+
+        // View.OnClickListener
+
+        @Override public void onClick(View v)
+        {
+            if (v.getId() == R.id.saveas_dialog_dropdown_button)
+            {
+                PlaylistSource pls = artisan.getPlaylistSource();
+                PopupMenu drop_down = new PopupMenu(artisan,v);
+                drop_down.setOnMenuItemClickListener(this);
+                String pl_names[] = pls.getPlaylistNames();
+                Menu menu = drop_down.getMenu();
+                for (int i=0; i<pl_names.length; i++)
+                {
+                    String name = pl_names[i];
+                    menu.add(0,i,0,name);
+                }
+                drop_down.show();
+            }
+            else if (v.getId() == R.id.saveas_dialog_ok)
+            {
+                String new_name = value.getText().toString();
+                if (state == saveState.saveas && !new_name.isEmpty())
+                {
+                    if (artisan.getPlaylistSource().getPlaylist(new_name) != null)
+                        state = saveState.confirm_overwrite;
+                    else
+                        state = saveState.do_save;
+                }
+                else if (state == saveState.save ||
+                         state == saveState.confirm_overwrite)
+                {
+                    state = saveState.do_save;
+                }
+                if (state == saveState.do_save)
+                {
+                    String name = value.getText().toString();
+                    if (artisan.getLocalPlaylistSource().saveAs(
+                        artisan.getCurrentPlaylist(),name))
+                        artisan.getCurrentPlaylist().setName(name);
+                    parent.updateTitleBar();
+                    this.dismiss();
+                }
+                else
+                {
+                    populate();
+                }
+            }
+            else
+                this.dismiss();
+        }
+
+
+        // PopupMenu.OnMenuItemClickListener
+
+        @Override public boolean onMenuItemClick(MenuItem item)
+            // clicked on a button in the dropdown for saveas playlist name
+            // set the edit_text to the playlist name
+        {
+            int id = item.getItemId();
+            String names[] = artisan.getPlaylistSource().getPlaylistNames();
+            String name = names[id];
+            value.setText(name);
+            return true;
+        }
+
+    }   // class saveAsDialog
+
+
+    //--------------------------------------------------------------
+    // onClick()
+    //--------------------------------------------------------------
+
     @Override public boolean onMenuItemClick(MenuItem item)
     {
         int id = item.getItemId();
@@ -432,46 +621,24 @@ public class aPlaylist extends Fragment implements
         switch (id)
         {
             case R.string.context_menu_saveas:
+            {
+                saveAsDialog dlg = new saveAsDialog();
+                dlg.setup(this,artisan,true);
+                dlg.show(artisan.getSupportFragmentManager(),"save_as");
                 break;
+            }
             case R.string.context_menu_save:
-                confirm(
-                    "Save playlist " +
-                    current_playlist.getName() + " ??",
-                    new Runnable() { public void run() {
-                        current_playlist.save();
-                    }});
+            {
+                saveAsDialog dlg = new saveAsDialog();
+                dlg.setup(this,artisan,false);
+                dlg.show(artisan.getSupportFragmentManager(),"save");
                 break;
+            }
             case R.string.context_menu_rename:
         }
         return true;
     }
 
-
-        public void confirm(
-            //String title,
-            String msg,
-            final Runnable run_on_yes)
-        {
-            new AlertDialog.Builder(artisan)
-                //.setTitle(title)
-                .setMessage(msg)
-                //.setIcon(android.R.drawable.ic_dialog_alert)
-                .setPositiveButton(android.R.string.yes,
-                    new DialogInterface.OnClickListener()
-                    {
-                        public void onClick(DialogInterface dialog,int id)
-                        {
-                           run_on_yes.run();
-                        }
-                    })
-                //.setNegativeButton(android.R.string.no,null)
-                .show();
-        }
-
-
-    //--------------------------------------------------------------
-    // onClick()
-    //--------------------------------------------------------------
 
     @Override public void onClick(View v)
         // Popup Metadata for Folder, or Play Track
@@ -516,11 +683,9 @@ public class aPlaylist extends Fragment implements
     }
 
 
-
     //--------------------------------------------------------------
     // Artisan Event Handling
     //--------------------------------------------------------------
-
 
     @Override public void handleArtisanEvent(final String event_id,final Object data)
     {
