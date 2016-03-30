@@ -26,7 +26,7 @@ public class OpenHomeRenderer extends Device implements Renderer
 
     @Override public String getName() { return getFriendlyName(); }
     @Override public boolean startRenderer() { return false; }
-    @Override public void stopRenderer()  {  }
+    @Override public void stopRenderer(boolean wait_for_stop)  {  }
     @Override public Volume getVolume()   { return null; }
     @Override public String getRendererState()    { return null; }
     @Override public String getRendererStatus()   { return null; }

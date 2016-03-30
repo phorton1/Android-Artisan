@@ -142,14 +142,22 @@ public class SelectDevice extends RelativeLayout implements
         // set the color to blue if it's the selected renderer
         // and set the selected name if we just happened to find it
 
+        int color = 0xFFaaaaaa;   // unknown
+            // unknown devices are grey
+            // online devices are black
+            // offline devices are red
         if (name.equals(selected_name))
         {
             ((TextView) findViewById(R.id.select_device_name))
                 .setText(selected_name);
-            list_name.setTextColor(Color.BLUE);
+            color = Color.BLUE;
         }
-        else
-            list_name.setTextColor(Color.BLACK);
+        else if (device.getDeviceStatus() == Device.deviceStatus.OFFLINE)
+            color = 0xFFcc2222;
+        else if (device.getDeviceStatus() == Device.deviceStatus.ONLINE)
+            color = Color.BLACK;
+
+        list_name.setTextColor(color);
         list_name.setText(name);
 
         // fire-off asynch task to get the icon
@@ -201,11 +209,13 @@ public class SelectDevice extends RelativeLayout implements
     //------------------------------------
 
     public void handleArtisanEvent(String event_id, Object data)
+        // called only with interesting events
     {
-        if (event_id.equals(EVENT_NEW_DEVICE) ||
-            event_id.equals(EVENT_LIBRARY_CHANGED) ||
-            event_id.equals(EVENT_RENDERER_CHANGED) ||
-            event_id.equals(EVENT_PLAYLIST_SOURCE_CHANGED))
+        // if (event_id.equals(EVENT_NEW_DEVICE) ||
+        //     event_id.equals(EVENT_DEVICE_STATUS_CHANGED) ||
+        //     event_id.equals(EVENT_LIBRARY_CHANGED) ||
+        //     event_id.equals(EVENT_RENDERER_CHANGED) ||
+        //     event_id.equals(EVENT_PLAYLIST_SOURCE_CHANGED))
         {
             populateDevices();
         }

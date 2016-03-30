@@ -38,17 +38,20 @@ import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.artisan.Volume;
 import prh.artisan.VolumeControl;
+import prh.artisan.myLoopingRunnable;
 import prh.server.SSDPServer;
 import prh.utils.Utils;
 import prh.utils.httpUtils;
 
 public class LocalRenderer extends Device implements
     Renderer,
+    myLoopingRunnable.handler,
     MediaPlayer.OnErrorListener,
     MediaPlayer.OnCompletionListener
 {
     private static int dbg_ren = 0;
 
+    private static int STOP_RETRIES = 10;
     private static int REFRESH_INTERVAL = 200;
         // refresh the position pointer millieseconds
         // sends out an event on second changes
@@ -87,6 +90,7 @@ public class LocalRenderer extends Device implements
 
     private MediaPlayer media_player;
     private LocalVolume local_volume;
+    private myLoopingRunnable my_looper;
 
     private int mp_state = MP_STATE_NONE;
     private String renderer_state = RENDERER_STATE_NONE;
@@ -94,37 +98,28 @@ public class LocalRenderer extends Device implements
         // the current position within the song
         // as returned by the media player, reset
         // on transitions, and updated in updateState()
-
     private Track current_track = null;
         // Renderers are always playling the CurrentPlaylist,
         // but a Track can be pushed on top of it.
-
     private boolean repeat = true;
     private boolean shuffle = false;
         // the openHome spec only calls for OFF and ON i
         // for shuffle and repeat, though I have a tri-state
         // shuffle in my playlist definition.
-
     private int total_tracks_played = 0;
         // count of total tracks played
-
-    // Refresh Loop
-
-    private Handler refresh_handler = null;
-    private updateState updater = null;
-    private boolean in_refresh = false;
     int last_position = 0;
+        // last position for change detection
 
-    @Override public boolean isLocal() { return true; }
 
-    @Override public void notifyPlaylistChanged()
+    @Override public boolean isLocal()
     {
-        if (artisan.getCurrentPlaylist().getNumTracks()>0)
-            incAndPlay(0);
+        return true;
     }
 
+
     //--------------------------------------------
-    // construct, start, and stop
+    // construct and start()
     //--------------------------------------------
 
     public LocalRenderer(Artisan a)
@@ -138,9 +133,11 @@ public class LocalRenderer extends Device implements
         friendlyName = deviceType.LocalRenderer.toString();
         device_url = Utils.server_uri;
         icon_path = "/icons/artisan.png";
+        device_status = deviceStatus.ONLINE;
 
         Utils.log(dbg_ren+1,1,"new LocalRenderer()");
     }
+
 
 
     @Override public boolean startRenderer()
@@ -156,53 +153,39 @@ public class LocalRenderer extends Device implements
         media_player.setOnCompletionListener(this);
         mp_state = MP_STATE_IDLE;
 
-        refresh_handler = new Handler();
-        updater = new updateState();
-        refresh_handler.postDelayed(updater,REFRESH_INTERVAL);
-
+        updateState updater = new updateState();
+        my_looper = new myLoopingRunnable(
+            "LocalRenderer",
+            this,
+            updater,
+            STOP_RETRIES,
+            REFRESH_INTERVAL,
+            myLoopingRunnable.DEFAULT_USE_POST_DELAYED,
+            this );
+        my_looper.start();
         setRendererState(RENDERER_STATE_STOPPED);
         Utils.log(dbg_ren,0,"LocalRenderer started");
         return true;
     }
 
 
-
-    private class UpdateThread extends Thread
-    {
-        public void run()
-        {
-            Looper.prepare();
-            refresh_handler = new Handler();
-            updater = new updateState();
-            refresh_handler.postDelayed(updater,REFRESH_INTERVAL);
-        }
-    }
+    //-----------------------------------
+    // stopRenderer()
+    //-----------------------------------
 
 
-    // start the update handler
-    // on a separate thread
-
-
-
-    @Override public void stopRenderer()
+    @Override public void stopRenderer(boolean wait_for_stop)
         // parent is responsible for sending out RENDERER_CHANGED event
     {
         Utils.log(dbg_ren,1,"LocalRenderer.stopRenderer()");
 
-        // stop the refresh handler
+        // stop the looper
 
-        if (refresh_handler != null)
+        if (my_looper != null)
         {
-            refresh_handler.removeCallbacks(updater);
-            refresh_handler = null;
+            my_looper.stop(wait_for_stop);
+            my_looper = null;
         }
-        updater = null;
-        while (in_refresh)
-        {
-            Utils.log(0,0,"waiting for LocalRenderer to stop()");
-            Utils.sleep(100);
-        }
-        in_refresh = false;
 
         // forget the current track
 
@@ -258,8 +241,6 @@ public class LocalRenderer extends Device implements
     }
 
 
-
-
     @Override public void setTrack(Track track, boolean interrupt_playlist)
         // start playing the given track, possibly
         // interrupting the current playlist if from DLNA
@@ -276,8 +257,6 @@ public class LocalRenderer extends Device implements
             play();
         }
     }
-
-
 
 
     @Override public void incAndPlay(int inc)
@@ -409,6 +388,13 @@ public class LocalRenderer extends Device implements
     // Implementation
     //-----------------------------------------------
 
+    @Override public void notifyPlaylistChanged()
+        // called directly as needed
+   {
+        if (artisan.getCurrentPlaylist().getNumTracks()>0)
+            incAndPlay(0);
+    }
+
     public void noSongsMsg()
     {
         String msg = "No supported songs types found in playlist '" +
@@ -524,11 +510,16 @@ public class LocalRenderer extends Device implements
     // prh - stalled renderer detection
 
 
+    public boolean continue_loop()
+    {
+        return true;
+    }
+
+
     private class updateState implements Runnable
     {
         public void run()
         {
-            in_refresh = true;
             if (mp_state == MP_STATE_PAUSED ||
                 mp_state == MP_STATE_STARTED)
             {
@@ -553,17 +544,9 @@ public class LocalRenderer extends Device implements
             if (volume_control != null)
                 volume_control.checkVolumeChangesForRenderer();
 
-            // dispatch any open home events
-            // and re-call ourselves ourselves
-            // these are nulled at top of stopRenderer();
+            // Currently acts as the main idle loop for Artisan
 
-            if (updater != null && refresh_handler != null)
-            {
-                artisan.handleArtisanEvent(EventHandler.EVENT_IDLE,null);
-                refresh_handler.postDelayed(this,REFRESH_INTERVAL);
-            }
-
-            in_refresh = false;
+            artisan.handleArtisanEvent(EventHandler.EVENT_IDLE,null);
 
         }   // updateState.run()
     }   // class updateState

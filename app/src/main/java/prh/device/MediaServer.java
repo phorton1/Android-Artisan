@@ -463,7 +463,10 @@ public class MediaServer extends Device implements
 
             Document doc = doAction(Service.serviceType.ContentDirectory,"Browse",args);
             if (doc == null)
+            {
+                deviceFailure();
                 return Fetcher.fetchResult.FETCH_ERROR;
+            }
 
             // if we are being forced to stop, don't go any further
             // otherwise, for a normal stop, we keep the results
@@ -484,6 +487,7 @@ public class MediaServer extends Device implements
 
             if (num_returned_str.isEmpty())
             {
+                deviceFailure();
                 Utils.warning(0,4,"BrowseResult: NumberReturned is empty");
                 return Fetcher.fetchResult.FETCH_ERROR;
             }
@@ -494,14 +498,17 @@ public class MediaServer extends Device implements
             }
             else if (didl.isEmpty())
             {
+                deviceFailure();
                 Utils.warning(0,4,"BrowseResult: Didl is unexpectedly empty");
                 return Fetcher.fetchResult.FETCH_ERROR;
             }
             else if (!parseResultDidl(didl))
             {
+                deviceFailure();
                 return Fetcher.fetchResult.FETCH_ERROR;
             }
 
+            deviceSuccess();
             int new_num = fetcher.getNumRecords();
             Fetcher.fetchResult result =
                 new_num >= getNumElements() ? Fetcher.fetchResult.FETCH_DONE :

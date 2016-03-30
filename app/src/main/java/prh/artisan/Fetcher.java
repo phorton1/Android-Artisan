@@ -387,7 +387,7 @@ public class Fetcher implements Runnable
                 while (count++ <= STOP_RETRIES && in_fetch)
                     // in_fetchstate != fetcherState.FETCHER_STOPPED)
                 {
-                    Utils.log(dbg_fetcher,5,"Fetcher.stop( + dbg_title +) waiting for threaded_fetcher to stop");
+                    Utils.log(dbg_fetcher,5,"Fetcher.stop(" + dbg_title + ") waiting for threaded_fetcher to stop");
                     Utils.sleep(STOP_WAIT_MILLIES);
                 }
 

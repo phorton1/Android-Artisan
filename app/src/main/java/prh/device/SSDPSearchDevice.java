@@ -22,7 +22,6 @@ public class SSDPSearchDevice implements Runnable
     public class ServiceHash extends HashMap<Service.serviceType,SSDPSearchService> {}
 
     private String location;
-    private boolean valid = false;
     private ServiceHash services = new ServiceHash();
     private DeviceManager device_manager;
 
@@ -43,7 +42,6 @@ public class SSDPSearchDevice implements Runnable
 
     // accessors
 
-    public boolean isValid()                    { return valid; }
     public String getFriendlyName()             { return friendlyName; }
     public Device.deviceGroup getDeviceGroup()  { return device_group; }
     public Device.deviceType getDeviceType()    { return device_type; }
@@ -94,40 +92,19 @@ public class SSDPSearchDevice implements Runnable
     // usn is of the form:
     // uuid:987f-887d-d98d-d97d97d::urn:schemas-upnp-org:device:MediaServer:1
 
-    SSDPSearchDevice(DeviceManager dm, String loc, String usn )
+    SSDPSearchDevice(DeviceManager dm,
+                     String loc,
+                     Device.deviceType dtype,
+                     String uuid,
+                     String urn )
     {
         location = loc;
         device_manager = dm;
-        device_uuid = Utils.extract_re("uuid:(.*?):",usn);
-        device_urn = Utils.extract_re("urn:(.*?):",usn);
-        String device_type_string = Utils.extract_re("device:(.*?):",usn);
-        if (device_type_string.equals("Source"))
-            device_type_string = "OpenHomeRenderer";
-
-        // if the uuid already exists in device_manager, skip it
-
-        Device exists = dm.getDevice(device_uuid);
-        if (exists != null)
-        {
-            Utils.log(dbg_ssdp_device,0,"Device Already Exists " + device_type_string + "::" + exists.getFriendlyName());
-            return;
-        }
-
-        // the device_type_string now maps to a valid device_type enum
-
-        try
-        {
-            device_type = Device.deviceType.valueOf(device_type_string);
-        }
-        catch (Exception e)
-        {
-            Utils.warning(0,0,"Illegal device_type:" + device_type_string);
-            return;
-        }
-
+        device_type = dtype;
+        device_uuid = uuid;
+        device_urn = urn;
         device_group = Device.groupOf(device_type);
         device_url = "http://" + Utils.ipFromUrl(loc) + ":" + Utils.portFromUrl(loc);
-        valid = true;
     }
 
 

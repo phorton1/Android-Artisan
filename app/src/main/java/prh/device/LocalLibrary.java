@@ -40,8 +40,9 @@ public class LocalLibrary extends Device implements Library
     public LocalLibrary(Artisan a)
     {
         super(a);
-
         db = Database.getDB();
+
+        Utils.log(dbg_lib+1,0,"new LocalLibrary()");
 
         device_type = deviceType.LocalLibrary;
         device_group = deviceGroup.DEVICE_GROUP_LIBRARY;
@@ -50,8 +51,9 @@ public class LocalLibrary extends Device implements Library
         friendlyName = deviceType.LocalLibrary.toString();
         device_url = Utils.server_uri;
         icon_path = "/icons/artisan.png";
-        Utils.log(dbg_lib+1,0,"new LocalLibrary()");
+        device_status = deviceStatus.ONLINE;
     }
+
 
     @Override public boolean isLocal() { return true; }
 

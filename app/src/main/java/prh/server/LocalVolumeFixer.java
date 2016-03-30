@@ -6,10 +6,12 @@ import android.os.Build;
 import android.os.Handler;
 
 import prh.artisan.Artisan;
+import prh.artisan.myLoopingRunnable;
 import prh.utils.Utils;
 
 
-public class LocalVolumeFixer
+public class LocalVolumeFixer implements
+    myLoopingRunnable.handler
     // The main entry point is ctor, start(),
     // which sets up a timer loop to normalize the Android
     // and MTC volumes on the real car stereo.
@@ -21,7 +23,9 @@ public class LocalVolumeFixer
     // As such it needs a few static variables.
 {
     private static int dbg_fixer = 1;
-    private static int NORMALIZE_RATE = 500;
+
+    private static int STOP_RETRIES = 2;
+    private static int REFRESH_INTERVAL = 500;
         // milliseconds
 
     private static int g_last_android_vol = -1;
@@ -29,15 +33,20 @@ public class LocalVolumeFixer
     private static boolean g_android_hit = false;
         // statics used by setMTCVolume()
 
-    private int timer_count = 0;
-    private Handler refresh_handler = null;
-    private VolumeNormalizer normalizer = null;
-    private boolean in_vol_change = false;
     private Artisan artisan;
+    myLoopingRunnable my_looper = null;
+    private boolean in_vol_change = false;
+
 
     public LocalVolumeFixer(Artisan a)
     {
         artisan = a;
+    }
+
+
+    @Override public boolean continue_loop()
+    {
+        return true;
     }
 
 
@@ -48,11 +57,14 @@ public class LocalVolumeFixer
         if (Utils.ID_CAR_STEREO.equals(Build.ID))
         {
             Utils.log(0,0,"LocalVolumeFixer.start() ...");
-            timer_count = 0;
             in_vol_change = false;
-            refresh_handler = new Handler();
-            normalizer = new VolumeNormalizer();
-            refresh_handler.postDelayed(normalizer,NORMALIZE_RATE);
+            VolumeNormalizer normalizer = new VolumeNormalizer();
+            my_looper = new myLoopingRunnable(
+                "LocalVolumeFixer",
+                this,
+                normalizer,
+                STOP_RETRIES,
+                REFRESH_INTERVAL);
             Utils.log(0,0,"LocalVolumeFixer started");
         }
         else
@@ -65,12 +77,15 @@ public class LocalVolumeFixer
     public void stop()
     {
         Utils.log(0,0,"LocalVolumeFixer.stop()");
-        if (refresh_handler != null)
-            refresh_handler.removeCallbacks(normalizer);
-        refresh_handler = null;
-        normalizer = null;
+        if (my_looper != null)
+        {
+            my_looper.stop(true);
+            my_looper = null;
+        }
     }
 
+
+    private int dbg_timer_count = 0;
 
     private class VolumeNormalizer implements Runnable
         // only called on real car stereo
@@ -78,12 +93,12 @@ public class LocalVolumeFixer
         @Override
         public void run()
         {
-            Utils.log(dbg_fixer,0,"normalizeVolumes::run() called");
+            dbg_timer_count++;
+            Utils.log(dbg_fixer,0,"normalizeVolumes::run(" + dbg_timer_count + ") called");
 
             if (!in_vol_change)
             {
                 in_vol_change = true;
-                timer_count++;
 
                 Utils.log(dbg_fixer+1,1,"!in_vol_change");
 
@@ -96,7 +111,7 @@ public class LocalVolumeFixer
 
                 int mtc_vol = android.provider.Settings.System.getInt(ctx.getContentResolver(), "av_volume=", 15);
                 int android_vol = am.getStreamVolume(AudioManager.STREAM_MUSIC);
-                Utils.log(dbg_fixer+1,1,"checkVolumes(" + timer_count+ ") android_vol=" + android_vol + " mtc_vol=" + mtc_vol);
+                Utils.log(dbg_fixer+1,1,"checkVolumes(" + dbg_timer_count+ ") android_vol=" + android_vol + " mtc_vol=" + mtc_vol);
 
                 // hopefully only one of them will changed
                 // first time ... init the values
@@ -105,13 +120,13 @@ public class LocalVolumeFixer
                 {
                     g_last_android_vol = android_vol;
                     g_last_mtc_vol = mtc_vol;
-                    Utils.log(dbg_fixer + 1,0,"checkVolumes(" + timer_count + ") set initial volumes android=" + android_vol + "  mtc=" + mtc_vol);
+                    Utils.log(dbg_fixer + 1,0,"checkVolumes(" + dbg_timer_count + ") set initial volumes android=" + android_vol + "  mtc=" + mtc_vol);
                 }
                 else if (g_last_android_vol != android_vol)
                 {
-                    Utils.log(dbg_fixer+1,1,"checkVolumes(" + timer_count + ") android_vol changed from " + g_last_android_vol + " to " + android_vol);
-                    Utils.log(dbg_fixer+1,1,"            (" + timer_count + ") mtc_vol=" + mtc_vol + "  last_mtc_vol=" + g_last_mtc_vol);
-                    Utils.log(dbg_fixer+1,1,"            (" + timer_count + ") setting last_mtc_vol=" + (g_last_android_vol * 2));
+                    Utils.log(dbg_fixer+1,1,"checkVolumes(" + dbg_timer_count + ") android_vol changed from " + g_last_android_vol + " to " + android_vol);
+                    Utils.log(dbg_fixer+1,1,"            (" + dbg_timer_count + ") mtc_vol=" + mtc_vol + "  last_mtc_vol=" + g_last_mtc_vol);
+                    Utils.log(dbg_fixer+1,1,"            (" + dbg_timer_count + ") setting last_mtc_vol=" + (g_last_android_vol * 2));
                     setMTCVolume(am,g_last_android_vol);
                 }
                 else if (g_last_mtc_vol != mtc_vol)
@@ -121,9 +136,9 @@ public class LocalVolumeFixer
                     // we do set last_mtc vol and call setStreamVolume().
                     // Harder than hell to explain, but it seems to work/
 
-                    Utils.log(dbg_fixer+1,1,"checkVolumes(" + g_android_hit + "," + timer_count + ") mtc_vol changed from " + g_last_mtc_vol + " to " + mtc_vol);
-                    Utils.log(dbg_fixer+1,1,"            (" + timer_count + ") android_vol=" + android_vol + " last_android_vol=" + g_last_android_vol);
-                    Utils.log(dbg_fixer+1,1,"            (" + timer_count + ") setting last_mtc_vol to " + mtc_vol);
+                    Utils.log(dbg_fixer+1,1,"checkVolumes(" + g_android_hit + "," + dbg_timer_count + ") mtc_vol changed from " + g_last_mtc_vol + " to " + mtc_vol);
+                    Utils.log(dbg_fixer+1,1,"            (" + dbg_timer_count + ") android_vol=" + android_vol + " last_android_vol=" + g_last_android_vol);
+                    Utils.log(dbg_fixer+1,1,"            (" + dbg_timer_count + ") setting last_mtc_vol to " + mtc_vol);
 
                     if (g_android_hit)
                     {
@@ -131,7 +146,7 @@ public class LocalVolumeFixer
                     }
                     else
                     {
-                        Utils.log(dbg_fixer+1,1,"            (" + timer_count + ") NORMAL CASE setting last_android_vold=" + (mtc_vol / 2));
+                        Utils.log(dbg_fixer+1,1,"            (" + dbg_timer_count + ") NORMAL CASE setting last_android_vold=" + (mtc_vol / 2));
                         g_last_android_vol = mtc_vol / 2;
                     }
                     g_last_mtc_vol = mtc_vol;
@@ -145,9 +160,6 @@ public class LocalVolumeFixer
                 in_vol_change = false;
 
             }
-
-            refresh_handler.postDelayed(this,NORMALIZE_RATE);
-
         }   // run()()
     }   // class checkVolumes
 

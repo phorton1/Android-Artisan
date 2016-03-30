@@ -203,11 +203,19 @@ public class MainMenu extends ListView implements
             progress.setVisibility( event_id.equals(EVENT_SSDP_SEARCH_STARTED) ?
                 View.VISIBLE : View.GONE );
         }
-        else for (int i = FIRST_DEVICE; i <= LAST_DEVICE; i++)
+        else
+        if (event_id.equals(EVENT_NEW_DEVICE) ||
+            event_id.equals(EVENT_DEVICE_STATUS_CHANGED) ||
+            event_id.equals(EVENT_LIBRARY_CHANGED) ||
+            event_id.equals(EVENT_RENDERER_CHANGED) ||
+            event_id.equals(EVENT_PLAYLIST_SOURCE_CHANGED))
         {
-            SelectDevice sel = (SelectDevice)
-                ((mainMenuListAdapter) getAdapter()).getItem(i);
-            sel.handleArtisanEvent(event_id,data);
+            for (int i = FIRST_DEVICE; i <= LAST_DEVICE; i++)
+            {
+                SelectDevice sel = (SelectDevice)
+                    ((mainMenuListAdapter) getAdapter()).getItem(i);
+                sel.handleArtisanEvent(event_id,data);
+            }
         }
     }
 

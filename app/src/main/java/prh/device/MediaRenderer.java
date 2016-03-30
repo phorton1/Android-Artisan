@@ -15,13 +15,16 @@ import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.artisan.Volume;
 import prh.artisan.VolumeControl;
+import prh.artisan.myLoopingRunnable;
 import prh.device.service.RenderingControl;
 import prh.utils.Utils;
 import prh.types.stringHash;
 
 
 
-public class MediaRenderer extends Device implements Renderer
+public class MediaRenderer extends Device implements
+    Renderer,
+    myLoopingRunnable.handler
     // Represents a DLNA AVTransport, with a possible
     // DLNA RenderingControl for volume changes.
     //
@@ -41,8 +44,8 @@ public class MediaRenderer extends Device implements Renderer
 
     private static int dbg_mr = 0;
 
+    private static int STOP_RETRIES = 20;
     private static int REFRESH_INTERVAL = 400;
-        // actually the delay between refreshes
     private static int DETECT_TRANSPORT_SECONDS = 3;
         // if the song_position is > this, or < duration-this
         // and the renderer is STOPPED, then we consider it
@@ -54,6 +57,7 @@ public class MediaRenderer extends Device implements Renderer
     //------------------------------------------
 
     private RenderingControl volume;
+    private myLoopingRunnable my_looper;
 
     // Status and State
 
@@ -61,9 +65,8 @@ public class MediaRenderer extends Device implements Renderer
     private String renderer_state = RENDERER_STATE_NONE;
     private boolean repeat = true;
     private boolean shuffle = false;
-
-    // Currently Playing Item
-
+    private String play_mode = "";
+    private String play_speed = "1";
     private int song_position = 0;
         // The current position gotten from the renderer
     private Track current_track = null;
@@ -71,25 +74,13 @@ public class MediaRenderer extends Device implements Renderer
         // may be the current track we are playing OVER the playlist,
         // the current track we are playing FROM the playlist,
         // or some other track completely local to the renderer.
-
-    // pseudo constants
-
-    private String play_mode = "";
-    private String play_speed = "1";
-
-    // Refresh Loop Management
-
-    private Updater updater = null;
-    private Handler update_handler = null;
-    boolean quitting = false;
-    private boolean in_update = false;
+    private int total_tracks_played = 0;
+        // counter of tracks played
 
     // change detection
 
     int last_position = 0;
     String last_track_uri = "";
-    private int total_tracks_played = 0;
-        // counter of tracks played
     private int do_play_on_next_update = 0;
         // pending play
 
@@ -101,7 +92,10 @@ public class MediaRenderer extends Device implements Renderer
     public MediaRenderer(Artisan artisan, SSDPSearchDevice ssdp_device)
     {
         super(artisan,ssdp_device);
-        Utils.log(0,1,"new MediaRenderer(" + ssdp_device.getFriendlyName() + "," + ssdp_device.getDeviceType() + "," + ssdp_device.getDeviceUrl());
+        Utils.log(0,1,"new MediaRenderer(" +
+            ssdp_device.getFriendlyName() + "," +
+            ssdp_device.getDeviceType() + "," +
+            ssdp_device.getDeviceUrl());
     }
 
 
@@ -148,20 +142,18 @@ public class MediaRenderer extends Device implements Renderer
 
             // start the update handler on a separate thread
             // not currently working (timer does not advance)
+            // though using update_handler causes it to be on the same thread
 
-            if (false)
-            {
-                UpdateThread updateThread = new UpdateThread();
-                Thread update_thread = new Thread(updateThread);
-                update_thread.start();
-            }
-            else    // old way
-            {
-                update_handler = new Handler();
-                updater = new Updater();
-                update_handler.postDelayed(updater,REFRESH_INTERVAL);
-            }
-
+            Updater updater = new Updater();
+            my_looper = new myLoopingRunnable(
+                "MediaRenderer(" + getFriendlyName() + ")",
+                this,
+                updater,
+                STOP_RETRIES,
+                REFRESH_INTERVAL,
+                myLoopingRunnable.DEFAULT_USE_POST_DELAYED,
+                this );
+            my_looper.start();
         }
 
         Utils.log(dbg_mr,0,"MediaRenderer started ok=" + ok);
@@ -170,45 +162,44 @@ public class MediaRenderer extends Device implements Renderer
 
 
 
-    private class UpdateThread extends Thread
+    @Override public boolean continue_loop()
+    // called by myLoopingRunnable
+    {
+        return getDeviceStatus() != deviceStatus.OFFLINE;
+    }
+
+
+
+    private class Updater implements Runnable
     {
         public void run()
         {
-            Looper.prepare();
-            update_handler = new Handler();
-            updater = new Updater();
-            update_handler.postDelayed(updater,REFRESH_INTERVAL);
+            getUpdateRendererState();
+            if (my_looper != null && my_looper.continue_loop())
+                artisan.handleArtisanEvent(EventHandler.EVENT_IDLE,null);   // prh !!!
         }
     }
 
 
-    @Override public void stopRenderer()
+
+    @Override public void stopRenderer(boolean wait_for_stop)
     // parent is responsible for sending out RENDERER_CHANGED event
     {
         Utils.log(dbg_mr,1,"MediaRenderer.stopRenderer()");
 
-        // stop the refresh handler
+        //---------------------------------
+        // stop the looper
+        //---------------------------------
 
-        quitting = true;
-        while (updater != null &&
-              update_handler != null &&
-              in_update )
+        if (my_looper != null)
         {
-            Utils.log(dbg_mr,2,"waiting for MediaRenderer Updater() to stop()");
-            Utils.sleep(100);
+            my_looper.stop(wait_for_stop);
+            my_looper = null;
         }
-        in_update = false;
-        quitting = false;
 
-        if (update_handler != null)
-            update_handler.removeCallbacks(updater);
-        update_handler = null;
-        updater = null;
-
-        Utils.log(dbg_mr,2,"Updater() stopped");
-
-        // get rid of any references to
-        // external objects
+        //--------------------------------------------------
+        // get rid of any references to external objects
+        //--------------------------------------------------
 
         current_track = null;
 
@@ -421,39 +412,11 @@ public class MediaRenderer extends Device implements Renderer
 
 
     //-----------------------------------------------
-    // UpdateState()
+    // Implementation
     //-----------------------------------------------
     // All Events (except for PlaylistChanged)
     // and state changes are recognized and evented
     // by the update loop ...
-
-
-    private class Updater implements Runnable
-        // Runs in a separate thread
-        // Starts the refresh, etc
-    {
-        public void run()
-        {
-            synchronized (this)
-            {
-                if (!quitting &&
-                    updater != null &&
-                    update_handler != null)
-                {
-                    in_update = true;
-                    getUpdateRendererState();
-                    artisan.handleArtisanEvent(EventHandler.EVENT_IDLE,null);   // prh !!!
-                    if (!quitting &&
-                        updater != null &&
-                        update_handler != null)
-                    {
-                        update_handler.postDelayed(updater,REFRESH_INTERVAL);
-                    }
-                    in_update = false;
-                }
-            }
-        }   // updateState.run()
-    }   // class updateState
 
 
 
@@ -492,6 +455,7 @@ public class MediaRenderer extends Device implements Renderer
         if (doc == null)
         {
             Utils.warning(0,0,"Could not get AVTransport::GetTransportState for " + getFriendlyName());
+            deviceFailure();
             return false;
         }
 
@@ -510,8 +474,11 @@ public class MediaRenderer extends Device implements Renderer
         if (doc == null)
         {
             Utils.warning(0,0,"Could not get AVTransport::GetPositionInfo for " + getFriendlyName());
+            deviceFailure();
             return false;
         }
+
+        deviceSuccess();
 
         doc_ele = doc.getDocumentElement();
         String pos_str = Utils.getTagValue(doc_ele,"RelTime");

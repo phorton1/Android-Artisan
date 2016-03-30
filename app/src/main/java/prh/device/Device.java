@@ -6,6 +6,7 @@ import org.w3c.dom.Document;
 import java.util.HashMap;
 
 import prh.artisan.Artisan;
+import prh.artisan.EventHandler;
 import prh.device.service.AVTransport;
 import prh.device.service.ContentDirectory;
 import prh.device.service.OpenInfo;
@@ -26,6 +27,13 @@ public abstract class Device implements Comparable<Device>
     private static int dbg_d = 1;
 
     // Constants and Types
+
+    public static enum deviceStatus
+    {
+        UNKNOWN,
+        ONLINE,
+        OFFLINE
+    }
 
     public static enum deviceGroup
     {
@@ -58,6 +66,7 @@ public abstract class Device implements Comparable<Device>
     protected String device_url;
     protected String friendlyName;
     protected String icon_path;
+    protected deviceStatus device_status = deviceStatus.UNKNOWN;
     protected ServiceHash services = new ServiceHash();
 
     // accessors
@@ -71,6 +80,38 @@ public abstract class Device implements Comparable<Device>
     public String getDeviceUrn()            { return device_urn; }
     public String getDeviceUrl()            { return device_url; }
     public String getFriendlyName()         { return friendlyName; }
+    public deviceStatus getDeviceStatus()   { return device_status; }
+
+    // failure scheme
+
+    protected int failure_count = 0;
+    public static int NUM_FAILURE_RETRIES = 3;
+        // networkRequest times out after about 10 seconds
+        // so this means we might retry for 30 seconds
+
+    public void deviceSuccess() { failure_count = 0; }
+    public void deviceFailure()
+    {
+        failure_count++;
+        Utils.warning(0,0,"Device(" + getFriendlyName() + ") FAILURE count=" + failure_count);
+        if (failure_count >= NUM_FAILURE_RETRIES)
+        {
+            failure_count = 0;
+            setDeviceStatus(deviceStatus.OFFLINE);
+        }
+    }
+
+
+    public void setDeviceStatus(deviceStatus new_status)
+        // Change the status AND send Artisan Event
+    {
+        boolean changed = device_status != new_status;
+        device_status = new_status;
+        if (changed)
+        artisan.handleArtisanEvent(EventHandler.EVENT_DEVICE_STATUS_CHANGED,this);
+
+    }
+
 
     public String getIconUrl()
     {

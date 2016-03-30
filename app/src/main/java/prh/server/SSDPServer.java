@@ -122,14 +122,16 @@ public class SSDPServer implements Runnable
 
     // VARIABLES
 
-    private int running = 0;   // 0=stopped, 1=running, 2=stopping
-    public MulticastSocket mMulticastSocket = null;
-    private DatagramSocket mUnicastSocket = null;
-    Handler alive_loop = null;
-    AliveSender alive_sender = null;
     private Artisan artisan;
     boolean active[] = null;
+        // services of ours which are active by IDX
 
+    private int running = 0;   // 0=stopped, 1=running, 2=stopping
+    private int broadcasts_active = 0;
+    private Handler alive_loop = null;
+    private AliveSender alive_sender = null;
+    public MulticastSocket mMulticastSocket = null;
+    private DatagramSocket mUnicastSocket = null;
 
     //-------------------------------------------------
     // construction, startup, etc
@@ -216,8 +218,21 @@ public class SSDPServer implements Runnable
     // send byebye messages twice as all ssdp_device_types
     {
         Utils.log(dbg_ssdp,0,"------> send_byebye");
-        send_broadcast("bye_bye");
-        send_broadcast("bye_bye");
+        Runnable bye_bye_sender = new Runnable() {
+            public void run() {
+                send_broadcast("bye_bye");
+                send_broadcast("bye_bye");
+            }};
+
+        Thread bye_bye_thread = new Thread(bye_bye_sender);
+        broadcasts_active = 2;
+        bye_bye_thread.start();
+        while (broadcasts_active > 0)
+        {
+            Utils.log(dbg_ssdp,0,"waiting for send_broadcast(bye_bye) to finish");
+            Utils.sleep(100);
+        }
+        Utils.log(dbg_ssdp,0,"send_byebye() finished");
     }
 
 
@@ -358,35 +373,29 @@ public class SSDPServer implements Runnable
                     String location = parseHeaderValue(dp,"LOCATION");
                     String action = nts == null ? "" : Utils.extract_re("ssdp:(.*)$",nts);
 
-                    // Utils.log(0,5,"M_NOTIFY(" + action + ") from  " + dp.getAddress() + ":" + dp.getPort());
+                    //Utils.log(0,4,"M_NOTIFY(" + action + ") from  " + dp.getAddress() + ":" + dp.getPort() + " usn=" + usn);
 
                     if (usn != null &&
-                        location != null &&
-                        !location.isEmpty() &&
-                        action.equals("alive") && (
-                        usn.contains("MediaServer:1") ||
-                        usn.contains("MediaRenderer:1") ||
-                        usn.contains("Source:1")))
+
+                        (usn.contains("MediaServer:1") ||
+                            usn.contains("MediaRenderer:1") ||
+                            usn.contains("Source:1")) &&
+
+                        (action.equals("bye_bye") ||
+                            (location != null &&
+                            !location.isEmpty()))
+                        )
                     {
+                        //Utils.log(0,5,"M_NOTIFY(" + action + ")->deviceManager  " + dp.getAddress() + ":" + dp.getPort() + " usn=" + usn);
                         DeviceManager dm = artisan.getDeviceManager();
-                        String device_uuid = Utils.extract_re("uuid:(.*?):",usn);
-                        if (dm.getDevice(device_uuid) == null)
-                        {
-                            Utils.log(dbg_ssdp,1,"processing M_NOTIFY from  " + dp.getAddress() + ":" + dp.getPort() + " location=" + location + "usn=" + usn);
-                            if (dm.threadedDeviceCheck(location,usn))
-                                dm.incDecBusy(1);
-                            else
-                                Utils.log(dbg_ssdp+1,2,"not interested");
-
-                        }
-                        else
-                            Utils.log(dbg_ssdp+1,5,"device already exists:" + location + "usn=" + usn);
-
+                        dm.notifyDeviceSSDP(location,usn,action);
                     }
                 }
-                // unknown response
 
-                //else Utils.log(0,0,"NOT M_SEARCH: " + dp.getAddress() + ":" + dp.getPort() + " = " + new String(dp.getData()));
+                // else     // unknown message
+                // {
+                //     Utils.log(0,0,"NOT M_SEARCH: " + dp.getAddress() + ":" + dp.getPort() + " = " + new String(dp.getData()));
+                // }
 
             }
             catch (Exception e)
@@ -584,6 +593,9 @@ public class SSDPServer implements Runnable
                 }   // for each type in the service
             }   // Service is Active
         }   // for each Service
+
+        broadcasts_active--;
+
     }   // send_broadcast()
 
 

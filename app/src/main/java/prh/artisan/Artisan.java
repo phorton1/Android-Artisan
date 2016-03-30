@@ -269,8 +269,6 @@ public class Artisan extends FragmentActivity implements
 
     // private working variables
 
-    private OpenHomeEventDelayer oh_delayer = null;
-    private Handler delay_handler = new Handler();
     private int num_progress = 0;
 
 
@@ -453,7 +451,7 @@ public class Artisan extends FragmentActivity implements
                     http_server.start();
 
                     Utils.log(dbg_main+1,0,"starting ssdp_server ...");
-                    SSDPServer ssdp_server = new SSDPServer(this,http_server);
+                    ssdp_server = new SSDPServer(this,http_server);
                     Thread ssdp_thread = new Thread(ssdp_server);
                     ssdp_thread.start();
                     Utils.log(dbg_main+1,0,"ssdp_server started");
@@ -570,11 +568,11 @@ public class Artisan extends FragmentActivity implements
         local_library = null;
 
         if (renderer != null)
-            renderer.stopRenderer();
+            renderer.stopRenderer(true);
         renderer = null;
 
         if (local_renderer != null)
-            local_renderer.stopRenderer();
+            local_renderer.stopRenderer(true);
         local_renderer = null;
 
         if (playlist_source != null)
@@ -878,6 +876,7 @@ public class Artisan extends FragmentActivity implements
     // Device Management
     //-------------------------------------------------------
 
+
     private String getDefaultDeviceName(String what, Prefs.id pref_id, Prefs.id selected_id)
     {
         String default_name = Prefs.getString(pref_id);
@@ -1009,21 +1008,22 @@ public class Artisan extends FragmentActivity implements
         if (thing.equals("Renderer") && ((Renderer) device).startRenderer())
         {
             if (renderer != null)
-                renderer.stopRenderer();
+                renderer.stopRenderer(false);
             renderer = (Renderer) device;
             started = true;
         }
         if (thing.equals("PlaylistSource") && ((PlaylistSource) device).start())
         {
-            if (renderer != null)
-                renderer.stopRenderer();
-            renderer = (Renderer) device;
+            if (playlist_source != null)
+                playlist_source.stop();
+            playlist_source = (PlaylistSource) device;
             started = true;
         }
 
         if (!started)
         {
             Utils.error("setArtisanDevice(" + name + ") " + thing + ".start() failed");
+            device.setDeviceStatus(Device.deviceStatus.OFFLINE);
             return false;
         }
 
@@ -1165,24 +1165,35 @@ public class Artisan extends FragmentActivity implements
     //---------------------------------------------------------------------
     // delay OpenHome events
 
+    boolean defer_openhome_events = false;
+    myLoopingRunnable open_home_delayer;
+
     private class OpenHomeEventDelayer implements Runnable
     {
         public void run()
         {
-            oh_delayer = null;
+            defer_openhome_events = false;
         }
     }
 
-
     public void setDeferOpenHomeEvents()
     {
-        if (oh_delayer != null)
-            delay_handler.removeCallbacks(oh_delayer);
-        oh_delayer = new OpenHomeEventDelayer();
-        delay_handler.postDelayed(oh_delayer,1200);
+        defer_openhome_events = true;
+        if (open_home_delayer != null)
+            open_home_delayer.stop(false);
+        open_home_delayer = new myLoopingRunnable(
+            "open_home_event_delayer",
+            new OpenHomeEventDelayer(),
+            1200);
+        open_home_delayer.start();
     }
 
-    // FetcherClient interface from device.MediaServer to aLibrary
+
+
+    //------------------------------------------
+    // FetcherClient interface
+    //------------------------------------------
+    // from device.MediaServer to aLibrary
 
     public void notifyFetchRecords(Fetcher fetcher,Fetcher.fetchResult fetch_result)
     {
@@ -1194,7 +1205,9 @@ public class Artisan extends FragmentActivity implements
     }
 
 
+    //------------------------------------------
     // restart the device search
+    //------------------------------------------
     // stop everything and restart defaults
 
     public void restartDeviceSearch()
@@ -1209,7 +1222,7 @@ public class Artisan extends FragmentActivity implements
         }
         if (renderer != null && !((Device)renderer).isLocal())
         {
-            renderer.stopRenderer();
+            renderer.stopRenderer(false);
             renderer = local_renderer;
             if (renderer != null)
                 renderer.startRenderer();
@@ -1233,9 +1246,41 @@ public class Artisan extends FragmentActivity implements
     }
 
 
+    private void checkCurrentDeviceOffline(Device device)
+    {
+        boolean changed = false;
+        if (device == library)
+        {
+            Utils.log(dbg_main,0,"Library OFFLINE(" + device.getFriendlyName() + ")");
+            library.stop(false);
+            library = local_library;
+            if (library != null)
+                library.start();
+            handleArtisanEvent(EVENT_LIBRARY_CHANGED,library);
+        }
+        if (device == renderer)
+        {
+            Utils.log(dbg_main,0,"Renderer OFFLINE(" + device.getFriendlyName() + ")");
+            renderer.stopRenderer(false);
+            renderer = local_renderer;
+            if (renderer != null)
+                renderer.startRenderer();
+            handleArtisanEvent(EVENT_RENDERER_CHANGED,renderer);
+        }
+        if (device == playlist_source)
+        {
+            Utils.log(dbg_main,0,"PlaylistSource OFFLINE(" + device.getFriendlyName() + ")");
+            playlist_source.stop();
+            playlist_source = local_playlist_source;
+            if (playlist_source != null)
+                playlist_source.start();
+            handleArtisanEvent(EVENT_PLAYLIST_SOURCE_CHANGED,playlist_source);
+        }
+    }
+
 
     //---------------------------------------------------------------------
-    // EVENT HANDLER
+    // THE MAIN EVENT HANDLER
     //---------------------------------------------------------------------
 
     @Override
@@ -1244,6 +1289,22 @@ public class Artisan extends FragmentActivity implements
     {
         if (!event_id.equals(EVENT_POSITION_CHANGED))
             Utils.log(dbg_main+1,0,"artisan.handleRendererEvent(" + event_id + ") " + data);
+
+        // We do not wait for the UI thread to handle EVENT_DEVICE_STATUS_CHANGED
+        // for a current device.  If a device goes offline, we call checkDeviceOffline(),
+        // which sees if it is a current active device, and if so, shuts it down,
+        // finds, and sets the local device, and issues the LIBRARY_CHANGED,
+        // RENDERER_CHANGED, or PLAYLIST_SOURCE_CHANGED event
+
+        if (event_id.equals(EVENT_DEVICE_STATUS_CHANGED))
+        {
+            Device device = (Device) data;
+            if (device.getDeviceStatus() == Device.deviceStatus.OFFLINE)
+            {
+                checkCurrentDeviceOffline(device);
+            }
+        }
+
 
         runOnUiThread(new Runnable()
         {
@@ -1382,7 +1443,7 @@ public class Artisan extends FragmentActivity implements
                     else if (event_id.equals(EVENT_VOLUME_CHANGED))
                         event_manager.incUpdateCount("Volume");
 
-                    else if (oh_delayer == null  &&
+                    else if (!defer_openhome_events  &&
                              event_id.equals(EVENT_IDLE))
                         event_manager.send_events();
                 }

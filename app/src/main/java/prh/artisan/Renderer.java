@@ -29,7 +29,7 @@ public interface Renderer
     public String RENDERER_STATE_PAUSED          = "PAUSED_PLAYBACK";
 
     public boolean startRenderer();
-    public void stopRenderer();
+    public void stopRenderer(boolean wait_for_stop);
 
     public Volume getVolume();
 

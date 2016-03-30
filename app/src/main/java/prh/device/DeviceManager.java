@@ -10,6 +10,7 @@ import java.util.HashMap;
 
 import prh.artisan.Artisan;
 import prh.artisan.EventHandler;
+import prh.types.stringList;
 import prh.utils.Utils;
 import prh.utils.httpUtils;
 
@@ -390,88 +391,107 @@ public class DeviceManager
 
 
 
-    public boolean threadedDeviceCheck(
-        String location,
-        String device_usn  )
-        // Called from SSDPSearch and SSDPServer
+
+    public void doDeviceCheck(String location, String usn)
+        // Called from SSDPSearch and SSDPServer-via-notifyDeviceSSDP
         //
-        // if we got a location and, and it's not ourselves
-        // and we got a device type and it's allowed
-        // start the asynchronous XML request for the service description/
+        // Check to see if the device with the given usn already exists,
+        // and if not, if it is interesting and valid, start a thread
+        // to create it.
         //
-        // the check for ourselves is important since we fire off an SSDP
-        // search right after constructing the http server, which may
-        // not have had time to start (so I got errors here anyways
-        // cuz the doc could not be loaded).
+        // Makes sure to not create devices for our own http server.
     {
-        if (location != null && !location.isEmpty() &&
-            // device_st != null && !device_st.isEmpty() &&
-            device_usn != null && !device_usn.isEmpty() &&
-            !location.contains(Utils.server_ip + ":" + Utils.server_port) &&
-            isValidDeviceUSN(device_usn))
+        // basic parameter validation
+
+        if (usn != null && !usn.isEmpty() &&
+            location != null && !location.isEmpty() &&
+            !location.contains(Utils.server_ip + ":" + Utils.server_port))
         {
-            SSDPSearchDevice device = new SSDPSearchDevice(
-                this,
-                location,
-                device_usn);
+            // parse the usn, with more basic validation
+            // and see if the device already exists
 
-            // The devices take place on separate threads
-            // Which leads to a race condition tyring to figure out if
-            // the search is completed by counting number started - number_finished
+            String uuid = Utils.extract_re("uuid:(.*?):",usn);
+            String urn = Utils.extract_re("urn:(.*?):",usn);
+            String device_type_string = Utils.extract_re("device:(.*?):",usn);
 
-            if (device.isValid())
+            if (uuid.isEmpty())
+                return;
+            if (urn.isEmpty())
+                return;
+            if (device_type_string.isEmpty())
+                return;
+
+            // map "Source" device to our "OpenHomeRenderer"
+
+            if (device_type_string.equals("Source"))
+                device_type_string = "OpenHomeRenderer";
+
+            // check if device exists
+
+            Device exists = getDevice(uuid);
+            if (exists == null)
             {
-                Utils.log(dbg_dm,0,"creating SSDPDevice(" + device_usn + ")");
+                // Device does not exist
+                // See if its interesting, and just return if it is not
+                // or give an error if we get an unexpected urn
+
+                Device.deviceType device_type = null;
+                String expected_urn = "";
+                if (device_type_string.equals(Device.deviceType.MediaRenderer.toString()))
+                {
+                    expected_urn = httpUtils.upnp_urn;
+                    device_type = Device.deviceType.MediaRenderer;
+                }
+                if (device_type_string.equals(Device.deviceType.MediaServer.toString()))
+                {
+                    expected_urn = httpUtils.upnp_urn;
+                    device_type = Device.deviceType.MediaServer;
+                }
+                if (device_type_string.equals(Device.deviceType.OpenHomeRenderer.toString()))
+                {
+                    expected_urn = httpUtils.open_device_urn;
+                    device_type = Device.deviceType.OpenHomeRenderer;
+                }
+
+                if (device_type == null)
+                {
+                    Utils.warning(0,0,"un-interesting device type: " + device_type_string);
+                    return;
+                }
+
+                if (!urn.equals(expected_urn))
+                {
+                    Utils.warning(0,0,"mismatched urn " + urn + " for " + device_type_string);
+                    return;
+                }
+
+                // Device is interesting and has a valid urn and device_type.
+                // Fire off the thread to check it out in more detail, which
+                // will create it if so.
+
+                Utils.log(dbg_dm,0,"firing off SSDPSearchDevice(" + device_type + ") at " + location);
+                SSDPSearchDevice device = new SSDPSearchDevice(
+                    this,
+                    location,
+                    device_type,
+                    uuid,
+                    urn);
+                incDecBusy(1);
                 Thread device_thread = new Thread(device);
                 device_thread.start();
-                return true;
+            }
+            else
+            {
+                Utils.log(dbg_dm + 1,0,"Device Already Exists " + device_type_string + "::" + exists.getFriendlyName());
             }
         }
         else
         {
-            Utils.warning(dbg_dm + 2,1,"Skipping reply from device(" + device_usn + " at " + location);
-        }
-        return false;
-    }
-
-
-
-    // validation
-
-    public boolean isValidDeviceUSN(String usn)
-    // Checks USN for uuid, urn, and device:
-    // Makes sure device_type is one we want
-    // Validates the urn versus the expected_urn
-    {
-        String uuid = Utils.extract_re("uuid:(.*?):",usn);
-        String urn = Utils.extract_re("urn:(.*?):",usn);
-        String device_type_string = Utils.extract_re("device:(.*?):",usn);
-
-        if (uuid.isEmpty())
-            return false;
-        if (urn.isEmpty())
-            return false;
-        if (device_type_string.isEmpty())
-            return false;
-
-        String expected_urn = "";
-        if (device_type_string.equals(Device.deviceType.MediaRenderer.toString()))
-            expected_urn = httpUtils.upnp_urn;
-        if (device_type_string.equals(Device.deviceType.MediaServer.toString()))
-            expected_urn = httpUtils.upnp_urn;
-        if (device_type_string.equals(Device.deviceType.OpenHomeRenderer.toString()))
-            expected_urn = httpUtils.open_device_urn;
-
-        if (expected_urn.isEmpty())
-            return false;
-        if (!urn.equals(expected_urn))
-        {
-            Utils.warning(0,0,"mismatched urn " + urn + " for " + device_type_string);
-            return false;
+            Utils.warning(dbg_dm + 2,1,"Skipping reply from device(" + location + ") usn=" + usn);
         }
 
-        return true;
-    }
+    }   // doDeviceCheck()
+
 
 
 
@@ -544,6 +564,63 @@ public class DeviceManager
         return false;
     }
 
+
+    //-------------------------------------------------
+    // Notifications
+    //-------------------------------------------------
+
+
+    public void notifyDeviceSSDP(String location, String usn, String action)
+        // acttion="alive" || "bye_bye"
+        //
+        // Called when the SSDP Server receives an M_NOTIFY for
+        // an interesting device: MediaServer, MediaRenderer, openSource.
+        //
+        // If the device already exists, we set it's online statua
+        // given the action. If the status changed, dispatch
+        // an artisan EVENT_DEVICE_STATUS_CHANGED message.
+        //
+        // As a note, Artisan does not wait for the UI thread to
+        // take the current device offline and switch to the default.
+        // It does this as soon as possible to try to stop hitting the
+        // the device via fetchers, the Renderer, etc. and then immediately
+        // issues the corresponding LIBRARY_CHANGED, RENDERER_CHANGED, etc
+        // events.
+        //
+        // If the device does not exist, we call doCheckDevice() to possibly
+        // create it and notify artisan via a NEW_DEVICE message.
+    {
+        Utils.log(dbg_dm,1,"processing M_NOTIFY(" + action + ") from " + location + " usn=" + usn);
+        String device_uuid = Utils.extract_re("uuid:(.*?):",usn);
+        Device device = getDevice(device_uuid);
+
+        // Send EVENT_DEVICE_STATUS_CHANGED if device exists and
+        // it came online, or went offline
+
+        if (device != null)
+        {
+            Device.deviceStatus status = device.getDeviceStatus();
+            Device.deviceStatus new_status =
+                action.equals("alive") ? Device.deviceStatus.ONLINE :
+                action.equals("bye_bye") ? Device.deviceStatus.OFFLINE :
+                Device.deviceStatus.UNKNOWN ;
+
+            if (status != new_status)
+            {
+                device.setDeviceStatus(new_status);
+            }
+        }
+
+        // Use a thread to create an SSDPDevice and possibly
+        // set it off to check out the device, possibly
+        // creating it.
+
+        else
+        {
+            doDeviceCheck(location,usn);
+        }
+
+    }   // notifyDeviceSSDP()
 
 
 }   // class DeviceManager

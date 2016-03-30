@@ -16,6 +16,7 @@ public interface EventHandler
     public static String EVENT_RENDERER_CHANGED        = "RENDERER_CHANGED";              // data = New Renderer
     public static String EVENT_PLAYLIST_SOURCE_CHANGED = "PLAYLIST_SOURCE_CHANGED";       // data = New PlaylistSource
     public static String EVENT_NEW_DEVICE              = "NEW_DEVICE";                    // data = New Device found in SSDP Search
+    public static String EVENT_DEVICE_STATUS_CHANGED   = "DEVICE_STATUS_CHANGED";         // data = Device
     public static String EVENT_SSDP_SEARCH_STARTED     = "SSDP_SEARCH_STARTED";           // data = null
     public static String EVENT_SSDP_SEARCH_FINISHED    = "SSDP_SEARCH_FINISHED";          // data = null
 

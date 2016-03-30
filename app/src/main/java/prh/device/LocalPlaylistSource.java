@@ -45,8 +45,10 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
         device_type = deviceType.LocalPlaylistSource;
         device_group = deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE;
         device_uuid = SSDPServer.dlna_uuid[SSDPServer.IDX_OPEN_HOME];
-        // overuse of http_server openHome uuid as the
-        // uuid of this LocalPlaylistSource
+            // overuse of http_server openHome uuid as the
+            // uuid of this LocalPlaylistSource
+
+        Utils.log(dbg_pls + 1,1,"new LocalPlaylistSource()");
 
         device_urn = "schemas-artisan-home";
         // not used anyways
@@ -54,7 +56,8 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
         friendlyName = deviceType.LocalPlaylistSource.toString();
         device_url = Utils.server_uri;
         icon_path = "/icons/artisan.png";
-        Utils.log(dbg_pls + 1,1,"new LocalPlaylistSource()");
+        device_status = deviceStatus.ONLINE;
+
     }
 
 

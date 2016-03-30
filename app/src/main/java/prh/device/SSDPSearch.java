@@ -86,10 +86,15 @@ public class SSDPSearch implements Runnable
     {
         Utils.log(dbg_ssdp_search,0,"SSDPSearch started");
         device_manager.incDecBusy(1);
+            // the normal incDecBusy for this level of the hierarchy
 
         // create a DeviceListener on LISTEN_PORT
 
         device_manager.incDecBusy(1);
+            // we do the incDecBusy() ahead of the call
+            // so as to ensure that it is always 1 when
+            // leaving this routine.
+
         SSDPSearchListener listener = new SSDPSearchListener(device_manager);
         Thread listener_thread = new Thread(listener);
         listener_thread.start();
@@ -143,6 +148,8 @@ public class SSDPSearch implements Runnable
     //-----------------------------------------------------------
 
     private class SSDPSearchListener implements Runnable
+        // device_manager.incDecBusy(1) has already
+        // been called for this level of the hirearchy
     {
         private DeviceManager device_manager;
         SSDPSearchListener(DeviceManager dm)
@@ -232,14 +239,10 @@ public class SSDPSearch implements Runnable
                         }   // for each line in the reply
 
 
-                        // call the threadedChecker
-                        // which fires off a thread for services if needed
-                        // or returns right away for non-interesting or
-                        // already existing devices
+                        // call the device manager to do a deviceCheck()
+                        // it handles incDecBusy there-below.
 
-                        if (device_manager.threadedDeviceCheck(location, device_usn))
-                            device_manager.incDecBusy(1);
-
+                        device_manager.notifyDeviceSSDP(location, device_usn, "alive");
 
                     }   // try
                     catch( SocketTimeoutException e )
@@ -266,6 +269,7 @@ public class SSDPSearch implements Runnable
 
             Utils.log(dbg_ssdp_search,0,"SSDPSearch.run() finished");
             device_manager.incDecBusy(-1);
+                // decrement the call from SSDPSearch::run()
 
         }   // run()
 

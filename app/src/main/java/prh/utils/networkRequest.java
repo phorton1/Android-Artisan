@@ -28,8 +28,10 @@ public class networkRequest extends Thread
 {
     private static int dbg_nr = 1;
 
-    private static int SLEEP_TIME = 50;
-        // sleep for 50 milliseconds at a time waiting for results
+    private static int NUM_RETRIES = 100;
+    private static int WAIT_SLEEP_TIME = 120;
+        // sleep for 100 milliseconds at a time waiting for
+        // results. Fail after 10 seconds.
 
     // request
 
@@ -104,10 +106,15 @@ public class networkRequest extends Thread
 
     public void wait_for_result()
     {
-        while (!ready)
+        int count = 0;
+        while (!ready && count++<NUM_RETRIES)
         {
             Utils.log(dbg_nr+2,0,"networkRequest(" + content_type + ").wait_for_result()");
-            Utils.sleep(SLEEP_TIME);
+            Utils.sleep(WAIT_SLEEP_TIME);
+        }
+        if (!ready)
+        {
+            Utils.warning(0,0,"Network request TIME_OUT(" + this.url + " ");
         }
     }
 
