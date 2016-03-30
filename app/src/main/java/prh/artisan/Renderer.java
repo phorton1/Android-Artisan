@@ -33,11 +33,9 @@ public interface Renderer
 
     public Volume getVolume();
 
-    public String getName();
+    public String getRendererName();
     public String getRendererState();
     public String getRendererStatus();
-    public String getPlayMode();
-    public String getPlaySpeed();
     public int getTotalTracksPlayed();
 
     public boolean getShuffle();
@@ -45,16 +43,16 @@ public interface Renderer
     public void setRepeat(boolean value);
     public void setShuffle(boolean value);
 
-    public void pause();
-    public void play();
-    public void stop();
+    public void transport_pause();
+    public void transport_play();
+    public void transport_stop();
     public void incAndPlay(int offset);
 
     public int getPosition();
     public void seekTo(int progress);
 
-    public Track getTrack();
-    public void setTrack(Track track, boolean interrupt_playlist);
+    public Track getRendererTrack();
+    public void setRendererTrack(Track track, boolean interrupt_playlist);
 
     public void notifyPlaylistChanged();
         // called by Artisan when it gives a new LocalPlaylist

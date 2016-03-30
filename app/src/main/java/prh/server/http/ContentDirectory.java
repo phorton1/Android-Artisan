@@ -26,7 +26,7 @@ import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
-public class ContentDirectory extends httpRequestHandler
+public class ContentDirectory implements httpRequestHandler
     // The DLNA Server serves the LOCAL LIBRARY
     // It is NOT a pass-thru server to remote libraries!
 {
@@ -155,7 +155,7 @@ public class ContentDirectory extends httpRequestHandler
             Utils.log(dbg_stream+1,1,"header("+key+")="+headers.get(key));
         }
 
-        Track track = local_library.getTrack(id);
+        Track track = local_library.getLibraryTrack(id);
         if (track == null)
         {
             Utils.error("could not get track in stream_response(" + id + ")");
@@ -274,7 +274,7 @@ public class ContentDirectory extends httpRequestHandler
             return response;
         }
 
-        Folder folder = local_library.getFolder(id);
+        Folder folder = local_library.getLibraryFolder(id);
         if (folder == null)
         {
             Utils.error("No folder(" + id + ") found in folder_jpg_response");
@@ -322,7 +322,7 @@ public class ContentDirectory extends httpRequestHandler
         }
 
         Library local_library = artisan.getLocalLibrary();
-        Folder folder = local_library.getFolder(id);
+        Folder folder = local_library.getLibraryFolder(id);
         if (folder == null)
         {
             Utils.error("could not get folder(1)");
@@ -334,7 +334,7 @@ public class ContentDirectory extends httpRequestHandler
             // this should just get the object itself
 
             id = folder.getParentId();
-            folder = local_library.getFolder(id);
+            folder = local_library.getLibraryFolder(id);
             if (folder == null)
             {
                 Utils.error("could not get folder(2)");

@@ -18,13 +18,13 @@ public interface Library
     // The derived LocalLibrary is also the provider
     // for our own public http dlna MediaServer service.
 {
-    String getName();
+    String getLibraryName();
 
-    boolean start();
-    void stop(boolean wait_for_stop);
+    boolean startLibrary();
+    void stopLibrary(boolean wait_for_stop);
 
-    Track getTrack(String id);
-    Folder getFolder(String id);
+    Track getLibraryTrack(String id);
+    Folder getLibraryFolder(String id);
 
 
     libraryBrowseResult getSubItems(String id,int start,int count, boolean meta_data);

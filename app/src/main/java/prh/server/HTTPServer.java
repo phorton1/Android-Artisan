@@ -19,6 +19,7 @@ import java.util.HashMap;
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 import prh.artisan.Prefs;
+import prh.device.OpenHomeRenderer;
 import prh.server.http.AVTransport;
 import prh.server.http.ContentDirectory;
 import prh.server.http.OpenInfo;
@@ -31,6 +32,7 @@ import prh.server.utils.UpnpEventHandler;
 import prh.server.utils.UpnpEventManager;
 import prh.server.utils.UpnpEventSubscriber;
 import prh.server.utils.httpRequestHandler;
+import prh.types.objectHash;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
@@ -66,12 +68,25 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
     private UpnpEventManager event_manager = null;
     public UpnpEventManager getEventManager() { return event_manager; }
     private HashMap<String,httpRequestHandler> handlers = null;
+    private class openHomeRendererHash extends HashMap<String, OpenHomeRenderer> {}
+    private openHomeRendererHash open_home_renderers = new openHomeRendererHash();
+
 
 
     public httpRequestHandler getHandler(String service_name)
     {
         return handlers.get(service_name);
     }
+
+
+    public void notifyOpenHomeRenderer(OpenHomeRenderer open_renderer, boolean alive)
+    {
+        if (alive)
+            open_home_renderers.put(open_renderer.getDeviceUUID(),open_renderer);
+        else
+            open_home_renderers.remove(open_renderer.getDeviceUUID());
+    }
+
 
 
     //-----------------------------------------------
@@ -287,7 +302,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
     @Override
     public Response serve(IHTTPSession session)
     {
-        // synchronized (this)   // comment this out to run asynchronously
+        synchronized (this)   // comment this out to run asynchronously
         {
             String uri = session.getUri();
 
@@ -317,6 +332,40 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
                     response = asset_file_response(response,uri);
                 }
 
+                //------------------------------------------
+                // device.OpenHomeRenderer Event Callbacks
+                //------------------------------------------
+                // /openCallback/uuid/Service/unused_event
+                // uri ends up with "event"
+
+                else if (uri.startsWith("/openCallback/"))
+                {
+                    uri = uri.replace("/openCallback/","");
+                    String uuid = uri.replaceAll("\\/.*$","");
+
+                    uri = uri.replaceAll("^.*\\/","");
+                    String service = uri.replaceAll("\\/.*$","");
+
+                    boolean is_loop_action = service.equals("Time");
+
+                    dbg_from = "openCallback(" + service + ") uuid=" + uuid + " from " + dbg_from;
+                    if (!is_loop_action)
+                        Utils.log(0,1,dbg_from);
+
+                    OpenHomeRenderer open_renderer = open_home_renderers.get(uuid);
+                    if (open_renderer == null)
+                        Utils.warning(0,0,"Could not find " + dbg_from);
+                    else
+                    {
+                        Document doc = httpUtils.get_xml_from_post(session);
+                        if (doc == null)
+                        {
+                            Utils.error("Null document in " + dbg_from);
+                            return response;
+                        }
+                        response = open_renderer.response(session,response,service,doc);
+                    }
+                }
 
                 //------------------------------------------------------
                 // device and service description responses
@@ -415,10 +464,10 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
 
                                 boolean is_loop_action =
                                     action.equals("GetTransportInfo") ||
-                                        action.equals("GetPositionInfo") ||
-                                        action.equals("Time") ||
-                                        (service.equals("RenderingControl") &&
-                                         action.startsWith("Get"));
+                                    action.equals("GetPositionInfo") ||
+                                    action.equals("Time") ||
+                                    (service.equals("RenderingControl") &&
+                                     action.startsWith("Get"));
 
                                 int use_dbg = is_loop_action ?
                                     dbg_looping_control_requests :
@@ -516,7 +565,6 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
     }
 
 
-
     public Response asset_file_response (Response response, String uri)
     {
         Resources res = artisan.getResources();
@@ -546,6 +594,10 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
         }
         return response;
     }
+
+
+
+
 
 
 

@@ -20,7 +20,7 @@ import prh.server.utils.UpnpEventHandler;
 import prh.utils.httpUtils;
 
 
-public class OpenTime extends httpRequestHandler implements UpnpEventHandler
+public class OpenTime implements httpRequestHandler,UpnpEventHandler
 {
     private Artisan artisan;
     private HTTPServer http_server;
@@ -61,7 +61,7 @@ public class OpenTime extends httpRequestHandler implements UpnpEventHandler
         {
             HashMap<String,String> hash = new HashMap<String,String>();
             Renderer renderer = artisan.getRenderer();
-            Track track = renderer.getTrack();
+            Track track = renderer.getRendererTrack();
 
             hash.put("TrackCount",Integer.toString(renderer.getTotalTracksPlayed()));
             hash.put("Duration",Integer.toString(track==null?0:track.getDuration()/1000));
@@ -86,7 +86,7 @@ public class OpenTime extends httpRequestHandler implements UpnpEventHandler
     {
         HashMap<String,String> hash = new HashMap<String,String>();
         Renderer renderer = artisan.getRenderer();
-        Track track = renderer.getTrack();
+        Track track = renderer.getRendererTrack();
 
         hash.put("TrackCount",Integer.toString(renderer.getTotalTracksPlayed()));
         hash.put("Duration",Integer.toString(track==null?0:track.getDuration()/1000));

@@ -167,6 +167,7 @@ import prh.device.DeviceManager;
 import prh.device.LocalLibrary;
 import prh.device.LocalPlaylistSource;
 import prh.device.LocalRenderer;
+import prh.device.OpenHomeRenderer;
 import prh.server.HTTPServer;
 import prh.server.LocalVolumeFixer;
 import prh.server.SSDPServer;
@@ -175,12 +176,23 @@ import prh.types.intList;
 import prh.utils.Utils;
 
 
+/*
+blah blah blah
+ */
+
 
 public class Artisan extends FragmentActivity implements
     View.OnClickListener,
     EventHandler,
     Fetcher.FetcherClient
+/*
+blah blah blah
+ */
+
 {
+/*
+blah blah blah
+ */
 
     private static int dbg_main = 0;
 
@@ -256,6 +268,13 @@ public class Artisan extends FragmentActivity implements
     private SSDPServer ssdp_server = null;
     public HTTPServer getHTTPServer() { return http_server; }
 
+    // limited exact access to http_server from device.OpenHomeRenderer
+
+    public void notifyOpenHomeRenderer(OpenHomeRenderer open_renderer, boolean alive)
+    {
+        http_server.notifyOpenHomeRenderer(open_renderer,alive);
+    }
+
     // the Device Manager and default Device Names
 
     private DeviceManager device_manager = null;
@@ -276,6 +295,12 @@ public class Artisan extends FragmentActivity implements
     // onCreate()
     //--------------------------------------------------------
 
+    /**
+     * onCreate()
+     *
+     * @param savedInstanceState includes blah
+     *
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState)
     {
@@ -369,7 +394,7 @@ public class Artisan extends FragmentActivity implements
             Utils.log(dbg_main+1,0,"Creating LocalLibrary");
             local_library = new LocalLibrary(this);
             Utils.log(dbg_main+1,0,"LocalLibrary created");
-            if (!local_library.start())
+            if (!local_library.startLibrary())
                 local_library = null;
         }
         library = local_library;
@@ -381,7 +406,7 @@ public class Artisan extends FragmentActivity implements
         Utils.log(dbg_main+1,0,"Creating LocalPlaylistSource");
         local_playlist_source = new LocalPlaylistSource(this);
         Utils.log(dbg_main+1,0,"PlaylistSource created");
-        local_playlist_source.start();
+        local_playlist_source.startPlaylistSource();
         playlist_source = local_playlist_source;
 
         // The current playlist is a singleton, being Edited
@@ -560,11 +585,11 @@ public class Artisan extends FragmentActivity implements
         current_playlist = null;
 
         if (library != null)
-            library.stop(true);
+            library.stopLibrary(true);
         library = null;
 
         if (local_library != null)
-            local_library.stop(true);
+            local_library.stopLibrary(true);
         local_library = null;
 
         if (renderer != null)
@@ -576,11 +601,11 @@ public class Artisan extends FragmentActivity implements
         local_renderer = null;
 
         if (playlist_source != null)
-            playlist_source.stop();
+            playlist_source.stopPlaylistSource(true);
         playlist_source = null;
 
         if (local_playlist_source != null)
-            local_playlist_source.stop();
+            local_playlist_source.stopPlaylistSource(true);
         local_playlist_source = null;
 
         // 2 = unwind view pager and fragments
@@ -946,7 +971,7 @@ public class Artisan extends FragmentActivity implements
             group == Device.deviceGroup.DEVICE_GROUP_LIBRARY)
         {
             thing = "Library";
-            cur_name = library.getName();
+            cur_name = library.getLibraryName();
             prefs_id = Prefs.id.SELECTED_LIBRARY;
             event_name = EventHandler.EVENT_LIBRARY_CHANGED;
             if (prefs_name.equals(Device.deviceType.LocalLibrary))
@@ -956,7 +981,7 @@ public class Artisan extends FragmentActivity implements
             group == Device.deviceGroup.DEVICE_GROUP_RENDERER)
         {
             thing = "Renderer";
-            cur_name = renderer.getName();
+            cur_name = renderer.getRendererName();
             prefs_id = Prefs.id.SELECTED_RENDERER;
             event_name = EventHandler.EVENT_RENDERER_CHANGED;
             if (prefs_name.equals(Device.deviceType.LocalRenderer))
@@ -966,7 +991,7 @@ public class Artisan extends FragmentActivity implements
             group == Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE )
         {
             thing = "PlaylistSource";
-            cur_name = playlist_source.getName();
+            cur_name = playlist_source.getPlaylistSourceName();
             prefs_id = Prefs.id.SELECTED_PLAYLIST_SOURCE;
             event_name = EventHandler.EVENT_PLAYLIST_SOURCE_CHANGED;
             if (prefs_name.equals(Device.deviceType.LocalPlaylistSource))
@@ -998,10 +1023,10 @@ public class Artisan extends FragmentActivity implements
 
         boolean started = false;
 
-        if (thing.equals("Library") && ((Library) device).start())
+        if (thing.equals("Library") && ((Library) device).startLibrary())
         {
             if (library != null)
-                library.stop(false);
+                library.stopLibrary(false);
             library = (Library) device;
             started = true;
         }
@@ -1012,10 +1037,10 @@ public class Artisan extends FragmentActivity implements
             renderer = (Renderer) device;
             started = true;
         }
-        if (thing.equals("PlaylistSource") && ((PlaylistSource) device).start())
+        if (thing.equals("PlaylistSource") && ((PlaylistSource) device).startPlaylistSource())
         {
             if (playlist_source != null)
-                playlist_source.stop();
+                playlist_source.stopPlaylistSource(false);
             playlist_source = (PlaylistSource) device;
             started = true;
         }
@@ -1214,10 +1239,10 @@ public class Artisan extends FragmentActivity implements
     {
         if (library != null && !((Device)library).isLocal())
         {
-            library.stop(false);
+            library.stopLibrary(false);
             library = local_library;
             if (library != null)
-                library.start();
+                library.startLibrary();
             handleArtisanEvent(EVENT_LIBRARY_CHANGED,library);
         }
         if (renderer != null && !((Device)renderer).isLocal())
@@ -1230,10 +1255,10 @@ public class Artisan extends FragmentActivity implements
         }
         if (playlist_source != null && !((Device)playlist_source).isLocal())
         {
-            playlist_source.stop();
+            playlist_source.stopPlaylistSource(false);
             playlist_source = local_playlist_source;
             if (playlist_source != null)
-                playlist_source.start();
+                playlist_source.startPlaylistSource();
             handleArtisanEvent(EVENT_PLAYLIST_SOURCE_CHANGED,playlist_source);
         }
 
@@ -1252,10 +1277,10 @@ public class Artisan extends FragmentActivity implements
         if (device == library)
         {
             Utils.log(dbg_main,0,"Library OFFLINE(" + device.getFriendlyName() + ")");
-            library.stop(false);
+            library.stopLibrary(false);
             library = local_library;
             if (library != null)
-                library.start();
+                library.startLibrary();
             handleArtisanEvent(EVENT_LIBRARY_CHANGED,library);
         }
         if (device == renderer)
@@ -1270,10 +1295,10 @@ public class Artisan extends FragmentActivity implements
         if (device == playlist_source)
         {
             Utils.log(dbg_main,0,"PlaylistSource OFFLINE(" + device.getFriendlyName() + ")");
-            playlist_source.stop();
+            playlist_source.stopPlaylistSource(false);
             playlist_source = local_playlist_source;
             if (playlist_source != null)
-                playlist_source.start();
+                playlist_source.startPlaylistSource();
             handleArtisanEvent(EVENT_PLAYLIST_SOURCE_CHANGED,playlist_source);
         }
     }
@@ -1313,9 +1338,12 @@ public class Artisan extends FragmentActivity implements
             {
                 // selective debugging
 
+                String dbg_data = data == null ? "null" : data.toString();
+                dbg_data = dbg_data.replaceFirst("\t|\n","==");
+                dbg_data = dbg_data.replaceAll("[\t|\n].*","");
                 if (!event_id.equals(EVENT_POSITION_CHANGED) &&
                     !event_id.equals(EVENT_IDLE))
-                    Utils.log(dbg_main,0,"----> " + event_id);
+                    Utils.log(dbg_main,0,"----> " + event_id + "(" + dbg_data + ")");
 
                 //----------------------------------------------
                 // Command Events
@@ -1325,7 +1353,7 @@ public class Artisan extends FragmentActivity implements
                 {
                     Track track = (Track) data;
                     if (renderer != null)
-                        renderer.setTrack(track,false);
+                        renderer.setRendererTrack(track,false);
                     return;
                 }
 

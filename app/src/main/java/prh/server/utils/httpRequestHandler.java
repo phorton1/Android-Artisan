@@ -4,7 +4,7 @@ import org.w3c.dom.Document;
 
 import fi.iki.elonen.NanoHTTPD;
 
-public abstract class httpRequestHandler
+public interface httpRequestHandler
 {
     public abstract NanoHTTPD.Response response(
         NanoHTTPD.IHTTPSession session,

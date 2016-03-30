@@ -25,6 +25,7 @@ import java.util.HashMap;
 import prh.artisan.Artisan;
 import prh.artisan.Database;
 import prh.artisan.Playlist;
+import prh.artisan.PlaylistBase;
 import prh.artisan.PlaylistSource;
 import prh.artisan.Prefs;
 import prh.artisan.Track;
@@ -33,7 +34,7 @@ import prh.types.trackList;
 import prh.utils.Utils;
 
 
-public class LocalPlaylist extends Playlist
+public class LocalPlaylist extends PlaylistBase
     // A Playlist associated with a local database (PlaylistSource),
     // which hides the fact that not all of it's records are actually
     // in memory until getTrack() is called ....
@@ -86,14 +87,16 @@ public class LocalPlaylist extends Playlist
         this.my_shuffle = playlist.getMyShuffle();
         this.track_index = playlist.getCurrentIndex();
 
+        // we assign the position in case it was mucked up
+        // and give the items an entire new set of open_ids;
+
         for (int i=0; i<playlist.getNumTracks(); i++)
         {
-            Track track = playlist.getTrack(i+1);
+            Track track = playlist.getPlaylistTrack(i+1);
             track.setPosition(i + 1);
             track.setOpenId(next_open_id);
             tracks_by_position.add(track);
-            tracks_by_open_id.put(next_open_id,track);
-            next_open_id++;
+            tracks_by_open_id.put(next_open_id++,track);
         }
 
         setDirty(true);
@@ -173,11 +176,11 @@ public class LocalPlaylist extends Playlist
     // Overridden Methods
     //-------------------------------------------------------------
 
-    @Override public void start()
+    @Override public void startPlaylist()
     {
         if (!is_started)
         {
-            super.start();  // does nothing
+            super.startPlaylist();
 
             is_started = true;
             tracks_by_position = new trackList();
@@ -202,7 +205,7 @@ public class LocalPlaylist extends Playlist
     }
 
 
-    @Override public void stop()
+    @Override public void stopPlaylist(boolean wait_for_stop)
         // Keeps the playlist_db
         // Clears the base class track hashes
         // The hashes are built on start
@@ -224,13 +227,15 @@ public class LocalPlaylist extends Playlist
             tracks_by_position.clear();
         tracks_by_position.clear();
 
-        super.stop();   // does nothing
+        super.stopPlaylist(wait_for_stop);   // does nothing
     }
 
 
-    @Override public Track getTrack(int index)
+    @Override public Track getPlaylistTrack(int index)
         // get a track from the playlist
         // return null on error
+        // LocalPlaylist assigns the openId for use
+        // by CurrentPlaylist ..
     {
         if (index <= 0 || index > num_tracks)
             return null;
@@ -268,8 +273,7 @@ public class LocalPlaylist extends Playlist
                 track = new Track(cursor);
                 track.setOpenId(next_open_id);
                 tracks_by_position.set(index - 1,track);
-                tracks_by_open_id.put(next_open_id,track);
-                next_open_id++;
+                tracks_by_open_id.put(next_open_id++,track);
             }
         }
 
@@ -369,7 +373,7 @@ public class LocalPlaylist extends Playlist
 
         for (int i = 0; i < num_tracks; i++)
         {
-            Track track = getTrack(i + 1);
+            Track track = getPlaylistTrack(i + 1);
             track.setPosition(i + 1);
             ContentValues values = Database.getContentValues("tracks",track);
             try

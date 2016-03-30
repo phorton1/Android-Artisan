@@ -1,4 +1,4 @@
-package prh.server.utils;
+package prh.artisan;
 
 import java.util.HashMap;
 
@@ -10,7 +10,7 @@ import prh.artisan.Track;
 import prh.server.http.OpenPlaylist;
 import prh.utils.Utils;
 
-public class PlaylistExposer
+public class CurrentPlaylistExposer
     // A class to incrementally expose a Playlist in our
     // OpenHome renderer service, for BubbleUp responsiveness.
     //
@@ -33,8 +33,8 @@ public class PlaylistExposer
     private static int dbg_expose = 0;
 
     private static int NUM_TO_EXPOSE = 20;
-    // number that we expose in ExposeMore
-    // set to the number BubbleUp normally asks for / 2
+        // number that we expose in ExposeMore
+        // set to the number BubbleUp normally asks for / 2
     private static int EXPOSE_MORE_SLEEP_TIMES = 6;
     private static int EXPOSE_MORE_SLEEP_MILLIS = 200;
         // how long ThreadedExposeMore sleeps before it
@@ -48,14 +48,12 @@ public class PlaylistExposer
 
     private Artisan artisan;
     private String user_agent;
-    private OpenPlaylist playlist;
     private int num_exposed = 0;
     private intBoolHash exposed;
 
 
-    public PlaylistExposer(OpenPlaylist pl, Artisan ma, String ua)
+    public CurrentPlaylistExposer(Artisan ma,String ua)
     {
-        playlist = pl;
         artisan = ma;
         user_agent = ua;
         exposed = new intBoolHash();
@@ -71,7 +69,7 @@ public class PlaylistExposer
         return num_exposed;
     }
 
-    public void clearExposedBits(Playlist playlist)
+    public void clearExposedTracks()
     {
         num_exposed = 0;
         exposed.clear();
@@ -101,14 +99,17 @@ public class PlaylistExposer
     }
 
 
-    public boolean exposeMore(Playlist playlist)
+    public boolean exposeMore()
         // think I should get the previous ones upto NUM_TO_EXPOSE/2 before the current track first
         // then to the end of the playlist, then from the beginning ... Bup playlist doesn't keep
         // the currentTrack in view if you stick things before it ...
     {
-        Utils.log(dbg_expose,0,"expose_more() track_index=" + playlist.getCurrentIndex() + " num_exposed=" + num_exposed + " num_tracks=" + playlist.getNumTracks());
-        int num = playlist.getNumTracks();
-        int idx = playlist.getCurrentIndex();
+        CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
+        int num = current_playlist.getNumTracks();
+        int idx = current_playlist.getCurrentIndex();
+        Utils.log(dbg_expose,0,"expose_more() track_index=" + idx + " num_exposed=" + num_exposed + " num_tracks=" +num);
+
+        // idx is one based
 
         if (idx > 0 && num_exposed < num)
         {
@@ -117,14 +118,13 @@ public class PlaylistExposer
             int direction = 1;
 
             while (
-                playlist.isStarted() &&
                 num_exposed < num &&
                 count_exposed < NUM_TO_EXPOSE - 1)
             {
                 int try_index = (idx - 1) + offset * direction;
                 if (try_index > 0 && try_index <= num)
                 {
-                    Track track = playlist.getTrack(try_index);
+                    Track track = current_playlist.getTrackLow(try_index);
                     if (track != null && exposeTrack(track,true))
                         count_exposed++;
                 }
@@ -153,38 +153,27 @@ public class PlaylistExposer
     }
 
 
-    public void ThreadedExposeMore(Playlist playlist)
+    public void ThreadedExposeMore()
     {
-        Utils.log(dbg_expose,0,"ThreadedExposeMore() num_exposed=" + num_exposed + " num_tracks=" + playlist.getNumTracks());
-        Thread thread = new Thread(new expose_more_thread(playlist));
+        Utils.log(dbg_expose,0,"ThreadedExposeMore() num_exposed=" + num_exposed + " num_tracks=" +
+            artisan.getCurrentPlaylist().getNumTracks());
+        Thread thread = new Thread(new expose_more_thread());
         thread.start();
     }
 
 
     public class expose_more_thread implements Runnable
     {
-        Playlist local_playlist;
-        public expose_more_thread(Playlist playlist)
-        {
-            local_playlist = playlist;
-        }
-
         public void run()
         {
             Utils.log(dbg_expose,0,"expose_more_thread sleeping ...");
             int count = 0;
-            while (local_playlist.isStarted() && count++ < EXPOSE_MORE_SLEEP_TIMES)
+            while (count++ < EXPOSE_MORE_SLEEP_TIMES)
                 Utils.sleep(EXPOSE_MORE_SLEEP_MILLIS);
-            if (local_playlist.isStarted())
-            {
-                Utils.log(0,0,"expose_more_thread back from sleep, calling exposeMore()");
-                exposeMore(local_playlist);
-            }
-            else
-            {
-                Utils.warning(0,0,"expose_more_thread EXITING with !local_playlist.isStarted() after " + count + " tries");
-            }
+
+            Utils.log(0,0,"expose_more_thread back from sleep, calling exposeMore()");
+            exposeMore();
         }
     }
 
-}   // class PlaylistExposer
+}   // class CurrentPlaylistExposer

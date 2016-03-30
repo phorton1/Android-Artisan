@@ -214,11 +214,9 @@ public class LocalRenderer extends Device implements
     // Renderer API
     //----------------------------------------
 
-    @Override public String getName()                   { return friendlyName; };
+    @Override public String getRendererName()           { return friendlyName; };
     @Override public Volume getVolume()                 { return local_volume; }
     @Override public String getRendererStatus()         { return "OK"; }
-    @Override public String getPlayMode()               { return ""; }
-    @Override public String getPlaySpeed()              { return "1"; }
     @Override public boolean getShuffle()               { return shuffle; }
     @Override public boolean getRepeat()                { return repeat; }
     @Override public int getTotalTracksPlayed()         { return total_tracks_played; }
@@ -228,7 +226,7 @@ public class LocalRenderer extends Device implements
     @Override public void setShuffle(boolean value)     { shuffle = value; };
 
 
-    @Override public Track getTrack()
+    @Override public Track getRendererTrack()
         // all DLNA stuff and accessors to the
         // current track playing in the renderer
         // are thru this method.
@@ -241,7 +239,7 @@ public class LocalRenderer extends Device implements
     }
 
 
-    @Override public void setTrack(Track track, boolean interrupt_playlist)
+    @Override public void setRendererTrack(Track track, boolean interrupt_playlist)
         // start playing the given track, possibly
         // interrupting the current playlist if from DLNA
         // call with null does nothing
@@ -254,7 +252,7 @@ public class LocalRenderer extends Device implements
                 artisan.setPlaylist("",true);
             current_track = track;
             artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
-            play();
+            transport_play();
         }
     }
 
@@ -274,17 +272,17 @@ public class LocalRenderer extends Device implements
         track = current_playlist.getCurrentTrack();
         if (track == null)
         {
-            if (!current_playlist.getName().equals(""))
+            if (!current_playlist.getPlaylistName().equals(""))
                 noSongsMsg();
         }
         else
         {
             Utils.log(dbg_ren,1,"incAndPlay(" + inc + ") got " + track.getPosition() + ":" + track.getTitle());
-            play();
+            transport_play();
         }
 
         if (track == null)
-            stop();
+            transport_stop();
         artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
     }
 
@@ -302,7 +300,7 @@ public class LocalRenderer extends Device implements
     }
 
 
-    @Override public void stop()
+    @Override public void transport_stop()
     {
         Utils.log(dbg_ren,0,"stop() mp=" + getMediaPlayerState() + " rend=" + getRendererState());
         media_player.reset();
@@ -313,7 +311,7 @@ public class LocalRenderer extends Device implements
     }
 
 
-    @Override public void pause()
+    @Override public void transport_pause()
     {
         Utils.log(dbg_ren,0,"pause() mp=" + getMediaPlayerState() + " rend=" + getRendererState());
         if (mp_state == MP_STATE_STARTED)
@@ -325,7 +323,7 @@ public class LocalRenderer extends Device implements
     }
 
 
-    @Override public void play()
+    @Override public void transport_play()
     {
         Utils.log(dbg_ren,0,"play() mp=" + getMediaPlayerState() + " rend=" + getRendererState());
         Track track = current_track;
@@ -341,7 +339,7 @@ public class LocalRenderer extends Device implements
         else if (!Utils.supportedType(track.getType()))
         {
             Utils.error("Unsupported song type(" + track.getType() + ") " + track.getTitle());
-            stop();
+            transport_stop();
         }
         try
         {
@@ -398,7 +396,7 @@ public class LocalRenderer extends Device implements
     public void noSongsMsg()
     {
         String msg = "No supported songs types found in playlist '" +
-            artisan.getCurrentPlaylist().getName() + "'";
+            artisan.getCurrentPlaylist().getPlaylistName() + "'";
         Utils.error(msg);
         Toast.makeText(artisan.getApplicationContext(),msg,Toast.LENGTH_LONG).show();
     }
@@ -498,7 +496,7 @@ public class LocalRenderer extends Device implements
 
         // stop everything
 
-        stop();
+        transport_stop();
         return true;
     }
 

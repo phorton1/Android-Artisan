@@ -21,7 +21,7 @@ import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
-public class AVTransport extends httpRequestHandler
+public class AVTransport implements httpRequestHandler
 {
 
     private static int dbg_av = 0;
@@ -80,7 +80,7 @@ public class AVTransport extends httpRequestHandler
             Utils.log(dbg_av,0,"cur_uri="+cur_uri);
             Utils.log(dbg_av,0,"metadata=" + metadata);
             Track track = new Track(cur_uri,metadata);
-            local_renderer.setTrack(track,true);
+            local_renderer.setRendererTrack(track,true);
             response = httpUtils.ok_response(http_server,urn,service,action);
         }
         else if (action.equals("Play"))
@@ -88,17 +88,17 @@ public class AVTransport extends httpRequestHandler
             int speed = httpUtils.getXMLInt(doc,"Speed",false);
             Utils.log(dbg_av,0,"speed="+speed);
             if (speed == 0) speed = 1;
-            local_renderer.play();
+            local_renderer.transport_play();
             response = httpUtils.ok_response(http_server,urn,service,action);
         }
         else if (action.equals("Stop"))
         {
-            local_renderer.stop();
+            local_renderer.transport_stop();
             response = httpUtils.ok_response(http_server,urn,service,action);
         }
         else if (action.equals("Pause"))
         {
-            local_renderer.pause();
+            local_renderer.transport_pause();
             response = httpUtils.ok_response(http_server,urn,service,action);
         }
         else if (action.equals("Next"))
@@ -131,12 +131,12 @@ public class AVTransport extends httpRequestHandler
         {
             hash.put("CurrentTransportStatus",local_renderer.getRendererStatus());
             hash.put("CurrentTransportState",local_renderer.getRendererState());
-            hash.put("CurrentSpeed",local_renderer.getPlaySpeed());
+            hash.put("CurrentSpeed","1");
             response = httpUtils.hash_response(http_server,urn,service,action,hash);
         }
         else if (action.equals("GetPositionInfo"))
         {
-            Track track = local_renderer.getTrack();
+            Track track = local_renderer.getRendererTrack();
             String track_index = "1";
 
             track_index = Integer.toString(artisan.getCurrentPlaylist().
@@ -163,7 +163,7 @@ public class AVTransport extends httpRequestHandler
         else if (action.equals("GetTransportSettings"))
         {
             Utils.log(dbg_av,0,"");
-            hash.put("PlayMode",local_renderer.getPlayMode());
+            hash.put("PlayMode","");
             hash.put("RecQualityMode","NOT_IMPLEMENTED");
             response = httpUtils.hash_response(http_server,urn,service,action,hash);
         }

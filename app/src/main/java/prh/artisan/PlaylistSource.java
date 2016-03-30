@@ -5,10 +5,10 @@ import prh.types.stringList;
 
 public interface PlaylistSource
 {
-    String getName();
+    String getPlaylistSourceName();
 
-    boolean start();
-    void stop();
+    boolean startPlaylistSource();
+    void stopPlaylistSource(boolean wait_for_stop);
 
     stringList getPlaylistNames();
     Playlist getPlaylist(String name);

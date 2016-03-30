@@ -145,7 +145,7 @@ public class Track extends Record
 
                     // re-read meta data
 
-                    Track track = local_library.getTrack(got_id);
+                    Track track = local_library.getLibraryTrack(got_id);
                     if (track == null)
                         isLocal = false;
                     else

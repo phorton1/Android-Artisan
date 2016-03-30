@@ -72,18 +72,18 @@ public class MediaServer extends Device implements
     // Library Interface
     //----------------------------------------
 
-    @Override public String getName()
+    @Override public String getLibraryName()
     {
         return getFriendlyName();
     }
 
 
-    @Override public boolean start()
+    @Override public boolean startLibrary()
     {
         tracks = new trackHash();
         folders = new folderHash();
 
-        getFolder("0");
+        getLibraryFolder("0");
         libraryBrowseResult test = getSubItems("0",0,0,false);
         if (test.getTotalFound() == 0 ||
             test.getNumReturned() == 0)
@@ -96,7 +96,7 @@ public class MediaServer extends Device implements
     }
 
 
-    @Override public void stop(boolean wait_for_stop)
+    @Override public void stopLibrary(boolean wait_for_stop)
     {
         if (tracks != null)
             tracks.clear();
@@ -116,7 +116,7 @@ public class MediaServer extends Device implements
     }
 
 
-    @Override public Track getTrack(String id)
+    @Override public Track getLibraryTrack(String id)
     {
         Track track = null;
         if (tracks != null)
@@ -125,7 +125,7 @@ public class MediaServer extends Device implements
     }
 
 
-    @Override public FolderPlus getFolder(String id)
+    @Override public FolderPlus getLibraryFolder(String id)
         // it is illegal to call getFolder() for a
         // parent subitem that has not yet been loaded.
     {
@@ -150,7 +150,7 @@ public class MediaServer extends Device implements
         // if start==0 and records==null then the first INITIAL_FETCH_NUM records
         // otherwise, returns the number already fetched
     {
-        FolderPlus folder = getFolder(id);
+        FolderPlus folder = getLibraryFolder(id);
 
         if (folder == null)
         {

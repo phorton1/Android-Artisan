@@ -20,7 +20,7 @@ import prh.server.utils.UpnpEventHandler;
 import prh.utils.httpUtils;
 
 
-public class OpenInfo extends httpRequestHandler implements UpnpEventHandler
+public class OpenInfo implements httpRequestHandler,UpnpEventHandler
 {
     private Artisan artisan;
     private HTTPServer http_server;
@@ -59,7 +59,7 @@ public class OpenInfo extends httpRequestHandler implements UpnpEventHandler
     {
         HashMap<String,String> hash = new HashMap<String,String>();
         Renderer local_renderer = artisan.getLocalRenderer();
-        Track track = local_renderer.getTrack();
+        Track track = local_renderer.getRendererTrack();
 
         boolean ok = true;
 
@@ -111,7 +111,7 @@ public class OpenInfo extends httpRequestHandler implements UpnpEventHandler
     {
         HashMap<String,String> hash = new HashMap<String,String>();
         Renderer local_renderer = artisan.getLocalRenderer();
-        Track track = local_renderer.getTrack();
+        Track track = local_renderer.getRendererTrack();
 
         // from renderer/song
 

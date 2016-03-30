@@ -20,7 +20,7 @@ import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
-public class OpenProduct extends httpRequestHandler implements UpnpEventHandler
+public class OpenProduct implements httpRequestHandler,UpnpEventHandler
 {
     private static int dbg_product = 0;
     private static String source_name = "Playlist";

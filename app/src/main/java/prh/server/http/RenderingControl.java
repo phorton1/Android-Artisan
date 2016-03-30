@@ -18,7 +18,7 @@ import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
-public class RenderingControl extends httpRequestHandler
+public class RenderingControl implements httpRequestHandler
 {
     private static int dbg_rc = 0;
     private static String default_channel = "MASTER";

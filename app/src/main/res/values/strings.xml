@@ -41,18 +41,16 @@
 
     <string name="context_edit_metadata"    >Paste</string>
 
-
     <!-- these would seem to have no sense in the Library -->
 
     <string name="context_menu_move"        >Move</string>
-
     <string name="context_menu_shuffle"     >Shuffle</string>
     <string name="context_menu_edit_header" >Edit ...</string>
 
-
-
-
+    <!-- possibles -->
 
     <string name="context_menu_download" >Download</string>
+    <string name="context_menu_add_to_saved_playlist">AddToSavedPlaylist</string>
+        <!-- along with insert_top_saved_playlist, insert_next_saved_playlist -->
 
 </resources>

@@ -22,14 +22,14 @@ public interface Volume
     void start();
     void stop();
 
-    public int[] getMaxValues();
-    public int[] getValues();
-    public int[] getUpdateValues();
+    int[] getMaxValues();
+    int[] getValues();
+    int[] getUpdateValues();
 
     // Never called by me with illegal value ..
 
-    public void setValue(int idx, int value);
-    public void incDecValue(int idx, int inc);
+    void setValue(int idx, int value);
+    void incDecValue(int idx, int inc);
 
 
 }

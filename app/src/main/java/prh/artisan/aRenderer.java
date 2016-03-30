@@ -168,11 +168,11 @@ public class aRenderer extends Fragment implements
     {
         String msg = renderer == null ?
             "Now Playing " :
-            renderer.getName() + " ";
+            renderer.getRendererName() + " ";
 
         CurrentPlaylist cur = artisan.getCurrentPlaylist();
         msg += ":: " +
-            cur.getName();
+            cur.getPlaylistName();
         if (cur.isDirty())
             msg += "*";
         if (cur.getCurrentIndex()>0)
@@ -219,12 +219,12 @@ public class aRenderer extends Fragment implements
         {
             case R.id.button_play_pause:
                 if (renderer.getRendererState().equals(Renderer.RENDERER_STATE_PLAYING))
-                    renderer.pause();
+                    renderer.transport_pause();
                 else
-                    renderer.play();
+                    renderer.transport_play();
                 break;
             case R.id.button_stop:
-                renderer.stop();
+                renderer.transport_stop();
                 break;
             case R.id.button_prev:
                 renderer.incAndPlay(-1);
@@ -409,7 +409,7 @@ public class aRenderer extends Fragment implements
                 name = "default";
 
             CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
-            btn.setTextColor(name.equals(current_playlist.getName())? 0xFFff9900:Color.WHITE);
+            btn.setTextColor(name.equals(current_playlist.getPlaylistName())? 0xFFff9900:Color.WHITE);
             btn.setText(name);
             btn.setId(ID_BASE + position);
             return btn;
@@ -590,7 +590,7 @@ public class aRenderer extends Fragment implements
         {
             current_state = renderer.getRendererState();
             current_position = renderer.getPosition();
-            current_track = renderer.getTrack();
+            current_track = renderer.getRendererTrack();
 
             setPlayListNames();
 
@@ -620,7 +620,7 @@ public class aRenderer extends Fragment implements
             {
                 current_state = renderer.getRendererState();
                 current_position = renderer.getPosition();
-                current_track = renderer.getTrack();
+                current_track = renderer.getRendererTrack();
            }
 
             update_track(current_track);
@@ -640,7 +640,7 @@ public class aRenderer extends Fragment implements
             if (renderer != null)
             {
                 Track track = (Track) data;
-                renderer.setTrack(track,false);
+                renderer.setRendererTrack(track,false);
             }
         }
     }

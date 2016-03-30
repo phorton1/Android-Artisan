@@ -7,6 +7,14 @@ import android.preference.PreferenceManager;
 import prh.utils.Utils;
 
 
+// Possibles
+//
+// SaveChangedPlaylistsOnRemoteNew
+//       Save changed, named playlists when any remote action,
+//       like a remote OpenPlaylist "Clear" (DeleteAll),
+//       does a "New" with a dirty changed, named playlist
+//       or more generically, AutoSaveChangedPlaylists
+
 public class Prefs
 {
     public enum id

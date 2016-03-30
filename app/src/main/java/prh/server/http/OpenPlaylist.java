@@ -4,8 +4,6 @@
 
 package prh.server.http;
 
-import android.os.Handler;
-
 import org.w3c.dom.Document;
 
 import java.util.HashMap;
@@ -15,14 +13,11 @@ import prh.artisan.Artisan;
 
 import prh.artisan.CurrentPlaylist;
 import prh.artisan.EventHandler;
-import prh.device.LocalPlaylist;
-import prh.artisan.Playlist;
-import prh.artisan.PlaylistSource;
+import prh.artisan.PlaylistBase;
 import prh.artisan.Track;
-import prh.device.LocalPlaylistSource;
 import prh.device.LocalRenderer;
 import prh.server.HTTPServer;
-import prh.server.utils.PlaylistExposer;
+import prh.artisan.CurrentPlaylistExposer;
 import prh.server.utils.UpnpEventSubscriber;
 import prh.server.utils.UpdateCounter;
 import prh.server.utils.UpnpEventHandler;
@@ -31,8 +26,9 @@ import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
-public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
-    //    has different response method
+public class OpenPlaylist implements
+    httpRequestHandler,
+    UpnpEventHandler
 {
     private static int dbg_playlist = 0;
 
@@ -50,14 +46,9 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
     private String urn;
 
     // BubbleUp incremental playlist exposure support.
-    // Each UpNP OpenHome subscriber is given a unique
-    // bit_mask from 1..2^32, as they subscribe, and the
-    // UpnpEventManager intelligently re-uses the availabe
-    // 32 bits (i.e. it tries 1, then 2, then 4, then 8,
-    // until it finds a number for which there is no bitmask.
+    // Each UpNP OpenHome subscriber is given an exposer
 
-
-    private class exposerHash extends HashMap<String,PlaylistExposer> {}
+    private class exposerHash extends HashMap<String,CurrentPlaylistExposer> {}
     exposerHash exposers = null;
 
 
@@ -92,7 +83,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         String ip = subscriber.getIp();
         String user_agent = subscriber.getUserAgent();
         String ipua = ip + ":" + user_agent;
-        PlaylistExposer exposer = exposers.get(ipua);
+        CurrentPlaylistExposer exposer = exposers.get(ipua);
         CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
 
         if (subscribe)
@@ -104,7 +95,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
             else
             {
                 Utils.log(0,0,"notifySubscribed() Creating Exposer(" + ipua + ")");
-                exposer = new PlaylistExposer(this,artisan,ipua);
+                exposer = new CurrentPlaylistExposer(artisan,ipua);
                 exposers.put(ipua,exposer);
             }
 
@@ -124,7 +115,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         }
         else
         {
-            exposer.clearExposedBits(current_playlist);
+            exposer.clearExposedTracks();
             exposers.remove(ipua);
         }
     }   // OpenPlaylist.notifySubscribed()
@@ -132,52 +123,30 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
 
     public void exposeTrack(Track track,boolean set_it)
         // called from the playlist itself on start()
-        // expose the inital track to all exposers
+        // to expose  the inital track to all exposers.
         // and send out the event
         // The call is presumably accompanied by a artisan
         // PLAYLIST_CHANGED event.
     {
         if (!exposers.isEmpty())
-            for (PlaylistExposer exposer : exposers.values())
+            for (CurrentPlaylistExposer exposer : exposers.values())
                 exposer.exposeTrack(track,set_it);
     }
 
 
-    public void exposeCurrentTrack(LocalPlaylist local_playlist)
-    // called from the playlist itself on start()
-    // expose the inital track to all exposers
-    // and send out the event
-    // The call is presumably accompanied by a artisan
-    // PLAYLIST_CHANGED event.
+
+
+
+    public void clearAllExposers()
+        // called from the CurrentPlaylist during setAssociatedPlaylist
+        // Clear the exposers (and the tracks in the playlist)
     {
-        if (!exposers.isEmpty())
+        for (CurrentPlaylistExposer exposer : exposers.values())
         {
-            Track track = local_playlist.getCurrentTrack();
-            exposeTrack(track,true);
+            exposer.clearExposedTracks();
         }
     }
 
-
-    public void clearAllExposers(LocalPlaylist local_playlist)
-        // called from the playlist itself on stop()
-        // clear the exposers (and the tracks in the playlist)
-        // NOTE that this means you CANT START THE NEW ONE THEN
-        // STOP THE OLD ONE .. you have to stop the old one first.
-        // The call is presumably accompanied by a artisan
-        // PLAYLIST_CHANGED event.
-    {
-        for (PlaylistExposer exposer : exposers.values())
-        {
-            exposer.clearExposedBits(local_playlist);
-        }
-    }
-
-
-    private LocalPlaylist createLocalPlaylist()
-    {
-        LocalPlaylistSource lps = artisan.getLocalPlaylistSource();
-        return (LocalPlaylist) lps.getPlaylist("");
-    }
 
 
     @Override public NanoHTTPD.Response response(
@@ -198,7 +167,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         String ipua =
             session.getHeaders().get("remote-addr") + ":" +
             session.getHeaders().get("user-agent");
-        PlaylistExposer exposer = exposers.get(ipua);
+        CurrentPlaylistExposer exposer = exposers.get(ipua);
 
         // get basic info
 
@@ -228,7 +197,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
 
         else if (action.equals("Id"))
         {
-            Track track = local_renderer.getTrack();
+            Track track = local_renderer.getRendererTrack();
             hash.put("Value",track == null ? "0" : Integer.toString(track.getOpenId()));
         }
         else if (action.equals("IdArray"))
@@ -260,7 +229,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
             hash.put("TrackList",current_playlist.id_array_to_tracklist(
                 id_array));
             if (exposer != null)
-                exposer.ThreadedExposeMore(current_playlist);
+                exposer.ThreadedExposeMore();
         }
 
 
@@ -366,7 +335,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
                 artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
                 if (track == null)
                     return error_response(http_server,800,open_id);
-                local_renderer.play();
+                local_renderer.transport_play();
             }
         }
         else if (action.equals("SeekIndex"))
@@ -380,7 +349,7 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
                 artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
                 if (track == null)
                     return error_response(http_server,800,index);
-                local_renderer.play();
+                local_renderer.transport_play();
             }
         }
 
@@ -415,17 +384,17 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         }
         else if (action.equals("Pause"))
         {
-            local_renderer.pause();
+            local_renderer.transport_pause();
             incUpdateCount();
         }
         else if (action.equals("Play"))
         {
-            local_renderer.play();
+            local_renderer.transport_play();
             incUpdateCount();
         }
         else if (action.equals("Stop"))
         {
-            local_renderer.stop();
+            local_renderer.transport_stop();
             incUpdateCount();
         }
 
@@ -521,13 +490,13 @@ public class OpenPlaylist extends httpRequestHandler implements UpnpEventHandler
         HashMap<String,String> hash = new HashMap<>();
         LocalRenderer local_renderer = artisan.getLocalRenderer();
         CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
-        Track track = local_renderer.getTrack();
+        Track track = local_renderer.getRendererTrack();
             // Our track may possibly NOT be in the playlist ...
 
         // EXPOSE_SCHEME support
 
         String ipua = subscriber.getIp() + ":" + subscriber.getUserAgent();
-        PlaylistExposer exposer = exposers.get(ipua);
+        CurrentPlaylistExposer exposer = exposers.get(ipua);
 
         // build the event response
 

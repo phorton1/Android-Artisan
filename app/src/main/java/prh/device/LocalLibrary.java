@@ -60,25 +60,25 @@ public class LocalLibrary extends Device implements Library
     @Override public void setCurrentFolder(Folder folder) {}
         // prefetch scheme not used in local library
 
-    @Override public boolean start()
+    @Override public boolean startLibrary()
     {
         return db != null;
     }
 
 
-    @Override public void stop(boolean wait)
+    @Override public void stopLibrary(boolean wait)
     {
         // db = null;
         // local_library = null;
     }
 
-    @Override public String getName()
+    @Override public String getLibraryName()
     {
         return getFriendlyName();
     }
 
 
-    @Override public Track getTrack(String id)
+    @Override public Track getLibraryTrack(String id)
         // returns null on error or track not found
     {
         // virtual "select_playlist"  "tracks"
@@ -131,7 +131,7 @@ public class LocalLibrary extends Device implements Library
 
 
 
-    @Override public Folder getFolder(String id)
+    @Override public Folder getLibraryFolder(String id)
     {
         // if 0, return a fake root record
         // that represents the the mp3s directory
@@ -243,7 +243,7 @@ public class LocalLibrary extends Device implements Library
             while (position < lists.size() && retval.size() < count)
             {
                 String name = lists.get(position++);
-                Record vtrack = getTrack("select_playlist_" + name);
+                Record vtrack = getLibraryTrack("select_playlist_" + name);
                 location = addItem(retval,start,location,count,vtrack);
             }
         }
@@ -254,7 +254,7 @@ public class LocalLibrary extends Device implements Library
 
         else
         {
-            Folder folder = getFolder(id);
+            Folder folder = getLibraryFolder(id);
             boolean is_album = folder.getType().equals("album");
             String table = is_album ? "tracks" : "folders";
             String sort_clause = is_album ? "" : "dirtype DESC,";
@@ -285,7 +285,7 @@ public class LocalLibrary extends Device implements Library
                 Utils.log(dbg_lib,2,"adding virtual folder: select_playlist");
                 total_found ++;
                 location = addItem(retval,start,location,count,
-                    getFolder("select_playlist"));
+                    getLibraryFolder("select_playlist"));
             }
 
             if (cursor != null)

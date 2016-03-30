@@ -288,7 +288,7 @@ public class aLibrary extends Fragment implements
     {
         String msg = library == null ?
             "Library" :
-            library.getName();
+            library.getLibraryName();
 
         if (view_stack != null && view_stack.size() > 1)
         {
@@ -329,7 +329,7 @@ public class aLibrary extends Fragment implements
     private void pushViewStack(String id)
     {
         selected.clear();
-        Folder folder = library.getFolder(id);
+        Folder folder = library.getLibraryFolder(id);
         viewStackElement stack_element = new viewStackElement(folder);
         stack_element.inflate();
         if (view_stack.size()>0)
@@ -472,7 +472,7 @@ public class aLibrary extends Fragment implements
         {
             Library new_library = (Library) data;
             if (new_library == null || library == null ||
-                !new_library.getName().equals(library.getName()))
+                !new_library.getLibraryName().equals(library.getLibraryName()))
             {
                 init(new_library);
             }

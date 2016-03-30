@@ -20,7 +20,7 @@ import prh.server.utils.UpnpEventHandler;
 import prh.utils.httpUtils;
 
 
-public class OpenVolume extends httpRequestHandler implements UpnpEventHandler
+public class OpenVolume implements httpRequestHandler,UpnpEventHandler
 {
     static private int dbg_volume = 0;
 

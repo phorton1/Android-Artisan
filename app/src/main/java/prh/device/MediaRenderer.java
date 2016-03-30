@@ -65,8 +65,6 @@ public class MediaRenderer extends Device implements
     private String renderer_state = RENDERER_STATE_NONE;
     private boolean repeat = true;
     private boolean shuffle = false;
-    private String play_mode = "";
-    private String play_speed = "1";
     private int song_position = 0;
         // The current position gotten from the renderer
     private Track current_track = null;
@@ -213,8 +211,6 @@ public class MediaRenderer extends Device implements
 
         last_track_uri = "";
         song_position = 0;
-        play_mode = "";
-        play_speed = "";
         renderer_status = "";
 
         // We used to be responsible for sending out the null VOLUME_CONFIG_CHANGED message
@@ -229,11 +225,9 @@ public class MediaRenderer extends Device implements
     // Renderer API
     //----------------------------------------
 
-    @Override public String getName()                   { return getFriendlyName(); }
+    @Override public String getRendererName()           { return getFriendlyName(); }
     @Override public Volume getVolume()                 { return volume; }
     @Override public String getRendererStatus()         { return renderer_status; }
-    @Override public String getPlayMode()               { return play_mode; }
-    @Override public String getPlaySpeed()              { return play_speed; }
     @Override public boolean getShuffle()               { return shuffle; }
     @Override public boolean getRepeat()                { return repeat; }
     @Override public int getTotalTracksPlayed()         { return total_tracks_played; }
@@ -250,7 +244,7 @@ public class MediaRenderer extends Device implements
     // but Renderer is an interface (as Device is more fundamental),
     // and cannot currently have default implementations
 
-    @Override public Track getTrack()
+    @Override public Track getRendererTrack()
     {
         if (current_track != null)
             return current_track;
@@ -259,7 +253,7 @@ public class MediaRenderer extends Device implements
     }
 
 
-    @Override public void setTrack(Track track, boolean interrupt_playlist)
+    @Override public void setRendererTrack(Track track, boolean interrupt_playlist)
         // Start playing the given track in "immediate mode"
         // possibly interrupting the current playlist, if any,
         // in which case we substitute a new empty playlist
@@ -273,7 +267,7 @@ public class MediaRenderer extends Device implements
                 artisan.setPlaylist("",true);
             current_track = track;
             Utils.log(1,1,"setTrack() calling play()");
-            play();
+            transport_play();
         }
     }
 
@@ -289,10 +283,10 @@ public class MediaRenderer extends Device implements
 
         if (track == null)
         {
-            if (!current_playlist.getName().equals(""))
-                Utils.noSongsMsg(current_playlist.getName());
+            if (!current_playlist.getPlaylistName().equals(""))
+                Utils.noSongsMsg(current_playlist.getPlaylistName());
             Utils.log(dbg_mr,1,"incAndPlay(" + inc + ") calling stop()");
-            stop();
+            transport_stop();
         }
         else
         {
@@ -326,7 +320,7 @@ public class MediaRenderer extends Device implements
     @Override public void seekTo(int position)
     {
         Utils.log(dbg_mr + 1,0,"seekTo(" + position + ") state=" + getRendererState());
-        if (getTrack() != null)
+        if (getRendererTrack() != null)
         {
             String time_str = Utils.durationToString(position,Utils.how_precise.FOR_SEEK);
             Utils.log(dbg_mr,0,"seekTo(" + position + "=" + time_str + ") state=" + getRendererState());
@@ -339,7 +333,7 @@ public class MediaRenderer extends Device implements
     }
 
 
-    @Override public void stop()
+    @Override public void transport_stop()
     {
         Utils.log(dbg_mr,0,"stop() state=" + getRendererState());
         if (!renderer_state.equals(RENDERER_STATE_NONE))
@@ -351,7 +345,7 @@ public class MediaRenderer extends Device implements
     }
 
 
-    @Override public void pause()
+    @Override public void transport_pause()
     {
         Utils.log(dbg_mr,0,"pause() state=" + getRendererState());
         if (renderer_state.equals(RENDERER_STATE_PLAYING))
@@ -360,7 +354,7 @@ public class MediaRenderer extends Device implements
 
 
 
-    @Override public void play()
+    @Override public void transport_play()
     {
         Utils.log(dbg_mr,0,"play() state=" + getRendererState());
         Track track = current_track;
@@ -375,7 +369,7 @@ public class MediaRenderer extends Device implements
         else if (!Utils.supportedType(track.getType()))
         {
             Utils.error("Unsupported song type(" + track.getType() + ") " + track.getTitle());
-            stop();
+            transport_stop();
         }
         else
         {
@@ -388,7 +382,7 @@ public class MediaRenderer extends Device implements
             }
 
             stringHash args = new stringHash();
-            args.put("Speed",play_speed);
+            args.put("Speed","1");
             doCommand("Play",args);
 
         }   // got a track to play
@@ -440,7 +434,7 @@ public class MediaRenderer extends Device implements
         {
             do_play_on_next_update--;
             if (do_play_on_next_update == 0)
-                play();
+                transport_play();
             return true;
         }
 

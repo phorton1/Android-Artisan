@@ -68,7 +68,7 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
     }
 
     @Override
-    public String getName()
+    public String getPlaylistSourceName()
     {
         return getFriendlyName();
     }
@@ -108,18 +108,18 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
                 int rhn = rhs.getPlaylistNum();
                 int cmp = lhn-rhn;
                 if (cmp != 0) return cmp;
-                return lhs.getName().compareTo(rhs.getName());
+                return lhs.getPlaylistName().compareTo(rhs.getPlaylistName());
             }});
 
         stringList names = new stringList();
         for (Playlist playlist : by_name)
-            names.add(playlist.getName());
+            names.add(playlist.getPlaylistName());
         return names;
     }
 
 
     @Override
-    public void stop()
+    public void stopPlaylistSource(boolean wait_for_stop)
     {
         Utils.log(0,0,"LocalPlaylistSource.stop()");
 
@@ -132,7 +132,7 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
 
 
     @Override
-    public boolean start()
+    public boolean startPlaylistSource()
     // The local playlist source NEVER fails to start
     // It just starts up empty if there's no db or
     // playlist.db
@@ -192,7 +192,7 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
     private void addLocalPlayList(Cursor cursor)
     {
         LocalPlaylist playlist = new LocalPlaylist(artisan,playlist_db,cursor);
-        playlists.put(playlist.getName(),playlist);
+        playlists.put(playlist.getPlaylistName(),playlist);
     }
 
 
@@ -245,7 +245,7 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
         if (exists != null)
         {
             Utils.log(dbg_pls,0,"deletePlaylist(" + name + " deleting playlist");
-            exists.stop();
+            exists.stopPlaylist(false);
             playlists.remove(name);
             try
             {
