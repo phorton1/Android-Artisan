@@ -89,7 +89,10 @@ public abstract class Device implements Comparable<Device>
         // networkRequest times out after about 10 seconds
         // so this means we might retry for 30 seconds
 
-    public void deviceSuccess() { failure_count = 0; }
+    public void deviceSuccess()
+    {
+        failure_count = 0;
+    }
     public void deviceFailure()
     {
         failure_count++;
@@ -365,8 +368,12 @@ public abstract class Device implements Comparable<Device>
 
             // create the thread and start the request
 
+            String use_urn = device_urn;
+            if (use_urn.equals("linn-co-uk"))
+                use_urn = "av-openhome-org";
+
             stringHash headers = new stringHash();
-            headers.put("soapaction","\"urn:" + device_urn + ":service:" + service_string + ":1#" + action + "\"");
+            headers.put("soapaction","\"urn:" + use_urn + ":service:" + service_string + ":1#" + action + "\"");
 
             networkRequest request = new networkRequest("text/xml",null,null,url,headers,xml);
             Thread request_thread = new Thread(request);

@@ -2,6 +2,8 @@ package prh.device;
 
 import org.w3c.dom.Document;
 
+import java.util.HashMap;
+
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 import prh.artisan.Playlist;
@@ -14,35 +16,48 @@ import prh.device.service.OpenTime;
 import prh.device.service.OpenVolume;
 import prh.device.service.OpenProduct;
 import prh.artisan.CurrentPlaylistExposer;
+import prh.server.HTTPServer;
+import prh.server.utils.UpnpEventReceiver;
+import prh.types.stringHash;
 import prh.utils.Utils;
+import prh.utils.httpUtils;
 
 
-// This device is many things
-// Be careful of name collisions between Renderer and Playlist
+// A class that presents a remote OpenHome device as a Renderer.
+// Because an OpenHome device is also has a playlist, there is
+// a tight binding between this object (the device.OpenPlaylist)
+// and the CurrentPlaylist as seen by the rest of the system.
+
+// Unlike the other Renderers, the OpenHome device does not have
+// a looper, and does not call Artisan.handleArtisanEvent(EVENT_IDLE).
+// (which should really only be called by the LocalRenderer anyways).
+// It is entirely Event Driven, notifying the UI via explicit Artisan
+// Events whenever anything changes.
+
 
 public class OpenHomeRenderer extends Device implements
-    Renderer,
-    Playlist
+    Renderer
 {
+    static int dbg_ohr = 0;
+
     // Service accessors
 
-    private OpenTime     getOpenTime()      { return (OpenTime) services.get("OpenTime"); }
-    private OpenVolume   getOpenVolume()    { return (OpenVolume) services.get("OpenVolume"); }
-    private OpenInfo     getOpenInfo()      { return (OpenInfo) services.get("OpenInfo"); }
-    private OpenPlaylist getOpenPlaylist()  { return (OpenPlaylist) services.get("OpenPlaylist"); }
-    private OpenProduct  getOpenProduct()   { return (OpenProduct) services.get("OpenProduct"); }
+    private OpenTime getOpenTime()          { return (OpenTime)     services.get(Service.serviceType.OpenTime); }
+    private OpenVolume getOpenVolume()      { return (OpenVolume)   services.get(Service.serviceType.OpenVolume); }
+    private OpenInfo getOpenInfo()          { return (OpenInfo)     services.get(Service.serviceType.OpenInfo); }
+    private OpenPlaylist getOpenPlaylist()  { return (OpenPlaylist) services.get(Service.serviceType.OpenPlaylist); }
+    private OpenProduct getOpenProduct()    { return (OpenProduct)  services.get(Service.serviceType.OpenProduct); }
 
-    // member vars
-
-    private boolean is_dirty = false;
-    private boolean is_started = false;
-
-
+    private class subscriptionHash extends HashMap<Service.serviceType,Subscription> {}
+    private subscriptionHash subscriptions;
 
 
     //---------------------------
     // Constructors
     //---------------------------
+
+    private HTTPServer http_server;
+
 
     public OpenHomeRenderer(Artisan artisan)
     {
@@ -50,10 +65,10 @@ public class OpenHomeRenderer extends Device implements
     }
 
 
-    public OpenHomeRenderer(Artisan artisan, SSDPSearchDevice ssdp_device)
+    public OpenHomeRenderer(Artisan artisan,SSDPSearchDevice ssdp_device)
     {
         super(artisan,ssdp_device);
-        Utils.log(0,1,"new OpenHomeRenderer(" + ssdp_device.getFriendlyName() + "," + ssdp_device.getDeviceType() + "," + ssdp_device.getDeviceUrl());
+        Utils.log(dbg_ohr,1,"new OpenHomeRenderer(" + ssdp_device.getFriendlyName() + "," + ssdp_device.getDeviceType() + "," + ssdp_device.getDeviceUrl());
     }
 
 
@@ -61,30 +76,120 @@ public class OpenHomeRenderer extends Device implements
     // startRenderer() and stopRenderer()
     //------------------------------------------------------
 
-    @Override public boolean startRenderer()
+    private void unsubscribeAll()
     {
-        // Announce ourself to to the httpServer thru Artisan
+        for (Subscription subscription : subscriptions.values())
+        {
+            subscription.unsubscribe();
+        }
+    }
 
-        artisan.notifyOpenHomeRenderer(this,true);
+
+    private boolean addSubscription(Service.serviceType service_type)
+    {
+        boolean ok;
+        synchronized (http_server)
+        {
+            Subscription subscription = new Subscription(services.get(service_type));
+            ok = subscription.subscribe();
+            if (ok)
+                subscriptions.put(service_type,subscription);
+        }
+        return ok;
+    }
+
+
+    @Override
+    public boolean startRenderer()
+    {
+        Utils.log(dbg_ohr,0,"OpenHomeRenderer.startRenderer()");
+
+        http_server = artisan.getHTTPServer();
+        if (http_server == null)
+        {
+            Utils.error("OpenHomeRenderer requires http_server to be running");
+            return false;
+        }
+
+        // Set ourself into the httpServer
+        // Will need a getter to support start-before-stop
+
+        http_server.setOpenHomeRenderer(this);
+        artisan.getCurrentPlaylist().setOpenPlaylist(getOpenPlaylist());
 
         // SUBSCRIBE to the services.
         // If we fail to subscribe to any,
-        // we UNSUNBSCRIBE from those already done.
+        // we UNSUBSCRIBE from those already done.
 
-        // Wait for a complete set of initial
-        // events from the subscriptions.
+        boolean ok = true;
+        subscriptions = new subscriptionHash();
+        ok = ok && addSubscription(Service.serviceType.OpenTime);
+        ok = ok && addSubscription(Service.serviceType.OpenVolume);
+        ok = ok && addSubscription(Service.serviceType.OpenInfo);
+        ok = ok && addSubscription(Service.serviceType.OpenPlaylist);
+        ok = ok && addSubscription(Service.serviceType.OpenProduct);
 
-        // Set the initial renderer state
+        // Wait for All Five Initial Events
 
-        // Setup the playlist fetcher.
+        Utils.log(dbg_ohr,0,"Waiting for initial events");
 
-        // and away we go ...
+        int count = 0;
+        int RETRIES = 30;
+        int WAIT_INTERVAL = 200;
+        int total_event_count = 0;
+        while (count++ < RETRIES &&
+            total_event_count < 5)
+        {
+            total_event_count += getOpenTime().getEventCount() > 0 ? 1 : 0;
+            total_event_count += getOpenVolume().getEventCount() > 0 ? 1 : 0;
+            total_event_count += getOpenInfo().getEventCount() > 0 ? 1 : 0;
+            total_event_count += getOpenPlaylist().getEventCount() > 0 ? 1 : 0;
+            total_event_count += getOpenProduct().getEventCount() > 0 ? 1 : 0;
+            if (total_event_count < 5)
+            {
+                if (count % 10 == 1)
+                    Utils.log(0,0,"Waiting for initial events");
+                Utils.sleep(WAIT_INTERVAL);
+            }
+        }
+        if (total_event_count < 5)
+        {
+            Utils.warning(0,0,"Only got " + total_event_count + " of 5 event responses");
+            ok = false;
+        }
 
-        return false;
-    }
+        // Finished
 
-    @Override public void stopRenderer(boolean wait_for_stop)
+        if (ok)
+        {
+            // Attach our Playlist to the CurrentPlaylist
+        }
+        else
+        {
+            // clear ourself rom the http_server
+            // and wipe out any partial subscriptions
+            artisan.getCurrentPlaylist().setOpenPlaylist(null);
+            http_server.setOpenHomeRenderer(null);
+            unsubscribeAll();
+        }
+
+        Utils.log(dbg_ohr,0,"OpenHomeRenderer.startRenderer() returning " + ok);
+        return ok;
+
+    }   // startRenderer()
+
+
+    @Override
+    public void stopRenderer(boolean wait_for_stop)
+        // stop the http server from sending us more stuff
+        // stop the CurrentPlaylist from accessing us, and
+        // cancel any subscriptions
     {
+        Utils.log(dbg_ohr,0,"OpenHomeRenderer.stopRenderer(" + wait_for_stop + ")");
+        if (http_server != null)
+            http_server.setOpenHomeRenderer(null);
+        artisan.getCurrentPlaylist().setOpenPlaylist(null);
+        unsubscribeAll();
     }
 
 
@@ -92,86 +197,96 @@ public class OpenHomeRenderer extends Device implements
     // Renderer Interface
     //-------------------------------------------
 
+    @Override
+    public String getRendererName() { return getFriendlyName(); }
 
-    @Override public void notifyPlaylistChanged()
+    @Override
+    public Volume getVolume() { return (Volume) getOpenVolume(); }
+
+    @Override
+    public int getTotalTracksPlayed() { return getOpenTime().getTotalTracksPlayed(); }
+
+    @Override
+    public int getPosition() { return 1000 * getOpenTime().getElapsed(); }
+
+    @Override
+    public String getRendererState() { return getOpenPlaylist().getTransportState(); }
+
+    @Override
+    public String getRendererStatus() { return "OK"; }
+
+    @Override
+    public boolean getShuffle() { return getOpenPlaylist().getShuffle(); }
+
+    @Override
+    public boolean getRepeat() { return getOpenPlaylist().getRepeat(); }
+
+    @Override
+    public void setRepeat(boolean value) { getOpenPlaylist().setRepeat(value); }
+
+    @Override
+    public void setShuffle(boolean value) { getOpenPlaylist().setShuffle(value); }
+
+    @Override
+    public Track getRendererTrack() { return getOpenInfo().getTrack(); }
+
+
+    // actions
+
+    @Override
+    public void transport_pause()
     {
-
+        doAction(Service.serviceType.OpenPlaylist,"Pause",null);
     }
 
-    @Override public String getRendererName()   { return getFriendlyName();   }
-    @Override public Volume getVolume()         { return (Volume) getOpenVolume(); }
-    @Override public int getTotalTracksPlayed() { return getOpenTime().getTotalTracksPlayed(); }
-    @Override public int getPosition()          { return getOpenTime().getElapsed(); }
-
-
-    @Override public String getRendererState()
+    @Override
+    public void transport_play()
     {
-        return null;
+        doAction(Service.serviceType.OpenPlaylist,"Play",null);
     }
 
-    @Override public String getRendererStatus()
+    @Override
+    public void transport_stop()
     {
-        return null;
+        doAction(Service.serviceType.OpenPlaylist,"Stop",null);
     }
 
-    @Override public boolean getShuffle() { return false; }
-    @Override public boolean getRepeat()  { return false; }
-    @Override public void setRepeat(boolean value) {  }
-    @Override public void setShuffle(boolean value) {  }
+    @Override
+    public void incAndPlay(int offset)
+    {
+        if (offset > 0)
+            doAction(Service.serviceType.OpenPlaylist,"Next",null);
+        else if (offset < 0)
+            doAction(Service.serviceType.OpenPlaylist,"Previous",null);
+        else
+            doAction(Service.serviceType.OpenPlaylist,"Play",null);
+    }
 
-    @Override public void transport_pause() {  }
-    @Override public void transport_play()  {  }
-    @Override public void transport_stop()  {  }
-    @Override public void incAndPlay(int offset)  {  }
+    @Override
+    public void seekTo(int progress)
+    {
+        stringHash args = new stringHash();
+        args.put("Value",Integer.toString(progress / 1000));
+        doAction(Service.serviceType.OpenPlaylist,"SeekSecondAbsolute",args);
+    }
 
-    @Override public void seekTo(int progress)    {  }
-    @Override public Track getRendererTrack() { return null; }
-    @Override public void setRendererTrack(Track track, boolean interrupt_playlist)   {  }
 
 
-    //-------------------------------------------------------
-    // Playlist Interface
-    //-------------------------------------------------------
+    // questions
 
-    @Override public void startPlaylist() {}
-    @Override public void stopPlaylist(boolean wait_for_stop)  {}
+    @Override
+    public void notifyPlaylistChanged()
+    {
+        if (artisan.getCurrentPlaylist().getNumTracks()>0)
+            incAndPlay(0);
+    }
 
-    @Override public boolean isStarted() { return is_started; }
-    @Override public boolean isDirty()   { return is_dirty; }
-    @Override public void setDirty(boolean b) { is_dirty = b; }
 
-    // my playlist api - from database
-
-    @Override public String getPlaylistName() { return ""; }
-    @Override public int getPlaylistNum()     { return 0; }
-    @Override public int getNumTracks()       { return 0; }
-    @Override public int getCurrentIndex()    { return 0; }
-    @Override public Track getCurrentTrack()  { return null; }
-    @Override public int getMyShuffle()       { return 0; }
-    @Override public String getQuery()        { return ""; }
-
-    // my playlist api continued
-
-    @Override public int getContentChangeId()     { return 0; }
-    @Override public void saveIndex(int index)    {  }
-
-    @Override public Track getPlaylistTrack(int index)    { return null; }
-    @Override public Track incGetTrack(int inc)   { return null; }
-    @Override public boolean removeTrack(Track track) { return false; }
-    @Override public Track insertTrack(int position, Track track) { return null; }
-
-    // OpenHome Support
-
-    @Override public Track getByOpenId(int open_id) { return null; }
-    @Override public Track insertTrack(int after_id, String uri, String metadata) { return null; }
-    @Override public Track seekByIndex(int index) { return null; }
-    @Override public Track seekByOpenId(int open_id) { return null; }
-    @Override public Track insertTrack(Track track, int after_id) { return null; }
-    @Override public boolean removeTrack(int open_id, boolean dummy_for_open_id) { return false; }
-
-    @Override public String getIdArrayString(CurrentPlaylistExposer exposer)  { return ""; }
-    @Override public int[] string_to_id_array(String id_string) { return null; }
-    @Override public String id_array_to_tracklist(int ids[]) { return null; }
+    @Override
+    public void setRendererTrack(Track track,boolean interrupt_playlist)
+        // not sure this CAN be implemented
+    {
+    }
 
 
     //-------------------------------------------
@@ -190,13 +305,49 @@ public class OpenHomeRenderer extends Device implements
         String service,
         Document doc)
     {
-        boolean is_loop_action = service.equals("Time");
+        synchronized (http_server)
+        {
+            boolean is_loop_action = service.equals("OpenTime");
+            String dbg_from = "OpenHomeRenderer Callback(" + service + ")";
+            if (!is_loop_action)
+                Utils.log(0,1,dbg_from);
 
-        String dbg_from = "OpenHomeRenderer Callback(" + service + ")";
-        if (!is_loop_action)
-            Utils.log(0,1,dbg_from);
+            Service.serviceType service_type = null;
+            try
+            {
+                service_type = Service.serviceType.valueOf(service);
+            }
+            catch (Exception e)
+            {
+                Utils.warning(0,0,"Bad Service Type: " + service);
+            }
 
+            UpnpEventReceiver receiver = (UpnpEventReceiver) services.get(service_type);
+            if (receiver != null)
+            {
+                String result = receiver.response(session,response,service,doc);
+                if (result.isEmpty())
+                {
+                    response = http_server.newFixedLengthResponse(
+                        NanoHTTPD.Response.Status.OK,
+                        NanoHTTPD.MIME_PLAINTEXT,"OK");
+                }
+                else
+                {
+                    String msg = "ERROR - Bad Request to Service(" + service + ")\n" +
+                        "Device: " + ((Service) receiver).getDevice().getDeviceUUID() + "\n" +
+                        "Name:   " + ((Service) receiver).getDevice().getFriendlyName() + "\n" +
+                        "Reason: " + result;
+
+                    response = http_server.newFixedLengthResponse(
+                        NanoHTTPD.Response.Status.INTERNAL_ERROR,
+                        NanoHTTPD.MIME_PLAINTEXT,msg);
+                }
+            }
+        }
         return response;
     }
 
-}
+
+
+}// Class device.OpenHomeRenderer

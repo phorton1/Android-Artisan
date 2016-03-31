@@ -1,86 +1,93 @@
 package prh.artisan;
 
-// The CurrentPlaylist is a singleton that acts
-// as a wrapper for an actual Playlist.
-//
-//     It is the current Playlist being edited by aPlaylist.
-//        which uses a fetcher to get records from it
-//     It is the current playlist being played by aRenderer.
-//        so it knows the next track to play
-//
-//     It exists only in memory as an Edit Buffer and Queue, though
-//     it can be loaded and saved to the current PlaylistSource.
-//
-//     It keeps a pointer to actual underlying associated_playlist,
-//     and uses a sparse array of nulls to begin with.
-//
-//     getPlaylistTrack() is the key routine, a read-thru cache from
-//     the underlying associated playlist.
-//
-//     It is also the only Playlist to get served by the http.OpenPlaylist
-//     and the only playlist to know about, and known by, exposers.
-//
-// OpenHome
-//
-//     It may also, additionally, be tightly bound to a device.OpenPlaylist.
-//
-//     An OpenPlaylist has no notion of a name, or dirty state, or the fact that a
-//     PlaylistSource context might exist. But, while the OpenHomeRenderer is the
-//     selected device, this CurrentPlaylist and the OpenPlaylist are synchronized,
-//     both always showing the same list of tracks.
-//
-//     When an OpenPlaylist is attached, it is absorbed into this CurrentPlaylist,
-//     just like an associated Playlist. aPlaylist starts a fetcher, and we start handing
-//     it records from the device.OpenPlaylist, which in turn gets, and caches them,
-//     based on the IDArray it gets (via SSDP Events), from the remote open home device.
-//     If want to insert a record, we ask the device.OpenPlaylist to insert it,
-//     it calls the remote open home device to do the insert, which returns the
-//     new openID, which gets added to the device.OpenHomeCache, and in turn,
-//     this CurrentPlaylist's list of records, which is marked as dirty, etc.
-//
-//     But, because of this, we do not get explicit information about changes made
-//     on the remote open home device.  All we get is a new IdArray that we can
-//     tell if it has changed or not, and/or if wa are missing any elements.
-//     So we can tell if it changed, and is dirty, and can find our place in
-//     it again, sort of.  That's ok .. it's a generic EVENT_PLAYLIST_CONTENT_CHANGED.
-//
-//     The other issue is that when we load a new playlist, we HAVE to do it in
-//     terms of individual Inserts to the remote open_home device, which is not
-//     only really slow
-//
-//     The OpenPlaylist DeleteAll action is the equivalent of the setPlaylist("")
-//     command ... a new empty playlist is created and the old one is tossed.
-//     The big difference is that if the DeleteAll action comes FROM the OpenPlaylist,
-//     i.e. the user has pressed the "Clear" button in BubbleUp to clear the playlist,
-//     then all changes are lost, whereas on the Artisan UI, you get a chance to
-//     Save the changes.
-//
-//     When we load a new playlist, it has to be So Artisan acts as a repository of OpenHome playlists.
-//
-// The difference is that
-
-// synchonic
-//
-
-import prh.device.LocalPlaylist;
 import prh.server.HTTPServer;
 import prh.server.http.OpenPlaylist;
+import prh.types.intTrackHash;
 import prh.types.recordList;
+import prh.types.trackList;
+import prh.utils.Base64;
 import prh.utils.Utils;
+import prh.utils.httpUtils;
 
+/**
+ * @class CurrentPlaylist
+ *
+ * Is the list of tracks available to the system.
+ * Is a Playlist that can be copied to another Playlist
+ * It is the only Playlist to implement insert, delete,
+ *     and all the open home ID Array stuff.
+ */
 
-public class CurrentPlaylist extends PlaylistBase
-    implements Fetcher.FetcherSource
-
+public class CurrentPlaylist implements
+    Playlist,
+    Fetcher.FetcherSource
 {
-    private int dbg_cp = 1;
+    private static int dbg_cp = 1;     // basics
+    private static int dbg_fetch = 0;  // fetcher
+    private static int dbg_ida = 0;    // id arrays
 
     // state
 
     private Artisan artisan;
-    private Playlist associated_playlist = null;
-    private int playlist_count_id = 0;
+    private Playlist associated_playlist;
+    private prh.device.service.OpenPlaylist open_playlist_device;     // prh.device.s
+
+    private boolean is_dirty;
+    private int playlist_count_id;
+    private int content_change_id;
+    private  int next_open_id;
+
+    // contents
+
+    private  String name;
+    private  int playlist_num;
+    private  int num_tracks;
+    private  int track_index;      // one based
+    private  int my_shuffle;
+    private  String pl_query;
+
+    private  trackList tracks_by_position;
+    private  intTrackHash tracks_by_open_id;
+
+    // Basic Playlist Interface, except getTrack()
+
+    @Override public void startPlaylist() {}
+    @Override public void stopPlaylist(boolean wait_for_stop)  {}
+
+    @Override public String getName()         { return name; }
+    @Override public int getPlaylistNum()     { return playlist_num; }
+    @Override public int getNumTracks()       { return num_tracks; }
+    @Override public int getCurrentIndex()    { return track_index; }
+    @Override public Track getCurrentTrack()  { return getTrack(track_index); }
+    @Override public int getMyShuffle()       { return my_shuffle; }
+    @Override public String getQuery()        { return pl_query; }
+
+    @Override public void saveIndex(int index) {}
+    @Override public boolean isDirty() { return is_dirty; }
+    @Override public void setDirty(boolean b) { is_dirty = b; }
+
+    // Current Playlist Accessors
+
+    public int getContentChangeId() { return content_change_id; }
     public int getPlaylistCountId() { return playlist_count_id; }
+
+    // Fetcher Interface
+
+    private int num_virtual_folders = 0;
+    private boolean fetcher_valid = true;
+    private Folder last_virtual_folder = null;
+
+    @Override public boolean isDynamicFetcherSource() { return true;  }
+
+
+    public OpenPlaylist getHttpOpenPlaylist()
+    // OpenHome support from CurrentPlaylist
+    {
+        HTTPServer http_server = artisan.getHTTPServer();
+        OpenPlaylist open_playlist = http_server == null ? null :
+            (OpenPlaylist) http_server.getHandler("Playlist");
+        return open_playlist;
+    }
 
 
     //----------------------------------------------------------------
@@ -91,9 +98,32 @@ public class CurrentPlaylist extends PlaylistBase
         // default constructor creates an un-named playlist ""
         // with no associated parent playListSource
     {
-        super(ma);
         artisan = ma;
+        playlist_count_id = 0;
+        content_change_id = 0;
+        next_open_id = 1;
+
+        open_playlist_device = null;
+
+        clean_init();
     }
+
+
+    private void clean_init()
+    {
+        name = "";
+        my_shuffle = 0;
+        num_tracks = 0;
+        track_index = 0;
+        playlist_num = 0;
+        pl_query = "";
+
+        is_dirty = false;
+
+        tracks_by_position =  new trackList();
+        tracks_by_open_id = new intTrackHash();
+    }
+
 
     // start and stop the whole thing
 
@@ -102,33 +132,14 @@ public class CurrentPlaylist extends PlaylistBase
         return true;
     }
 
-    public void stopCurrentPlaylist()
+    public void stopCurrentPlaylist(boolean wait_for_stop)
     {
     }
 
 
-    // support for schemes
-
-    public Track getTrackLow(int position)
-        // One based access to the sparse array
-        // for CurrentPlaylistExposer
+    public void setOpenPlaylist(prh.device.service.OpenPlaylist op)
     {
-        Track track = null;
-        if (position > 0 &&
-            position <= tracks_by_position.size())
-            track = tracks_by_position.get(position - 1);
-        return track;
-    }
-
-
-    public void setName(String new_name)
-        // used in saveAs()
-    {
-        if (!name.equals(new_name))
-        {
-            name = new_name;
-            artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,this);
-        }
+        open_playlist_device = op;
     }
 
 
@@ -136,25 +147,17 @@ public class CurrentPlaylist extends PlaylistBase
     // associated_playlist
     //----------------------------------------------------------------
 
-
-    private OpenPlaylist getHttpOpenPlaylist()
-        // OpenHome support
-    {
-        HTTPServer http_server = artisan.getHTTPServer();
-        OpenPlaylist open_playlist = http_server == null ? null :
-            (OpenPlaylist) http_server.getHandler("Playlist");
-        return open_playlist;
-    }
-
-
     public void setAssociatedPlaylist(Playlist other)
     {
         // clean_init() is the equivalent of start()
         // for the CurrentPlaylist
 
         playlist_count_id++;
-        this.clean_init_playlist_base();
-        OpenPlaylist open_playlist = getHttpOpenPlaylist();
+        this.clean_init();
+
+        // notify the http playlist if one is active
+
+        prh.server.http.OpenPlaylist open_playlist = getHttpOpenPlaylist();
         if (open_playlist != null)
             open_playlist.clearAllExposers();
 
@@ -169,7 +172,7 @@ public class CurrentPlaylist extends PlaylistBase
         if (associated_playlist != null)
         {
             associated_playlist.startPlaylist();
-            name = associated_playlist.getPlaylistName();
+            name = associated_playlist.getName();
             num_tracks = associated_playlist.getNumTracks();
             track_index = associated_playlist.getCurrentIndex();
             my_shuffle = associated_playlist.getMyShuffle();
@@ -179,12 +182,18 @@ public class CurrentPlaylist extends PlaylistBase
             for (int i = 0; i < num_tracks; i++)
                 tracks_by_position.add(i,null);
 
-            // espose the first track
+            // expose the first track
+            // but not if open_playlist_device
+            //
+            // this really should only be when the renderer
+            // is the local renderer ...
 
-            if (num_tracks > 0)
+            if (num_tracks > 0 &&
+                open_playlist != null &&
+                open_playlist_device == null)
             {
                 Track track = getCurrentTrack();
-                if (track != null && open_playlist != null)
+                if (track != null)
                     open_playlist.exposeTrack(track,true);
             }
         }
@@ -192,9 +201,9 @@ public class CurrentPlaylist extends PlaylistBase
 
 
     @Override
-    public Track getPlaylistTrack(int index)
-        // Overrides to use our own sparse by_position array
-        // and double-cache them from LocalPlaylist ...
+    public Track getTrack(int index)
+        // Just happens to be nearly the same as
+        // the implementation in LocalPlaylist
     {
         // try to get it in memory
 
@@ -205,7 +214,7 @@ public class CurrentPlaylist extends PlaylistBase
 
         if (index - 1 > tracks_by_position.size())
         {
-            Utils.error("wtf2");
+            Utils.error("Attempt to get Track() at 1-based index(" + index + ") when there are only " + tracks_by_position.size() + " slots available");
             return null;
         }
         Track track = tracks_by_position.get(index - 1);
@@ -219,7 +228,7 @@ public class CurrentPlaylist extends PlaylistBase
                 Utils.error("No associated playlist for null track in CurrentPlaylist.getTrck(" + index + ")");
             else
             {
-                track = associated_playlist.getPlaylistTrack(index);
+                track = associated_playlist.getTrack(index);
                 track.setPosition(index);   // in case it was mucked up
                 track.setOpenId(next_open_id);
                 tracks_by_position.set(index - 1,track);
@@ -231,38 +240,336 @@ public class CurrentPlaylist extends PlaylistBase
     }
 
 
-    @Override public Track insertTrack(int position, Track track)
-        // we override insertTrack so that we can expose the
-        // tracks that are added
+
+    //-----------------------------------------------------
+    // Playlist Manipulations (Current Playlist Only)
+    //-----------------------------------------------------
+
+
+    public Track insertTrack(int position, Track track)
+        // ONE-BASED POSITION SIGNATURE
+        // This IS the lowest level insertTrack method
+        // PlaylistBase assigns next_open_id for insertTrack()
     {
-        Track result = super.insertTrack(position,track);
-        if (result != null)
+        int new_id = next_open_id++;
+        track.setOpenId(new_id);
+        track.setPosition(position);
+        int old_track_index = track_index;
+
+        Utils.log(dbg_cp,0,"insertTrack(" + track.getTitle() + " to CurrentPlaylist(" + name + ") at position=" + position);
+        tracks_by_open_id.put(new_id,track);
+        tracks_by_position.add(position-1,track);
+        num_tracks++;
+
+        if (track_index > position)
+            track_index++;
+        else if (track_index == 0)
+            track_index = 1;
+
+        if (old_track_index != track_index)
+            saveIndex(track_index);
+
+        // This should really only be when the
+        // current renderer is the local renderer
+
+        if (track != null && open_playlist_device == null)
         {
-            OpenPlaylist open_playlist = getHttpOpenPlaylist();
+            prh.server.http.OpenPlaylist open_playlist = getHttpOpenPlaylist();
             if (open_playlist != null)
                 open_playlist.exposeTrack(track,true);
         }
-        return result;
+
+        is_dirty = true;
+        content_change_id++;
+        artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CONTENT_CHANGED,this);
+        return track;
+    }
+
+
+    public boolean removeTrack(Track track)
+        // Assumes that track is in the playlist
+        // Takes track and not integer position
+    {
+        int position = tracks_by_position.indexOf(track) + 1;
+        Utils.log(dbg_cp,0,"removeTrack(" + track.getTitle() + ") from CurrentPlaylist(" + name + ") at position=" + position);
+
+        num_tracks--;
+        tracks_by_open_id.remove(track);
+        tracks_by_position.remove(track);
+
+        int old_track_index = track_index;
+        if (position < track_index)
+            track_index--;
+        else if (track_index > num_tracks)
+            track_index = num_tracks;
+
+        if (old_track_index != track_index)
+            saveIndex(track_index);
+
+        is_dirty = true;
+        content_change_id++;
+        artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CONTENT_CHANGED,this);
+        return true;
+    }
+
+
+    public Track incGetTrack(int inc)
+        // loop thru tracks till we find a playable
+        // return null on errors or none found
+    {
+        int start_index = track_index;
+        incIndex(inc);
+
+        Track track = getTrack(track_index);
+        if (track == null)
+            return null;
+
+        while (!Utils.supportedType(track.getType()))
+        {
+            if (inc != 0 && track_index == start_index)
+            {
+                Utils.error("No playable tracks found");
+                track_index = 0;
+                saveIndex(track_index);
+                return null;
+            }
+            if (inc == 0) inc = 1;
+            incIndex(inc);
+            track = getTrack(track_index);
+            if (track == null)
+                return null;
+        }
+
+        saveIndex(track_index);
+        return track;
+    }
+
+
+    private void incIndex(int inc)
+    {
+        track_index = track_index + inc;    // one based
+        if (track_index > num_tracks)
+            track_index = 1;
+        if (track_index <= 0)
+            track_index = num_tracks;
+        if (track_index > num_tracks)
+            track_index = num_tracks;
+    }
+
+
+    // support for schemes
+
+    public Track getTrackLow(int position)
+        // One based access to the sparse array
+        // ONLY called by CurrentPlaylistExposer
+    {
+        Track track = null;
+        if (position > 0 &&
+            position <= tracks_by_position.size())
+            track = tracks_by_position.get(position - 1);
+        return track;
+    }
+
+
+    public void setName(String new_name)
+        // Called by the PlaylistSource in saveAs()
+    {
+        if (!name.equals(new_name))
+        {
+            name = new_name;
+            artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,this);
+        }
+    }
+
+
+    //------------------------------------------------------
+    // OpenHome Support
+    //------------------------------------------------------
+
+    public Track getByOpenId(int open_id)
+    {
+        return tracks_by_open_id.get(open_id);
+    }
+
+
+    public Track insertTrack(int after_id, String uri, String metadata)
+    {
+        Track track = new Track(uri,metadata);
+        return insertTrack(track,after_id);
+    }
+
+
+    public Track seekByIndex(int index)
+    {
+        Track track = getTrack(index);
+        if (track != null)
+        {
+            track_index = index;
+            saveIndex(track_index);
+        }
+        return track;
+    }
+
+
+    public Track seekByOpenId(int open_id)
+    {
+        Track track = getByOpenId(open_id);
+        if (track != null)
+        {
+            track_index = tracks_by_position.indexOf(track) + 1;
+            saveIndex(track_index);
+        }
+        return track;
+    }
+
+
+    public Track insertTrack(Track track, int after_id)
+        // OPEN HOME SIGNATURE
+        // insert the item after the given open id
+        // where 0 means front of the list.
+        // returns the item on success
+    {
+        int insert_idx = 0; // zero base
+        if (after_id > 0)
+        {
+            Track after_track = tracks_by_open_id.get(after_id);
+            if (track == null)
+            {
+                Utils.error("Could not find item(after_id=" + after_id + ") for insertion");
+                return null;    // should result in 800 error
+            }
+            insert_idx = tracks_by_position.indexOf(after_track) + 1;
+            // insert_pos is zero based
+        }
+
+        int position = insert_idx + 1;
+        return insertTrack(position,track);
+    }
+
+
+
+    public boolean removeTrack(int open_id, boolean dummy_for_open_id)
+        // OPEN_ID SIGNATURE
+    {
+        Track track = tracks_by_open_id.get(open_id);
+        if (track == null)
+        {
+            Utils.error("Could not remove(" + open_id + ") from playlist(" + name + ")");
+            return false;
+        }
+        return removeTrack(track);
+    }
+
+
+    //------------------------------------------------------------------
+    // IdArrays
+    //------------------------------------------------------------------
+
+
+    public int[] string_to_id_array(String id_string)
+        // gets a string of space delimited ascii integers!
+    {
+        Utils.log(0,0,"string_to_id_array(" + id_string + ")");
+        String parts[] = id_string.split("\\s");
+        int ids[] = new int[parts.length];
+        for (int i=0; i<parts.length; i++)
+            ids[i] = Utils.parseInt(parts[i]);
+        return ids;
+    }
+
+
+    public String getIdArrayString(CurrentPlaylistExposer exposer)
+        // return a base64 encoded array of integers
+        // May be called with a CurrentPlaylistExposer or not
+    {
+        int num = 0;
+        int num_tracks = getNumTracks();
+        byte data[] = new byte[num_tracks * 4];
+        Utils.log(dbg_ida,0,"getIdArrayString() num_tracks="+num_tracks);
+
+        // show debugging for the exposer, if any
+
+        if (exposer != null)
+            Utils.log(dbg_ida,1,"exposer(" + exposer.getUserAgent() + ") num_exposed=" + exposer.getNumExposed());
+
+        for (int index=1; index<=num_tracks; index++)
+        {
+            // If there is an exposer, then a null record
+            // indicates it has not yet been exposed.
+            // For requests from non-exposer control points,
+            // we get the Track
+            //
+            // Since this could take a long time if a non-exposer
+            // tried to get all the tracks on a single go, it might
+            // be better to just read all the records into memory from
+            // a single cursor in Start() if there are any non-exposers
+
+            Track track = (exposer == null) ?
+                getTrack(index) :
+                tracks_by_position.get(index - 1);
+
+            if (track != null &&
+                (exposer == null ||
+                    exposer.isExposed(track)))
+            {
+                int id = track.getOpenId();
+                data[num * 4 + 0] = (byte) ((id >> 24) & 0xFF);
+                data[num * 4 + 1] = (byte) ((id >> 16) & 0xFF);
+                data[num * 4 + 2] = (byte) ((id >> 8) & 0xFF);
+                data[num * 4 + 3] = (byte) (id & 0xFF);
+                num++;
+            }
+        }
+
+        byte data2[] = new byte[num * 4];
+        for (int i=0; i<num*4; i++)
+            data2[i] = data[i];
+
+        String retval = Base64.encode(data2);
+        Utils.log(dbg_ida +1,1,"id_array Length=" + num);
+        Utils.log(dbg_ida +1,1,"id_array='" + retval + "'");
+        return retval;
+    }
+
+
+    public String id_array_to_tracklist(int ids[])
+    {
+        String rslt = "";
+        for (int i=0; i<ids.length; i++)
+        {
+            int id = ids[i];
+            Track track = getByOpenId(id);
+            if (track == null)
+            {
+                Utils.error("id_array_to_tracklist: index("+i+")  id("+id+") not found");
+                rslt += "</TrackList>";
+                return rslt;
+            }
+
+            rslt += "<Entry>" + // \n" +
+                "<Id>" + id + "</Id>" + // "\n" +
+                "<Uri>" + track.getPublicUri() + "</Uri>" + // "\n" +
+                "<Metadata>" + track.getDidl() + "</Metadata>" + // "\n" +
+                "</Entry>"; // \n";
+        }
+
+        // took a while to figure this ...
+        //
+        // This is an INNER <TrackList> that is Didl encoded.
+        // It is the VALUE of a regular XML <Tracklist> element
+        // in the ReadList result.
+
+        rslt = "<TrackList>" + rslt + "</TrackList>";
+        rslt = httpUtils.encode_xml(rslt);
+        return rslt;
     }
 
 
 
     //------------------------------
     // FetcherSource Interface
-    //------------------------------
+   //------------------------------
 
-    private int dbg_fetch = 0;
-
-
-    @Override public boolean isDynamicFetcherSource()
-    {
-        return true;
-    }
-
-
-    boolean fetcher_valid = true;
-    int num_virtual_folders = 0;
-    Folder last_virtual_folder = null;
 
 
     private void initVirtualFolders()
@@ -342,12 +649,19 @@ public class CurrentPlaylist extends PlaylistBase
 
     @Override public Fetcher.fetchResult getFetchRecords(Fetcher fetcher, boolean initial_fetch, int num)
     {
-        // synchronized (this)
+        // have the open playlist fetch the next bunch of records
+        Fetcher.fetchResult result = Fetcher.fetchResult.FETCH_NONE;
+
+        if (open_playlist_device != null)
+            result = open_playlist_device.getFetchRecords(
+                fetcher,initial_fetch,num);
+
+        if (result != Fetcher.fetchResult.FETCH_ERROR)  // synchronized (this)
         {
             recordList records = fetcher.getRecordsRef();
             int num_records = records.size();
 
-            String dbg_title = "CurrentPlaylist(" + getPlaylistName() + ").getFetchRecords(" + initial_fetch + "," + num + "," + fetcher.getAlbumMode() + ") ";
+            String dbg_title = "CurrentPlaylist(" + getName() + ").getFetchRecords(" + initial_fetch + "," + num + "," + fetcher.getAlbumMode() + ") ";
             Utils.log(dbg_fetch,0, dbg_title +
                 num_records + "/" + num_tracks + " tracks already gotten, and " +
                 num_virtual_folders + " existing virtual folders");
@@ -382,7 +696,7 @@ public class CurrentPlaylist extends PlaylistBase
 
             while (next_index < num_tracks && num_added < num)
             {
-                Track track = getPlaylistTrack(next_index + 1);    // one based
+                Track track = getTrack(next_index + 1);    // one based
                 if (track == null)
                 {
                     Utils.error("Null track from getTrack(" + (next_index + 1) + " in " + dbg_title);
@@ -412,19 +726,16 @@ public class CurrentPlaylist extends PlaylistBase
                 }
             }
 
-            Fetcher.fetchResult result =
+            result =
                 next_index >= num_tracks ? Fetcher.fetchResult.FETCH_DONE :
                     num_added > 0 ? Fetcher.fetchResult.FETCH_RECS :
                         Fetcher.fetchResult.FETCH_NONE;
 
-            // if (num_fetched > 0)
-            //     artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CONTENT_CHANGED,this);
-
-
             Utils.log(dbg_fetch,1,dbg_title + " returning " + result + " with " + records.size() + " records");
-            return result;
         }
+        return result;
     }
+
 
 
 

@@ -25,9 +25,7 @@ import prh.types.intList;
 import prh.types.recordList;
 import prh.types.selectedHash;
 import prh.types.stringList;
-import prh.utils.confirmDialog;
 import prh.utils.Utils;
-import prh.utils.getStringDialog;
 
 
 // implements Playlist interface for aRenderer
@@ -418,7 +416,7 @@ public class aPlaylist extends Fragment implements
             {
                 res_ids.add(R.string.context_menu_save);
             }
-            if (!current_playlist.getPlaylistName().isEmpty())
+            if (!current_playlist.getName().isEmpty())
             {
                 res_ids.add(R.string.context_menu_saveas);
                 res_ids.add(R.string.context_menu_rename);
@@ -440,7 +438,7 @@ public class aPlaylist extends Fragment implements
             res_ids.add(R.string.context_edit_metadata);
         }
 
-        if (!current_playlist.getPlaylistName().isEmpty() &&
+        if (!current_playlist.getName().isEmpty() &&
             current_playlist.getNumTracks()>0)
         {
             res_ids.add(R.string.context_menu_download);
@@ -453,7 +451,7 @@ public class aPlaylist extends Fragment implements
     private String getTitleBarText()
     {
         String msg = "Playlist: ";
-        String name = current_playlist.getPlaylistName();
+        String name = current_playlist.getName();
         if (!name.isEmpty())
             msg += name;
         if (current_playlist.isDirty())
@@ -503,7 +501,7 @@ public class aPlaylist extends Fragment implements
             command = what;
             parent = a_playlist;
             CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
-            name_for_inflate = current_playlist.getPlaylistName();
+            name_for_inflate = current_playlist.getName();
 
             if (what.equals("set_playlist") && param.isEmpty())
                 what = "new";

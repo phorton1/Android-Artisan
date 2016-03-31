@@ -169,21 +169,17 @@ public class Folder extends Record
     }
 
     public String getDidl()
-    // return the remote client didl representation
-    // of this item (which always uses public artURI)
+        // return the metadata, wrapped in Didl tags, and xml_encoded
     {
-        String rslt = getMetadata();
-        if (httpUtils.ENCODE_DIDL)
-            rslt = httpUtils.encode_xml(rslt);
-
-        return
+        return httpUtils.encode_xml(
             httpUtils.start_didl() +
-            rslt +
-            httpUtils.end_didl();
+            getMetadata() +
+            httpUtils.end_didl());
     }
 
+
     public String getMetadata()
-    // returns the metadata chunk without <didl> wrapper
+        // returns the metadata without <didl> wrapper or xml_encoding
     {
         String container = getType().equals("album") ?
             "object.container.album.musicAlbum" :

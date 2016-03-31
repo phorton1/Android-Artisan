@@ -455,7 +455,7 @@ public class DeviceManager
 
                 if (device_type == null)
                 {
-                    Utils.warning(0,0,"un-interesting device type: " + device_type_string);
+                    Utils.warning(dbg_dm,0,"un-interesting device type: " + device_type_string);
                     return;
                 }
 

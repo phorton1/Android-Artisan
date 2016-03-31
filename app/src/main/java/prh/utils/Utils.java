@@ -85,6 +85,16 @@ public class Utils {
     private static Artisan artisan = null;
     public static File cache_dir = null;
 
+    public static String myUserAgent()
+    {
+        String device_name = Build.DEVICE;
+        if (device_name.equals("vbox86tp")) device_name = "emulator";
+        if (device_name.equals("polaris-p1")) device_name = "tablet1";
+        if (device_name.equals("rk30sdk")) device_name = "car stereo";
+        if (device_name.equals("android_4x_wet_kk")) device_name = "phone";
+        return "prh/1.0 UPnP/1.0 Artisan(" + device_name + ")";
+    }
+
 
     //-------------------------------------------------------------
     // static_init()

@@ -2,7 +2,6 @@ package prh.artisan;
 
 import android.app.Activity;
 import android.graphics.Color;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 
 import android.support.v4.app.Fragment;
@@ -21,10 +20,6 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.File;
-import java.io.FileInputStream;
-
-import prh.device.LocalPlaylist;
 import prh.types.intList;
 import prh.types.stringList;
 import prh.utils.ImageLoader;
@@ -172,7 +167,7 @@ public class aRenderer extends Fragment implements
 
         CurrentPlaylist cur = artisan.getCurrentPlaylist();
         msg += ":: " +
-            cur.getPlaylistName();
+            cur.getName();
         if (cur.isDirty())
             msg += "*";
         if (cur.getCurrentIndex()>0)
@@ -409,7 +404,7 @@ public class aRenderer extends Fragment implements
                 name = "default";
 
             CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
-            btn.setTextColor(name.equals(current_playlist.getPlaylistName())? 0xFFff9900:Color.WHITE);
+            btn.setTextColor(name.equals(current_playlist.getName())? 0xFFff9900:Color.WHITE);
             btn.setText(name);
             btn.setId(ID_BASE + position);
             return btn;

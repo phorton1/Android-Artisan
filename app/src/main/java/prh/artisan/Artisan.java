@@ -171,6 +171,7 @@ import prh.device.OpenHomeRenderer;
 import prh.server.HTTPServer;
 import prh.server.LocalVolumeFixer;
 import prh.server.SSDPServer;
+import prh.server.http.OpenPlaylist;
 import prh.server.utils.UpnpEventManager;
 import prh.types.intList;
 import prh.utils.Utils;
@@ -267,13 +268,8 @@ blah blah blah
     private LocalVolumeFixer volume_fixer = null;
     private SSDPServer ssdp_server = null;
     public HTTPServer getHTTPServer() { return http_server; }
+        // then give it all away
 
-    // limited exact access to http_server from device.OpenHomeRenderer
-
-    public void notifyOpenHomeRenderer(OpenHomeRenderer open_renderer, boolean alive)
-    {
-        http_server.notifyOpenHomeRenderer(open_renderer,alive);
-    }
 
     // the Device Manager and default Device Names
 
@@ -311,8 +307,8 @@ blah blah blah
         Utils.static_init(this);
         Prefs.static_init(this);
 
-        default_renderer_name = getDefaultDeviceName(
-            "RENDERER",Prefs.id.DEFAULT_RENDERER,Prefs.id.SELECTED_RENDERER);
+        // default_renderer_name = getDefaultDeviceName(
+        //     "RENDERER",Prefs.id.DEFAULT_RENDERER,Prefs.id.SELECTED_RENDERER);
         default_library_name = getDefaultDeviceName(
             "LIBRARY",Prefs.id.DEFAULT_LIBRARY,Prefs.id.SELECTED_LIBRARY);
         default_playlist_source_name = getDefaultDeviceName(
@@ -580,10 +576,6 @@ blah blah blah
 
         // 3 = stop the current and local objects
 
-        if (current_playlist != null)
-            current_playlist.stopCurrentPlaylist();
-        current_playlist = null;
-
         if (library != null)
             library.stopLibrary(true);
         library = null;
@@ -599,6 +591,10 @@ blah blah blah
         if (local_renderer != null)
             local_renderer.stopRenderer(true);
         local_renderer = null;
+
+        if (current_playlist != null)
+            current_playlist.stopCurrentPlaylist(true);
+        current_playlist = null;
 
         if (playlist_source != null)
             playlist_source.stopPlaylistSource(true);
@@ -832,8 +828,10 @@ blah blah blah
 
 
     //-------------------------------------------------------
-    // Utilities
+    // Miscellaneous Public API
     //-------------------------------------------------------
+    // starting with limited exact access to http_server
+
 
     public void onUtilsError(final String msg)
     {
@@ -1183,6 +1181,19 @@ blah blah blah
     }
 
 
+    //------------------------------------------
+    // FetcherClient interface
+    //------------------------------------------
+    // pass-thrus from device.MediaServer to aLibrary
+
+    public void notifyFetchRecords(Fetcher fetcher,Fetcher.fetchResult fetch_result)
+    {
+        aLibrary.notifyFetchRecords(fetcher,fetch_result);
+    }
+    public void notifyFetcherStop(Fetcher fetcher,Fetcher.fetcherState fetcher_state)
+    {
+        aLibrary.notifyFetcherStop(fetcher,fetcher_state);
+    }
 
 
     //---------------------------------------------------------------------
@@ -1211,22 +1222,6 @@ blah blah blah
             new OpenHomeEventDelayer(),
             1200);
         open_home_delayer.start();
-    }
-
-
-
-    //------------------------------------------
-    // FetcherClient interface
-    //------------------------------------------
-    // from device.MediaServer to aLibrary
-
-    public void notifyFetchRecords(Fetcher fetcher,Fetcher.fetchResult fetch_result)
-    {
-        aLibrary.notifyFetchRecords(fetcher,fetch_result);
-    }
-    public void notifyFetcherStop(Fetcher fetcher,Fetcher.fetcherState fetcher_state)
-    {
-        aLibrary.notifyFetcherStop(fetcher,fetcher_state);
     }
 
 
@@ -1331,6 +1326,7 @@ blah blah blah
         }
 
 
+
         runOnUiThread(new Runnable()
         {
             @Override
@@ -1388,7 +1384,7 @@ blah blah blah
                 // give an error on SSDP_SEARCH_FINISHED if we have not
                 // found the default devices ...
 
-                if (event_id.equals(EVENT_SSDP_SEARCH_FINISHED) )
+                if (event_id.equals(EVENT_SSDP_SEARCH_FINISHED))
                 {
                     if (!default_library_name.isEmpty())
                         Utils.error("SSDPSearch could not find DEFAULT LIBRARY(" + default_library_name + ")");
@@ -1401,8 +1397,6 @@ blah blah blah
                     default_renderer_name = "";
                     default_playlist_source_name = "";
                 }
-
-
 
                 //----------------------------------------------------------
                 // Global Events to main Views
@@ -1448,11 +1442,13 @@ blah blah blah
                 //-----------------------------------------------------
                 // UPnP Event dispatching
                 //------------------------------------------------
-                // if there's an http_server it means therer are UPnP
+                // if there's an http_server it means there are UPnP
                 // Services ... we bump the use counts on the underlying
                 // objects, and dispatch the UPnP events on EVENT_IDLE ..
+                //
+                // This should NOT be done except if the LocalRenderer is active
 
-                if (http_server != null)
+                if (http_server != null && renderer == local_renderer)
                 {
                     UpnpEventManager event_manager = http_server.getEventManager();
 
@@ -1471,11 +1467,10 @@ blah blah blah
                     else if (event_id.equals(EVENT_VOLUME_CHANGED))
                         event_manager.incUpdateCount("Volume");
 
-                    else if (!defer_openhome_events  &&
-                             event_id.equals(EVENT_IDLE))
+                    else if (!defer_openhome_events &&
+                        event_id.equals(EVENT_IDLE))
                         event_manager.send_events();
                 }
-
 
             }   // run()
         }); // runOnUiThread()

@@ -13,7 +13,6 @@ import prh.artisan.Artisan;
 
 import prh.artisan.CurrentPlaylist;
 import prh.artisan.EventHandler;
-import prh.artisan.PlaylistBase;
 import prh.artisan.Track;
 import prh.device.LocalRenderer;
 import prh.server.HTTPServer;
@@ -80,6 +79,9 @@ public class OpenPlaylist implements
 
     @Override public void notifySubscribed(UpnpEventSubscriber subscriber,boolean subscribe)
     {
+        if (true)       // exposer scheme disabled for artisan testing
+            return;
+
         String ip = subscriber.getIp();
         String user_agent = subscriber.getUserAgent();
         String ipua = ip + ":" + user_agent;

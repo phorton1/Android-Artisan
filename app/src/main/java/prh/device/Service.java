@@ -34,6 +34,7 @@ public abstract class Service
     public serviceType getServiceType()  { return service_type; }
     public String getControlUrl()   { return device.getDeviceUrl() + control_path; }
     public String getEventUrl()     { return  device.getDeviceUrl()  + event_path; }
+    public String getEventPath()    { return event_path; }
 
     public Service(Artisan ma,
                    Device d,

@@ -68,9 +68,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
     private UpnpEventManager event_manager = null;
     public UpnpEventManager getEventManager() { return event_manager; }
     private HashMap<String,httpRequestHandler> handlers = null;
-    private class openHomeRendererHash extends HashMap<String, OpenHomeRenderer> {}
-    private openHomeRendererHash open_home_renderers = new openHomeRendererHash();
-
+    private OpenHomeRenderer open_home_renderer = null;
 
 
     public httpRequestHandler getHandler(String service_name)
@@ -78,15 +76,10 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
         return handlers.get(service_name);
     }
 
-
-    public void notifyOpenHomeRenderer(OpenHomeRenderer open_renderer, boolean alive)
+    public void setOpenHomeRenderer(OpenHomeRenderer open_renderer)
     {
-        if (alive)
-            open_home_renderers.put(open_renderer.getDeviceUUID(),open_renderer);
-        else
-            open_home_renderers.remove(open_renderer.getDeviceUUID());
+        open_home_renderer = open_renderer;
     }
-
 
 
     //-----------------------------------------------
@@ -306,7 +299,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
         {
             String uri = session.getUri();
 
-            String dbg_from = session.getHeaders().get("remote-addr") +": ";
+            String dbg_from = session.getHeaders().get("remote-addr");
             Utils.log(dbg_requests,0,dbg_from + " " + session.getMethod() + " " +  uri);
 
             // Default response is 404 not found
@@ -335,35 +328,36 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
                 //------------------------------------------
                 // device.OpenHomeRenderer Event Callbacks
                 //------------------------------------------
-                // /openCallback/uuid/Service/unused_event
-                // uri ends up with "event"
+                // /openCallback/device_uuid/Service
 
                 else if (uri.startsWith("/openCallback/"))
                 {
-                    uri = uri.replace("/openCallback/","");
-                    String uuid = uri.replaceAll("\\/.*$","");
-
-                    uri = uri.replaceAll("^.*\\/","");
-                    String service = uri.replaceAll("\\/.*$","");
-
-                    boolean is_loop_action = service.equals("Time");
-
-                    dbg_from = "openCallback(" + service + ") uuid=" + uuid + " from " + dbg_from;
-                    if (!is_loop_action)
-                        Utils.log(0,1,dbg_from);
-
-                    OpenHomeRenderer open_renderer = open_home_renderers.get(uuid);
-                    if (open_renderer == null)
-                        Utils.warning(0,0,"Could not find " + dbg_from);
+                    if (open_home_renderer == null)
+                        Utils.warning(3,0,"No open_home_renderer " + dbg_from);
                     else
                     {
+                        uri = uri.replace("/openCallback/","");
+                        String uuid = uri.replaceAll("\\/.*$","");
+                        String service = uri.replace(uuid + "/","");
+
+                        boolean is_loop_action = service.equals("OpenTime");
+                        dbg_from = "openCallback(" + service + ") uuid=" + uuid + " from " + dbg_from;
+                        if (!is_loop_action) Utils.log(0,0,dbg_from);
+
                         Document doc = httpUtils.get_xml_from_post(session);
                         if (doc == null)
                         {
                             Utils.error("Null document in " + dbg_from);
                             return response;
                         }
-                        response = open_renderer.response(session,response,service,doc);
+                        try
+                        {
+                            response = open_home_renderer.response(session,response,service,doc);
+                        }
+                        catch (Exception e)
+                        {
+                            Utils.error("Exception:" + e + "==" + e.getCause());
+                        }
                     }
                 }
 
@@ -536,7 +530,8 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
                 Utils.error("Exception in HTTPServer.serve():" + e.toString());
             }
 
-            if (response.getStatus() != Response.Status.OK)
+            if (response.getStatus() != Response.Status.OK &&
+                (!session.getUri().contains("openCallback") || open_home_renderer != null))
                 Utils.warning(0,0,"returning " + response.getStatus().toString() + " for " + dbg_from + " " + session.getUri());
 
             return response;

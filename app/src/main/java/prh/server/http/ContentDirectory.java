@@ -355,7 +355,8 @@ public class ContentDirectory implements httpRequestHandler
         Utils.log(dbg_dlna,1,"building http response for " + num_items + " items");
 
         String response_text = httpUtils.action_response_header(urn,"ContentDirectory","Browse");
-        response_text += httpUtils.start_didl();
+
+        String didl = httpUtils.start_didl();
         for (Record rec: subitems)
         {
             String part;
@@ -363,11 +364,11 @@ public class ContentDirectory implements httpRequestHandler
                 part = getTrackMetadata((Track)rec);
             else
                 part = ((Folder) rec).getMetadata();
-            if (httpUtils.ENCODE_DIDL)
-                part = httpUtils.encode_xml(part);
-            response_text += part;
+            didl += part;
         }
-        response_text += httpUtils.end_didl();
+        didl += httpUtils.end_didl();
+        response_text += httpUtils.encode_xml(didl);
+
         response_text += content_response_footer(
             urn,
             "Browse",
@@ -426,7 +427,6 @@ public class ContentDirectory implements httpRequestHandler
 
         return track.getMetadata();
     }
-
 
 
 }   // class DLNAServer

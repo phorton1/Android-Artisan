@@ -25,47 +25,79 @@ import java.util.HashMap;
 import prh.artisan.Artisan;
 import prh.artisan.Database;
 import prh.artisan.Playlist;
-import prh.artisan.PlaylistBase;
-import prh.artisan.PlaylistSource;
 import prh.artisan.Prefs;
 import prh.artisan.Track;
-import prh.types.intTrackHash;
 import prh.types.trackList;
 import prh.utils.Utils;
 
 
-public class LocalPlaylist extends PlaylistBase
+public class LocalPlaylist implements Playlist
     // A Playlist associated with a local database (PlaylistSource),
     // which hides the fact that not all of it's records are actually
     // in memory until getTrack() is called ....
 {
     private int dbg_lp = 0;
 
-    // playlist member variables
+    // member variables
 
-    protected Artisan artisan;
-    protected SQLiteDatabase playlist_db;
+    private Artisan artisan;
+    private boolean is_started;
+    private boolean is_dirty;
+
+    private String name;
+    private int playlist_num;
+    private int num_tracks;
+    private int my_shuffle;
+    private String pl_query;
+    private int track_index;      // one based
+
+    private trackList tracks_by_position;
+    private SQLiteDatabase playlist_db;
     private SQLiteDatabase track_db = null;
-    protected boolean is_started;
 
     // accessors
 
-    @Override public boolean isStarted() { return is_started; }
+    @Override public String getName() { return name; }
+    @Override public int getPlaylistNum()     { return playlist_num; }
+    @Override public int getNumTracks()       { return num_tracks; }
+    @Override public int getCurrentIndex()    { return track_index; }
+    @Override public Track getCurrentTrack()  { return getTrack(track_index); }
+    @Override public int getMyShuffle()       { return my_shuffle; }
+    @Override public String getQuery()        { return pl_query; }
+
+    @Override public void saveIndex(int index) {}
+    @Override public boolean isDirty() { return is_dirty; }
+    @Override public void setDirty(boolean b) { is_dirty = b; }
 
 
     //----------------------------------------------------------------
     // Constructor
     //----------------------------------------------------------------
 
+
+    private void clean_init()
+    {
+        name = "";
+        my_shuffle = 0;
+        num_tracks = 0;
+        track_index = 0;
+        playlist_num = 0;
+        pl_query = "";
+        is_started = false;
+        tracks_by_position =  new trackList();
+    }
+
+
     public LocalPlaylist(Artisan ma, SQLiteDatabase list_db)
         // default constructor creates an un-named playlist ""
         // that is already started
     {
-        super(ma);
         artisan = ma;
         playlist_db = list_db;
+        clean_init();
         is_started = true;
     }
+
 
 
     public LocalPlaylist(Artisan ma,
@@ -77,9 +109,9 @@ public class LocalPlaylist extends PlaylistBase
         // sets isDirty, and since it got every track,
         // is considered started
     {
-        super(ma);
         artisan = ma;
         playlist_db = list_db;
+        clean_init();
         is_started = true;
 
         this.name = name;
@@ -92,14 +124,10 @@ public class LocalPlaylist extends PlaylistBase
 
         for (int i=0; i<playlist.getNumTracks(); i++)
         {
-            Track track = playlist.getPlaylistTrack(i+1);
+            Track track = playlist.getTrack(i + 1);
             track.setPosition(i + 1);
-            track.setOpenId(next_open_id);
             tracks_by_position.add(track);
-            tracks_by_open_id.put(next_open_id++,track);
         }
-
-        setDirty(true);
     }
 
 
@@ -108,10 +136,9 @@ public class LocalPlaylist extends PlaylistBase
         // does not call clean_init
         // clears is_new, is not started
     {
-        super(ma);
         artisan = ma;
         playlist_db = list_db;
-        is_started = false;
+        clean_init();
 
         HashMap<String,Integer> fields = Database.get_fields("playlists",cursor);
         name = cursor.getString(fields.get("name"));
@@ -180,11 +207,8 @@ public class LocalPlaylist extends PlaylistBase
     {
         if (!is_started)
         {
-            super.startPlaylist();
-
             is_started = true;
             tracks_by_position = new trackList();
-            tracks_by_open_id = new intTrackHash();
 
             if (!name.equals(""))
             {
@@ -219,19 +243,14 @@ public class LocalPlaylist extends PlaylistBase
             track_db.close();
             track_db = null;
         }
-        if (tracks_by_open_id != null)
-            tracks_by_open_id.clear();
-        tracks_by_open_id = null;
-
         if (tracks_by_position != null)
             tracks_by_position.clear();
         tracks_by_position.clear();
-
-        super.stopPlaylist(wait_for_stop);   // does nothing
     }
 
 
-    @Override public Track getPlaylistTrack(int index)
+
+    @Override public Track getTrack(int index)
         // get a track from the playlist
         // return null on error
         // LocalPlaylist assigns the openId for use
@@ -271,9 +290,7 @@ public class LocalPlaylist extends PlaylistBase
             else
             {
                 track = new Track(cursor);
-                track.setOpenId(next_open_id);
                 tracks_by_position.set(index - 1,track);
-                tracks_by_open_id.put(next_open_id++,track);
             }
         }
 
@@ -373,7 +390,7 @@ public class LocalPlaylist extends PlaylistBase
 
         for (int i = 0; i < num_tracks; i++)
         {
-            Track track = getPlaylistTrack(i + 1);
+            Track track = getTrack(i + 1);
             track.setPosition(i + 1);
             ContentValues values = Database.getContentValues("tracks",track);
             try

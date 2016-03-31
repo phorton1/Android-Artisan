@@ -61,18 +61,18 @@ public class myLoopingRunnable
     //--------------------------------
     // Ctors
     //--------------------------------
-    // One shot PostDelaed Runnable.
-    // Call stop() to quickly clear() the one-shot
 
     public myLoopingRunnable(
         String title,
         Runnable to_run,
         int delay)
+        // One shot PostDelayed Runnable.
+        // Call stop() to quickly clear() the one-shot
+        // Start can be called multiple times
     {
-        init(title,null,to_run,0,delay,DEFAULT_USE_POST_DELAYED,null);
+        init(title,null,to_run,0,delay,true,null);
     }
 
-    // Normal long lived Runnable Loop with no synchronizer
 
     public myLoopingRunnable(
         String title,
@@ -80,6 +80,7 @@ public class myLoopingRunnable
         Runnable to_run,
         int stop_retries,
         int refresh_interval)
+        // Normal long lived Runnable Loop with no synchronizer
     {
         name = title;
         owner = parent;
@@ -89,8 +90,6 @@ public class myLoopingRunnable
     }
 
     public myLoopingRunnable(
-        // takes a synchronizer
-        // and explicit value for use_post_delayed
         String title,
         handler parent,
         Runnable to_run,
@@ -98,6 +97,8 @@ public class myLoopingRunnable
         int refresh_interval,
         Boolean use_post_delayed,
         Object synchronizer)
+        // takes a synchronizer
+        // and explicit value for use_post_delayed
     {
         init(title,parent,to_run,stop_retries,refresh_interval,use_post_delayed,synchronizer);
     }
@@ -113,10 +114,18 @@ public class myLoopingRunnable
         // or a delayedRunnableLooper wrapper around it
 
         Runnable the_run;
-        if (!USE_POST_DELAYED)
-            the_run = looper = new runnableLooper();
-        else
+        if (USE_POST_DELAYED)
+        {
+            if (handler != null)
+            {
+                handler.removeCallbacks(looper);
+                handler = null;
+                looper = null;
+            }
             the_run = new delayedRunnableLooper();
+        }
+        else
+            the_run = looper = new runnableLooper();
         Thread thread = new Thread(the_run);
         thread.start();
     }
@@ -165,7 +174,7 @@ public class myLoopingRunnable
     {
         public delayedRunnableLooper()
         {
-            Looper.prepare();
+            // Looper.prepare();
             handler = new Handler();
             looper = new runnableLooper();
         }

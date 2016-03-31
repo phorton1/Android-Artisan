@@ -368,17 +368,18 @@ public class Track extends Record
 
 
     public String getDidl()
-    // return the remote client didl representation
-    // of this item (which always uses public artURI)
+        // return the metadata, wrapped in Didl tags, and xml_encoded
     {
-        return
+        return httpUtils.encode_xml(
             httpUtils.start_didl() +
-            httpUtils.encode_xml(getMetadata()) +
-            httpUtils.end_didl();
+            getMetadata() +
+            httpUtils.end_didl());
     }
 
+
+
     public String getMetadata()
-    // returns the metadata chunk without <didl> wrapper
+        // returns the metadata without <didl> wrapper or xml_encoding
     {
         return "<item id=\"" + getId() + "\" parentID=\"" + getParentId() + "\" restricted=\"1\">" +
             "<dc:title>" +  httpUtils.encode_value(getTitle()) + "</dc:title>" +

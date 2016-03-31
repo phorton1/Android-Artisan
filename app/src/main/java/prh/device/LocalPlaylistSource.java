@@ -1,30 +1,22 @@
 package prh.device;
 
 
-import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Set;
 
 import prh.artisan.Artisan;
-import prh.artisan.CurrentPlaylist;
-import prh.artisan.Database;
 import prh.artisan.EventHandler;
 import prh.artisan.Playlist;
 import prh.artisan.PlaylistSource;
 import prh.artisan.Prefs;
-import prh.artisan.Track;
 import prh.server.SSDPServer;
 import prh.types.stringList;
 import prh.utils.Utils;
-import prh.utils.httpUtils;
 
 
 public class LocalPlaylistSource extends Device implements PlaylistSource
@@ -108,12 +100,12 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
                 int rhn = rhs.getPlaylistNum();
                 int cmp = lhn-rhn;
                 if (cmp != 0) return cmp;
-                return lhs.getPlaylistName().compareTo(rhs.getPlaylistName());
+                return lhs.getName().compareTo(rhs.getName());
             }});
 
         stringList names = new stringList();
         for (Playlist playlist : by_name)
-            names.add(playlist.getPlaylistName());
+            names.add(playlist.getName());
         return names;
     }
 
@@ -192,7 +184,7 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
     private void addLocalPlayList(Cursor cursor)
     {
         LocalPlaylist playlist = new LocalPlaylist(artisan,playlist_db,cursor);
-        playlists.put(playlist.getPlaylistName(),playlist);
+        playlists.put(playlist.getName(),playlist);
     }
 
 

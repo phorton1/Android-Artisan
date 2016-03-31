@@ -25,11 +25,6 @@ public class httpUtils
     // XML / Soap / Didl
 {
     private static int dbg_dlna_utils = 1;
-    public final static boolean ENCODE_DIDL = true;
-        // if true, everything wrapped in <Didl> tags will
-        // be xml_encoded.  I'm not sure this is necessary or desirable.
-        // if false, it is passed as straight xml.
-        // in all cases the values themselves are encode_value()'d
 
     // I'm not sure if these are really urns,
     // I think they're schema names ...
@@ -62,10 +57,11 @@ public class httpUtils
     //-------------------------
 
     public static String encode_xml(String in)
-    // encodes a full piece of didl for inclusion in xml
+        // encodes a full piece of didl for inclusion in xml
     {
         if (in==null) in = "";
         String out = in;
+        out = out.replaceAll("&","&amp;amp;");
         out = out.replaceAll("\"","&quot;");
         out = out.replaceAll("<","&lt;");
         out = out.replaceAll(">","&gt;");
@@ -73,14 +69,15 @@ public class httpUtils
     }
 
     public static String decode_xml(String in)
-        // should be called encode_didl
         // encodes a full piece of didl for inclusion in xml
+        // should be called encode_didl
     {
         if (in==null) in = "";
         String out = in;
         out = out.replaceAll("&quot;","\"");
         out = out.replaceAll("&lt;","<");
         out = out.replaceAll("&gt;",">");
+        out = out.replaceAll("&amp;amp;","&");
         return out;
     }
 
@@ -88,12 +85,7 @@ public class httpUtils
     public static String encode_value(String value)
         // url encodes a single value in the didl
     {
-        value = value.replaceAll("&","&amp;amp;");
-        // AMPERSANDS MUST BE DOUBLE ENCODED IN XML VALUES
-
-        // $string =~ s/([^\x20-\x7f])/"&#" + "$1" ord($1).";"/eg;
-        // out = out.replaceAll("[^\\x20-\\x7f]","&#" + ((int) "$1".charAt(0)) );
-
+        //value = value.replaceAll("&","&amp;amp;");
         Pattern pattern = Pattern.compile("[^\\x20-\\x7f]");
         StringBuffer output = new StringBuffer();
         Matcher matcher = pattern.matcher(value);
@@ -109,11 +101,8 @@ public class httpUtils
 
 
     public static String decode_value(String value)
-        // url encodes a single value in the didl
+        // url decode a single value in the didl
     {
-        // $string =~ s/([^\x20-\x7f])/"&#" + "$1" ord($1).";"/eg;
-        // out = out.replaceAll("[^\\x20-\\x7f]","&#" + ((int) "$1".charAt(0)) );
-
         Pattern pattern = Pattern.compile("&#(\\d+);");
         StringBuffer output = new StringBuffer();
         Matcher matcher = pattern.matcher(value);
@@ -126,8 +115,7 @@ public class httpUtils
         }
         matcher.appendTail(output);
         value = output.toString();
-
-        value = value.replaceAll("&amp;amp;","&");
+        // value = value.replaceAll("&amp;amp;","&");
         return value;
     }
 
@@ -191,24 +179,17 @@ public class httpUtils
 
     public static String start_didl()
     {
-        String rslt = "<DIDL-Lite " +
+        return "<DIDL-Lite " +
             "xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\" " +
             "xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" " +
             "xmlns:dc=\"http://purl.org/dc/elements/1.1/\" " +
             "xmlns:dlna=\"urn:schemas-dlna-org:metadata-1-0/\" " +
             "xmlns:sec=\"http://www.sec.co.kr/\" " + ">";
-        if (ENCODE_DIDL)
-            return encode_xml(rslt);
-        return rslt;
-
     }
 
     public static String end_didl()
     {
-        String rslt = "</DIDL-Lite>";
-        if (ENCODE_DIDL)
-            return encode_xml(rslt);
-        return rslt;
+        return "</DIDL-Lite>";
     }
 
 
@@ -313,29 +294,45 @@ public class httpUtils
     {
         InputStream input_stream = session.getInputStream();
         Integer content_length = Utils.parseInt(session.getHeaders().get("content-length"));
-        byte[] buf = new byte[content_length];
-        Document doc = null;
 
-        try
+        int count = 0;
+        int RETRIES = 20;
+        int INTERVAL = 50;
+
+        int offset = 0;
+        int remaining = content_length;
+        byte[] buf = new byte[content_length];
+
+        while (count++<RETRIES && remaining > 0) try
         {
-            int bytes = session.getInputStream().read(buf, 0, content_length );
-            if (bytes != content_length)
+            int got = session.getInputStream().read(buf,offset,remaining);
+            if (got < remaining)
             {
-                Utils.warning(0,0,"failed to read " + content_length + " bytes from stream. got " + bytes);
+                Utils.log(2,0,"waiting for xml");
+                Utils.sleep(INTERVAL);
             }
-            else
-            {
-                ByteArrayInputStream buf_stream = new ByteArrayInputStream(buf);
-                doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(buf_stream);
-                if (doc == null)
-                {
-                    Utils.error("document build returned a null documentt");
-                }
-            }
+            offset += got;
+            remaining -= got;
+        }
+        catch (Exception e)
+        {
+            Utils.warning(0,0,"Error reading xml: content_len=" + content_length + " offset=" + offset + " remaining=" + remaining + " exception:"+e);
+            offset = 0;
+        }
+
+        Document doc = null;
+        if (offset == content_length)   try
+        {
+            ByteArrayInputStream buf_stream = new ByteArrayInputStream(buf);
+            doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(buf_stream);
+            if (doc == null)
+                Utils.error("document build returned a null document");
         }
         catch (Exception e)
         {
             Utils.error("Exception building xml document:" + e);
+            // String test = new String(buf);
+            // Utils.log(0,0,"buf=" + test);
         }
         return doc;
     }

@@ -1,16 +1,11 @@
 package prh.device;
 
-import android.os.Handler;
-import android.os.Looper;
-
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import prh.artisan.Artisan;
 import prh.artisan.CurrentPlaylist;
 import prh.artisan.EventHandler;
-import prh.artisan.Playlist;
-import prh.artisan.PlaylistSource;
 import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.artisan.Volume;
@@ -283,8 +278,8 @@ public class MediaRenderer extends Device implements
 
         if (track == null)
         {
-            if (!current_playlist.getPlaylistName().equals(""))
-                Utils.noSongsMsg(current_playlist.getPlaylistName());
+            if (!current_playlist.getName().equals(""))
+                Utils.noSongsMsg(current_playlist.getName());
             Utils.log(dbg_mr,1,"incAndPlay(" + inc + ") calling stop()");
             transport_stop();
         }
@@ -503,6 +498,7 @@ public class MediaRenderer extends Device implements
                 song_position = 0;
                 current_track = null;
 
+                // Dont think this should be playlist changed
                 // event that the playlist has gone to null
                 // the track and position changes will be evented below
 

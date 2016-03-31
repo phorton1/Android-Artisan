@@ -25,15 +25,11 @@ package prh.device;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
-import android.os.Handler;
-import android.os.Looper;
 import android.widget.Toast;
 
 import prh.artisan.Artisan;
 import prh.artisan.CurrentPlaylist;
 import prh.artisan.EventHandler;
-import prh.artisan.Playlist;
-import prh.artisan.PlaylistSource;
 import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.artisan.Volume;
@@ -272,7 +268,7 @@ public class LocalRenderer extends Device implements
         track = current_playlist.getCurrentTrack();
         if (track == null)
         {
-            if (!current_playlist.getPlaylistName().equals(""))
+            if (!current_playlist.getName().equals(""))
                 noSongsMsg();
         }
         else
@@ -396,7 +392,7 @@ public class LocalRenderer extends Device implements
     public void noSongsMsg()
     {
         String msg = "No supported songs types found in playlist '" +
-            artisan.getCurrentPlaylist().getPlaylistName() + "'";
+            artisan.getCurrentPlaylist().getName() + "'";
         Utils.error(msg);
         Toast.makeText(artisan.getApplicationContext(),msg,Toast.LENGTH_LONG).show();
     }
