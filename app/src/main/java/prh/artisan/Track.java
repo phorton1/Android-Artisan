@@ -122,7 +122,7 @@ public class Track extends Record
 
         if (CONVERT_TO_LOCAL)
         {
-            Library local_library = LocalLibrary.getLocalLibrary();
+            LocalLibrary local_library = LocalLibrary.getLocalLibrary();
             if (local_library != null)
             {
                 String got_id = "";
