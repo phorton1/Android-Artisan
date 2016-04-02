@@ -195,19 +195,19 @@ public class httpUtils
 
     public static String action_response_header(String urn, String service, String action)
     {
-        String xml = "<?xml version=\"1.0\"?>\n" +
+        String xml = "<?xml version=\"1.0\"?>" +
             "<s:Envelope " +
             "xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" " +
-            "s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\n" +
-            "<s:Body>\n" +
-            "<u:" + action + "Response xmlns:u=\"urn:" + urn + ":service:" + service + ":1\">\n";
+            "s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">" +
+            "<s:Body>" +
+            "<u:" + action + "Response xmlns:u=\"urn:" + urn + ":service:" + service + ":1\">";
 
         // open home does not have a wrapper tag
         // each command is different
         // dlna wraps it in <Result>
 
         if (!urn.equals(open_service_urn))
-            xml += "<Result>\n";
+            xml += "<Result>";
 
         return xml;
     }
@@ -217,10 +217,10 @@ public class httpUtils
     {
         String xml = "";
         if (!urn.equals(open_service_urn))
-            xml += "</Result>\n";
+            xml += "</Result>";
         xml += extra +
-            "</u:" + action + "Response>\n"+
-            "</s:Body>\n"+
+            "</u:" + action + "Response>"+
+            "</s:Body>"+
             "</s:Envelope>";
         return xml;
     }
@@ -238,12 +238,7 @@ public class httpUtils
         xml += hashToXMLString(hash,false);
         xml +=  action_response_footer(urn,action,"");
         if (dbg_hash_response)
-        {
-            String lines[] = xml.split("\\n");
-            Utils.log(0,0,service + " " + action + "Response\n");
-            for (String line:lines)
-                Utils.log(0,1,line);
-        }
+            Utils.log(0,0,service + " " + action + "Response\n" + xml);
         return server.newFixedLengthResponse(NanoHTTPD.Response.Status.OK,"text/xml", xml);
     }
 
@@ -258,11 +253,11 @@ public class httpUtils
     // {
     //     String xml = action_response_header(urn,service,action);
     //     xml = xml + hashToXMLString(hash,false);
-    //     xml = xml + "<TrackMetaData>\n";
+    //     xml = xml + "<TrackMetaData>";
     //     xml = xml + start_didl();
     //     xml = xml + encode_xml(renderer.getgetDLNAMetadata());
     //     xml = xml + end_didl();
-    //     xml = xml + "</TrackMetaData>\n";
+    //     xml = xml + "</TrackMetaData>";
     //     xml = xml + action_response_footer(urn,action,"");
     //     return server.newFixedLengthResponse(NanoHTTPD.Response.Status.OK,"text/xml", xml);
     // }
@@ -277,7 +272,7 @@ public class httpUtils
             String part = "<" + key + ">" + hash.get(key) + "</" + key + ">";
             if (property_set)
                 part = "<e:property>" + part + "</e:property>";
-            rslt += part + "\n";
+            rslt += part;
         }
         return rslt;
     }

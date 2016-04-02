@@ -1,8 +1,10 @@
-package prh.artisan;
+package prh.artisan.utils;
 
 import android.content.Context;
 import android.util.AttributeSet;
 import android.widget.RelativeLayout;
+
+import prh.artisan.Artisan;
 
 public class SelectDeviceItem extends RelativeLayout
 {

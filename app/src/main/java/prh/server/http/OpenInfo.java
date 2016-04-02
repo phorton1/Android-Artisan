@@ -10,12 +10,12 @@ import java.util.HashMap;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
-import prh.artisan.Renderer;
+import prh.artisan.interfaces.Renderer;
 import prh.artisan.Track;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
 import prh.server.utils.httpRequestHandler;
-import prh.server.utils.UpdateCounter;
+import prh.server.utils.updateCounter;
 import prh.server.utils.UpnpEventHandler;
 import prh.utils.httpUtils;
 
@@ -102,7 +102,7 @@ public class OpenInfo implements httpRequestHandler,UpnpEventHandler
     // Event Dispatching
     //----------------------------------------
 
-    UpdateCounter update_counter = new UpdateCounter();
+    updateCounter update_counter = new updateCounter();
     @Override public int getUpdateCount()  { return update_counter.get_update_count(); }
     @Override public int incUpdateCount()  { return update_counter.inc_update_count(); }
     @Override public String getName() { return "Info"; };

@@ -1,22 +1,18 @@
 package prh.artisan;
 
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
-import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.util.List;
-
+import prh.artisan.interfaces.EventHandler;
+import prh.artisan.utils.SelectDevice;
 import prh.device.Device;
 import prh.types.intViewHash;
 

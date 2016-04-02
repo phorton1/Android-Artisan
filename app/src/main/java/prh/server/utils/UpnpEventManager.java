@@ -313,7 +313,9 @@ public class UpnpEventManager
 
             // synchronized (http_server)
             {
-                Utils.log(dbg_event,1,"--> asyncNOTIFY(" + m_subscriber.getHandler().getName() + ") to " + m_subscriber.getIp() + ":" + m_subscriber.getPort() + " " + m_subscriber.getUserAgent());
+                boolean is_loop_call =  m_subscriber.getHandler().getName().equals("Time");
+                if (!is_loop_call)
+                    Utils.log(dbg_event,1,"--> asyncNOTIFY(" + m_subscriber.getHandler().getName() + ") to " + m_subscriber.getIp() + ":" + m_subscriber.getPort() + " " + m_subscriber.getUserAgent());
                 try
                 {
                     int show_dbg = 1;

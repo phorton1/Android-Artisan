@@ -20,10 +20,14 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import prh.artisan.interfaces.EventHandler;
+import prh.artisan.interfaces.ArtisanPage;
+import prh.artisan.interfaces.PlaylistSource;
+import prh.artisan.interfaces.Renderer;
 import prh.types.intList;
 import prh.types.stringList;
-import prh.utils.ImageLoader;
 import prh.utils.Utils;
+import prh.utils.imageLoader;
 
 
 public class aRenderer extends Fragment implements
@@ -165,7 +169,7 @@ public class aRenderer extends Fragment implements
             "Now Playing " :
             renderer.getRendererName() + " ";
 
-        CurrentPlaylist cur = artisan.getCurrentPlaylist();
+        SystemPlaylist cur = artisan.getCurrentPlaylist();
         msg += ":: " +
             cur.getName();
         if (cur.isDirty())
@@ -403,7 +407,7 @@ public class aRenderer extends Fragment implements
             if (name.equals(""))
                 name = "default";
 
-            CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
+            SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
             btn.setTextColor(name.equals(current_playlist.getName())? 0xFFff9900:Color.WHITE);
             btn.setText(name);
             btn.setId(ID_BASE + position);
@@ -527,7 +531,7 @@ public class aRenderer extends Fragment implements
                 }
                 else
                 {
-                    ImageLoader.loadImage(artisan,img,art_uri);
+                    imageLoader.loadImage(artisan,img,art_uri);
                 }
             }
             catch(Exception e)
@@ -542,7 +546,7 @@ public class aRenderer extends Fragment implements
     {
         if (my_view != null)
         {
-            CurrentPlaylist cur = artisan.getCurrentPlaylist();
+            SystemPlaylist cur = artisan.getCurrentPlaylist();
             //setPlayListButtonSelected(cur.getName(),true);
 
             boolean enable_next =

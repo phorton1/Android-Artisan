@@ -9,8 +9,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import prh.artisan.interfaces.ArtisanPage;
 import prh.types.intList;
-import prh.types.stringList;
 import prh.utils.Utils;
 
 

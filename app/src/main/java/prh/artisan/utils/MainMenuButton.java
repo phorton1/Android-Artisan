@@ -1,4 +1,4 @@
-package prh.artisan;
+package prh.artisan.utils;
 
 // My own version of an image that acts as a button by
 // changing the tint of the view when it's pressed and
@@ -23,6 +23,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
 
+import prh.artisan.Artisan;
 
 
 public class MainMenuButton extends ImageView implements

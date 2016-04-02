@@ -1,13 +1,8 @@
-package prh.artisan;
+package prh.utils;
 
 import android.os.Handler;
-import android.os.Looper;
 
-import prh.artisan.EventHandler;
-import prh.device.Device;
-import prh.utils.Utils;
-
-public class myLoopingRunnable
+public class loopingRunnable
 {
     private int dbg_looper = 0;
 
@@ -62,7 +57,7 @@ public class myLoopingRunnable
     // Ctors
     //--------------------------------
 
-    public myLoopingRunnable(
+    public loopingRunnable(
         String title,
         Runnable to_run,
         int delay)
@@ -74,7 +69,7 @@ public class myLoopingRunnable
     }
 
 
-    public myLoopingRunnable(
+    public loopingRunnable(
         String title,
         handler parent,
         Runnable to_run,
@@ -89,7 +84,7 @@ public class myLoopingRunnable
         init(title,parent,to_run,stop_retries,refresh_interval,DEFAULT_USE_POST_DELAYED,null);
     }
 
-    public myLoopingRunnable(
+    public loopingRunnable(
         String title,
         handler parent,
         Runnable to_run,
@@ -150,7 +145,7 @@ public class myLoopingRunnable
                 Utils.sleep(REFRESH_INTERVAL);
             }
             if (in_loop)
-                Utils.warning(0,0,"myLoopingRunnable(" + name + ") TIMED OUT WAITING FOR STOP");
+                Utils.warning(0,0,"loopingRunnable(" + name + ") TIMED OUT WAITING FOR STOP");
         }
     }
 
@@ -233,6 +228,6 @@ public class myLoopingRunnable
 
     }   // class runnableLooper
 
-}   // class myLoopingRunnable
+}   // class loopingRunnable
 
 

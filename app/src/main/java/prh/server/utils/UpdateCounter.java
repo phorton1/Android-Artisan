@@ -2,7 +2,7 @@ package prh.server.utils;
 
 import prh.utils.Utils;
 
-public class UpdateCounter
+public class updateCounter
 {
     int update_count = 1;
 

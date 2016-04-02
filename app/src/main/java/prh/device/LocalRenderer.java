@@ -28,20 +28,20 @@ import android.net.Uri;
 import android.widget.Toast;
 
 import prh.artisan.Artisan;
-import prh.artisan.CurrentPlaylist;
-import prh.artisan.EventHandler;
-import prh.artisan.Renderer;
+import prh.artisan.SystemPlaylist;
+import prh.artisan.interfaces.EventHandler;
+import prh.artisan.interfaces.Renderer;
 import prh.artisan.Track;
-import prh.artisan.Volume;
+import prh.artisan.interfaces.Volume;
 import prh.artisan.VolumeControl;
-import prh.artisan.myLoopingRunnable;
+import prh.utils.loopingRunnable;
 import prh.server.SSDPServer;
 import prh.utils.Utils;
 import prh.utils.httpUtils;
 
 public class LocalRenderer extends Device implements
     Renderer,
-    myLoopingRunnable.handler,
+    loopingRunnable.handler,
     MediaPlayer.OnErrorListener,
     MediaPlayer.OnCompletionListener
 {
@@ -86,7 +86,7 @@ public class LocalRenderer extends Device implements
 
     private MediaPlayer media_player;
     private LocalVolume local_volume;
-    private myLoopingRunnable my_looper;
+    private loopingRunnable my_looper;
 
     private int mp_state = MP_STATE_NONE;
     private String renderer_state = RENDERER_STATE_NONE;
@@ -95,7 +95,7 @@ public class LocalRenderer extends Device implements
         // as returned by the media player, reset
         // on transitions, and updated in updateState()
     private Track current_track = null;
-        // Renderers are always playling the CurrentPlaylist,
+        // Renderers are always playling the SystemPlaylist,
         // but a Track can be pushed on top of it.
     private boolean repeat = true;
     private boolean shuffle = false;
@@ -150,13 +150,13 @@ public class LocalRenderer extends Device implements
         mp_state = MP_STATE_IDLE;
 
         updateState updater = new updateState();
-        my_looper = new myLoopingRunnable(
+        my_looper = new loopingRunnable(
             "LocalRenderer",
             this,
             updater,
             STOP_RETRIES,
             REFRESH_INTERVAL,
-            myLoopingRunnable.DEFAULT_USE_POST_DELAYED,
+            loopingRunnable.DEFAULT_USE_POST_DELAYED,
             this );
         my_looper.start();
         setRendererState(RENDERER_STATE_STOPPED);
@@ -263,7 +263,7 @@ public class LocalRenderer extends Device implements
         Track track = null;
          current_track = null;
 
-        CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
+        SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
         current_playlist.incGetTrack(inc);
         track = current_playlist.getCurrentTrack();
         if (track == null)
@@ -323,7 +323,7 @@ public class LocalRenderer extends Device implements
     {
         Utils.log(dbg_ren,0,"play() mp=" + getMediaPlayerState() + " rend=" + getRendererState());
         Track track = current_track;
-        CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
+        SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
         if (current_track==null && current_playlist != null)
             track = current_playlist.getCurrentTrack();
 

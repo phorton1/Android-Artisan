@@ -6,7 +6,6 @@ package prh.server.utils;
 
 
 import prh.server.SSDPServer;
-import prh.server.utils.UpnpEventHandler;
 import prh.utils.Utils;
 
 public class UpnpEventSubscriber

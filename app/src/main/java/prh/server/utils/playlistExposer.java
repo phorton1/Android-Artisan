@@ -1,16 +1,14 @@
-package prh.artisan;
+package prh.server.utils;
 
 import java.util.HashMap;
 
 import prh.artisan.Artisan;
-import prh.artisan.EventHandler;
-import prh.artisan.Playlist;
-import prh.device.LocalPlaylist;
+import prh.artisan.SystemPlaylist;
 import prh.artisan.Track;
-import prh.server.http.OpenPlaylist;
+import prh.artisan.interfaces.EventHandler;
 import prh.utils.Utils;
 
-public class CurrentPlaylistExposer
+public class playlistExposer
     // A class to incrementally expose a Playlist in our
     // OpenHome renderer service, for BubbleUp responsiveness.
     //
@@ -52,7 +50,7 @@ public class CurrentPlaylistExposer
     private intBoolHash exposed;
 
 
-    public CurrentPlaylistExposer(Artisan ma,String ua)
+    public playlistExposer(Artisan ma,String ua)
     {
         artisan = ma;
         user_agent = ua;
@@ -104,7 +102,7 @@ public class CurrentPlaylistExposer
         // then to the end of the playlist, then from the beginning ... Bup playlist doesn't keep
         // the currentTrack in view if you stick things before it ...
     {
-        CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
+        SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
         int num = current_playlist.getNumTracks();
         int idx = current_playlist.getCurrentIndex();
         Utils.log(dbg_expose,0,"expose_more() track_index=" + idx + " num_exposed=" + num_exposed + " num_tracks=" +num);
@@ -176,4 +174,4 @@ public class CurrentPlaylistExposer
         }
     }
 
-}   // class CurrentPlaylistExposer
+}   // class playlistExposer

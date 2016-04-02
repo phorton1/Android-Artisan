@@ -11,14 +11,14 @@ import java.util.HashMap;
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 
-import prh.artisan.CurrentPlaylist;
-import prh.artisan.EventHandler;
+import prh.artisan.SystemPlaylist;
+import prh.artisan.interfaces.EventHandler;
+import prh.server.utils.playlistExposer;
 import prh.artisan.Track;
 import prh.device.LocalRenderer;
 import prh.server.HTTPServer;
-import prh.artisan.CurrentPlaylistExposer;
 import prh.server.utils.UpnpEventSubscriber;
-import prh.server.utils.UpdateCounter;
+import prh.server.utils.updateCounter;
 import prh.server.utils.UpnpEventHandler;
 import prh.server.utils.httpRequestHandler;
 import prh.utils.httpUtils;
@@ -47,7 +47,7 @@ public class OpenPlaylist implements
     // BubbleUp incremental playlist exposure support.
     // Each UpNP OpenHome subscriber is given an exposer
 
-    private class exposerHash extends HashMap<String,CurrentPlaylistExposer> {}
+    private class exposerHash extends HashMap<String,playlistExposer> {}
     exposerHash exposers = null;
 
 
@@ -85,8 +85,8 @@ public class OpenPlaylist implements
         String ip = subscriber.getIp();
         String user_agent = subscriber.getUserAgent();
         String ipua = ip + ":" + user_agent;
-        CurrentPlaylistExposer exposer = exposers.get(ipua);
-        CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
+        playlistExposer exposer = exposers.get(ipua);
+        SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
 
         if (subscribe)
         {
@@ -97,7 +97,7 @@ public class OpenPlaylist implements
             else
             {
                 Utils.log(0,0,"notifySubscribed() Creating Exposer(" + ipua + ")");
-                exposer = new CurrentPlaylistExposer(artisan,ipua);
+                exposer = new playlistExposer(artisan,ipua);
                 exposers.put(ipua,exposer);
             }
 
@@ -131,7 +131,7 @@ public class OpenPlaylist implements
         // PLAYLIST_CHANGED event.
     {
         if (!exposers.isEmpty())
-            for (CurrentPlaylistExposer exposer : exposers.values())
+            for (playlistExposer exposer : exposers.values())
                 exposer.exposeTrack(track,set_it);
     }
 
@@ -140,10 +140,10 @@ public class OpenPlaylist implements
 
 
     public void clearAllExposers()
-        // called from the CurrentPlaylist during setAssociatedPlaylist
+        // called from the SystemPlaylist during setAssociatedPlaylist
         // Clear the exposers (and the tracks in the playlist)
     {
-        for (CurrentPlaylistExposer exposer : exposers.values())
+        for (playlistExposer exposer : exposers.values())
         {
             exposer.clearExposedTracks();
         }
@@ -164,12 +164,12 @@ public class OpenPlaylist implements
         boolean ok = true;
         HashMap<String,String> hash = new HashMap<>();
         LocalRenderer local_renderer = artisan.getLocalRenderer();
-        CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
+        SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
 
         String ipua =
             session.getHeaders().get("remote-addr") + ":" +
             session.getHeaders().get("user-agent");
-        CurrentPlaylistExposer exposer = exposers.get(ipua);
+        playlistExposer exposer = exposers.get(ipua);
 
         // get basic info
 
@@ -471,7 +471,7 @@ public class OpenPlaylist implements
     // Event Dispatching
     //----------------------------------------
 
-    UpdateCounter update_counter = new UpdateCounter();
+    updateCounter update_counter = new updateCounter();
     @Override public int getUpdateCount()  { return update_counter.get_update_count(); }
     @Override public int incUpdateCount()  { return update_counter.inc_update_count(); }
     @Override public String getName() { return "Playlist"; }
@@ -491,14 +491,14 @@ public class OpenPlaylist implements
     {
         HashMap<String,String> hash = new HashMap<>();
         LocalRenderer local_renderer = artisan.getLocalRenderer();
-        CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
+        SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
         Track track = local_renderer.getRendererTrack();
             // Our track may possibly NOT be in the playlist ...
 
         // EXPOSE_SCHEME support
 
         String ipua = subscriber.getIp() + ":" + subscriber.getUserAgent();
-        CurrentPlaylistExposer exposer = exposers.get(ipua);
+        playlistExposer exposer = exposers.get(ipua);
 
         // build the event response
 

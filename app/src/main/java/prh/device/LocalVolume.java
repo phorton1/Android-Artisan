@@ -5,12 +5,11 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.media.AudioManager;
 import android.os.Build;
-import android.os.Handler;
 import android.provider.Settings;
 
 import prh.artisan.Artisan;
-import prh.artisan.EventHandler;
-import prh.artisan.Volume;
+import prh.artisan.interfaces.EventHandler;
+import prh.artisan.interfaces.Volume;
 import prh.artisan.VolumeControl;
 import prh.server.LocalVolumeFixer;
 import prh.utils.Utils;

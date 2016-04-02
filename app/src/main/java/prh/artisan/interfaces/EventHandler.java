@@ -1,4 +1,4 @@
-package prh.artisan;
+package prh.artisan.interfaces;
 
 
 public interface EventHandler

@@ -4,13 +4,13 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import prh.artisan.Artisan;
-import prh.artisan.CurrentPlaylist;
-import prh.artisan.EventHandler;
-import prh.artisan.Renderer;
+import prh.artisan.SystemPlaylist;
+import prh.artisan.interfaces.EventHandler;
+import prh.artisan.interfaces.Renderer;
 import prh.artisan.Track;
-import prh.artisan.Volume;
+import prh.artisan.interfaces.Volume;
 import prh.artisan.VolumeControl;
-import prh.artisan.myLoopingRunnable;
+import prh.utils.loopingRunnable;
 import prh.device.service.RenderingControl;
 import prh.utils.Utils;
 import prh.types.stringHash;
@@ -19,7 +19,7 @@ import prh.types.stringHash;
 
 public class MediaRenderer extends Device implements
     Renderer,
-    myLoopingRunnable.handler
+    loopingRunnable.handler
     // Represents a DLNA AVTransport, with a possible
     // DLNA RenderingControl for volume changes.
     //
@@ -52,7 +52,7 @@ public class MediaRenderer extends Device implements
     //------------------------------------------
 
     private RenderingControl volume;
-    private myLoopingRunnable my_looper;
+    private loopingRunnable my_looper;
 
     // Status and State
 
@@ -138,13 +138,13 @@ public class MediaRenderer extends Device implements
             // though using update_handler causes it to be on the same thread
 
             Updater updater = new Updater();
-            my_looper = new myLoopingRunnable(
+            my_looper = new loopingRunnable(
                 "MediaRenderer(" + getFriendlyName() + ")",
                 this,
                 updater,
                 STOP_RETRIES,
                 REFRESH_INTERVAL,
-                myLoopingRunnable.DEFAULT_USE_POST_DELAYED,
+                loopingRunnable.DEFAULT_USE_POST_DELAYED,
                 this );
             my_looper.start();
         }
@@ -156,7 +156,7 @@ public class MediaRenderer extends Device implements
 
 
     @Override public boolean continue_loop()
-    // called by myLoopingRunnable
+    // called by loopingRunnable
     {
         return getDeviceStatus() != deviceStatus.OFFLINE;
     }
@@ -273,7 +273,7 @@ public class MediaRenderer extends Device implements
     {
         Utils.log(dbg_mr,0,"incAndPlay(" + inc + ")");
 
-        CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
+        SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
         Track track = current_playlist.incGetTrack(inc);
 
         if (track == null)

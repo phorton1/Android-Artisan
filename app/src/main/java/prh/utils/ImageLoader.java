@@ -12,7 +12,7 @@ import java.util.HashMap;
 import prh.artisan.Artisan;
 
 
-public class ImageLoader extends Thread
+public class imageLoader extends Thread
     // The icon loader must run on a separate thread from the UI
     // for network URLs, and the View must always be updated from
     // the UI thread ...
@@ -78,7 +78,7 @@ public class ImageLoader extends Thread
         }
         else if (url.startsWith("http://"))
         {
-            ImageLoader loader = new ImageLoader(ma,image,url);
+            imageLoader loader = new imageLoader(ma,image,url);
             Thread image_thread = new Thread(loader);
             image_thread.start();
         }
@@ -104,7 +104,7 @@ public class ImageLoader extends Thread
 
     // PRIVATE THREAD UI
 
-    private ImageLoader(Artisan ma, ImageView item, String url)
+    private imageLoader(Artisan ma,ImageView item,String url)
     {
         artisan = ma;
         image_view = item;
@@ -154,4 +154,4 @@ public class ImageLoader extends Thread
     }
 
 
-}   // ImageLoader
+}   // imageLoader

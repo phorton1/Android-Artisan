@@ -14,7 +14,9 @@ import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import prh.artisan.interfaces.EventHandler;
 import prh.device.Device;
+import prh.artisan.interfaces.ArtisanPage;
 import prh.types.intList;
 import prh.types.intViewHash;
 import prh.utils.Utils;

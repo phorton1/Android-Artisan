@@ -14,7 +14,7 @@ import prh.artisan.Prefs;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
 import prh.server.utils.httpRequestHandler;
-import prh.server.utils.UpdateCounter;
+import prh.server.utils.updateCounter;
 import prh.server.utils.UpnpEventHandler;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
@@ -171,7 +171,7 @@ public class OpenProduct implements httpRequestHandler,UpnpEventHandler
     // Event Dispatching
     //----------------------------------------
 
-    UpdateCounter update_counter = new UpdateCounter();
+    updateCounter update_counter = new updateCounter();
     @Override public int getUpdateCount()  { return update_counter.get_update_count(); }
     @Override public int incUpdateCount()  { return update_counter.inc_update_count(); }
     @Override public String getName() { return "Product"; };

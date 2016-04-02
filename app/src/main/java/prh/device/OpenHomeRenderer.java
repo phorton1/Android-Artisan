@@ -6,27 +6,24 @@ import java.util.HashMap;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
-import prh.artisan.Playlist;
-import prh.artisan.Renderer;
+import prh.artisan.interfaces.Renderer;
 import prh.artisan.Track;
-import prh.artisan.Volume;
+import prh.artisan.interfaces.Volume;
 import prh.device.service.OpenInfo;
 import prh.device.service.OpenPlaylist;
 import prh.device.service.OpenTime;
 import prh.device.service.OpenVolume;
 import prh.device.service.OpenProduct;
-import prh.artisan.CurrentPlaylistExposer;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventReceiver;
 import prh.types.stringHash;
 import prh.utils.Utils;
-import prh.utils.httpUtils;
 
 
 // A class that presents a remote OpenHome device as a Renderer.
 // Because an OpenHome device is also has a playlist, there is
 // a tight binding between this object (the device.OpenPlaylist)
-// and the CurrentPlaylist as seen by the rest of the system.
+// and the SystemPlaylist as seen by the rest of the system.
 
 // Unlike the other Renderers, the OpenHome device does not have
 // a looper, and does not call Artisan.handleArtisanEvent(EVENT_IDLE).
@@ -115,7 +112,6 @@ public class OpenHomeRenderer extends Device implements
         // Will need a getter to support start-before-stop
 
         http_server.setOpenHomeRenderer(this);
-        artisan.getCurrentPlaylist().setOpenPlaylist(getOpenPlaylist());
 
         // SUBSCRIBE to the services.
         // If we fail to subscribe to any,
@@ -162,13 +158,12 @@ public class OpenHomeRenderer extends Device implements
 
         if (ok)
         {
-            // Attach our Playlist to the CurrentPlaylist
+            // Attach our Playlist to the SystemPlaylist
         }
         else
         {
             // clear ourself rom the http_server
             // and wipe out any partial subscriptions
-            artisan.getCurrentPlaylist().setOpenPlaylist(null);
             http_server.setOpenHomeRenderer(null);
             unsubscribeAll();
         }
@@ -182,13 +177,12 @@ public class OpenHomeRenderer extends Device implements
     @Override
     public void stopRenderer(boolean wait_for_stop)
         // stop the http server from sending us more stuff
-        // stop the CurrentPlaylist from accessing us, and
+        // stop the SystemPlaylist from accessing us, and
         // cancel any subscriptions
     {
         Utils.log(dbg_ohr,0,"OpenHomeRenderer.stopRenderer(" + wait_for_stop + ")");
         if (http_server != null)
             http_server.setOpenHomeRenderer(null);
-        artisan.getCurrentPlaylist().setOpenPlaylist(null);
         unsubscribeAll();
     }
 
@@ -305,7 +299,7 @@ public class OpenHomeRenderer extends Device implements
         String service,
         Document doc)
     {
-        synchronized (http_server)
+        // synchronized (http_server)
         {
             boolean is_loop_action = service.equals("OpenTime");
             String dbg_from = "OpenHomeRenderer Callback(" + service + ")";

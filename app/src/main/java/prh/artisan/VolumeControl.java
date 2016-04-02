@@ -23,8 +23,10 @@ import android.widget.Button;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import prh.artisan.interfaces.EventHandler;
+import prh.artisan.interfaces.Renderer;
+import prh.artisan.interfaces.Volume;
 import prh.utils.Utils;
-
 
 
 public class VolumeControl extends Dialog implements

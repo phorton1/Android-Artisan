@@ -1,24 +1,15 @@
 package prh.device;
 
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
-
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.SocketTimeoutException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 
 import prh.artisan.Artisan;
-import prh.artisan.EventHandler;
 import prh.server.SSDPServer;
 import prh.utils.Utils;
-import prh.utils.httpUtils;
 
 
 public class SSDPSearch implements Runnable

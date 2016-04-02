@@ -21,6 +21,16 @@ import android.widget.PopupMenu;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import prh.artisan.interfaces.EventHandler;
+import prh.artisan.interfaces.ArtisanPage;
+import prh.artisan.interfaces.FetchablePlaylist;
+import prh.artisan.interfaces.Playlist;
+import prh.artisan.interfaces.PlaylistSource;
+import prh.artisan.interfaces.Renderer;
+import prh.artisan.utils.Fetcher;
+import prh.artisan.utils.ListItem;
+import prh.artisan.utils.ListItemAdapter;
+import prh.artisan.utils.PlaylistFetcher;
 import prh.types.intList;
 import prh.types.recordList;
 import prh.types.selectedHash;
@@ -28,7 +38,7 @@ import prh.types.stringList;
 import prh.utils.Utils;
 
 
-// implements Playlist interface for aRenderer
+// implements Playlist UI
 
 public class aPlaylist extends Fragment implements
     ArtisanPage,
@@ -36,26 +46,22 @@ public class aPlaylist extends Fragment implements
     ListItem.ListItemListener,
     Fetcher.FetcherClient
 {
-    private static int dbg_aplay = 1;
-    private static int FETCH_INITIAL = 200;
-    private static int NUM_PER_FETCH = 400;
+    private static int dbg_aplay = 0;
+    private static int FETCH_INITIAL = 20;
+    private static int NUM_PER_FETCH = 60;
 
     private TextView page_title = null;
     private Artisan artisan = null;
     private LinearLayout my_view = null;
     private ListView the_list = null;
-    private Fetcher fetcher = null;
+    private PlaylistFetcher playlist_fetcher = null;
+    private FetchablePlaylist the_playlist = null;
 
     private boolean album_mode = false;
     private boolean is_current = false;
     private selectedHash selected;
     private int playlist_count_id = -1;
     private int playlist_content_count_id = -1;
-
-    // A copy of the reference to the CurrentPlaylist
-
-    private CurrentPlaylist current_playlist = null;
-
 
     // scroll position
 
@@ -94,11 +100,11 @@ public class aPlaylist extends Fragment implements
         if (selected == null)
         {
             selected = new selectedHash();
-            current_playlist = artisan.getCurrentPlaylist();
+            the_playlist = artisan.getCurrentPlaylist();
 
-            fetcher = new Fetcher(
+            playlist_fetcher = new PlaylistFetcher(
                 artisan,
-                current_playlist,
+                the_playlist,
                 this,
                 FETCH_INITIAL,
                 NUM_PER_FETCH,
@@ -108,6 +114,7 @@ public class aPlaylist extends Fragment implements
         }
 
         init(cold_init);
+        Utils.log(dbg_aplay,0,"aPlaylist.onCreateView() finished");
         return my_view;
     }
 
@@ -143,29 +150,41 @@ public class aPlaylist extends Fragment implements
     public void onDestroy()
     {
         Utils.log(dbg_aplay,0,"aPlaylist.onDestroy() called");
-        if (fetcher != null)
-            fetcher.stop(true,true);
-        // fetcher = null;
+        if (playlist_fetcher != null)
+            playlist_fetcher.stop(true,true);
+        // playlist_fetcher = null;
         super.onDestroy();
     }
-
-
-
 
 
     private void init(boolean cold_init)
     {
         // detect "playlist changed" or "playlist content" changed
-        // on the current_playlist, regardless of events or params
+        // on the the_playlist, regardless of events or params
 
-        int new_id = current_playlist.getPlaylistCountId();
-        boolean pl_changed = playlist_count_id != new_id;
-        playlist_count_id = new_id;
-        if (cold_init)
+        Utils.log(dbg_aplay,0,"aPlaylist.init(" + cold_init + ") called");
+
+        // detect a change in the basic playlist identity
+
+        int new_count_id = the_playlist.getPlaylistCountId();
+        boolean pl_changed = cold_init;
+
+        if (!pl_changed && playlist_count_id != new_count_id)
+        {
+            Utils.log(dbg_aplay,1,"aPlaylist.init() setting pl_changed=TRUE due to playlist_count=" + playlist_count_id + ", new_count_id=" + new_count_id);
             pl_changed = true;
+        }
+        playlist_count_id = new_count_id;
 
-        int new_content_id = current_playlist.getContentChangeId();
-        boolean content_changed = new_content_id != playlist_content_count_id;
+        // detect change in playlist contents
+
+        boolean content_changed = pl_changed;
+        int new_content_id = the_playlist.getContentChangeId();
+        if (!content_changed && playlist_content_count_id != new_content_id)
+        {
+            Utils.log(dbg_aplay,1,"aPlaylist.init() setting content_changed=TRUE due to playlist_content_count=" + playlist_content_count_id + ", new_content_id=" + new_content_id);
+            pl_changed = true;
+        }
         playlist_content_count_id = new_content_id;
 
         // clear the selection if the playlist changed
@@ -176,32 +195,44 @@ public class aPlaylist extends Fragment implements
         // save the cursor position if the content changed
         // but not the playlist ....
 
-        if (!cold_init && !pl_changed && content_changed)
+        if (!pl_changed && content_changed)
+        {
+            Utils.log(dbg_aplay,1,"aPlaylist.init() saving scroll position");
             saveScroll(true);
+        }
 
-        // set the album mode into the fetcher
+        // set the album mode into the playlist_fetcher
 
-        boolean mode_changed = false;
-        if (fetcher.getAlbumMode() != album_mode)
-            mode_changed = true;
-        fetcher.setAlbumMode(album_mode);
+        if (playlist_fetcher.getAlbumMode() != album_mode)
+        {
+            Utils.log(dbg_aplay,1,"aPlaylist.init() album_mode changed to " + album_mode);
+            playlist_fetcher.setAlbumMode(album_mode);
+        }
 
-        // start or rebuild the fetcher
+        // start or rebuild the playlist_fetcher
 
         boolean ok = true;
-        if (pl_changed)
+        if (cold_init)
         {
-            ok = fetcher.restart();
+            Utils.log(dbg_aplay,1,"aPlaylist.init() calling fetcher.start()");
+            ok = playlist_fetcher.start();
         }
-        else if (mode_changed || content_changed)
+        else if (pl_changed)
         {
-            ok = fetcher.rebuild();
+            Utils.log(dbg_aplay,1,"aPlaylist.init() calling fetcher.restart()");
+            ok = playlist_fetcher.restart();
         }
+        // else if (mode_changed || content_changed)
+        // {
+        //     ok = playlist_fetcher.();
+        // }
+
+
 
         // get the records
 
         recordList records = ok ?
-            fetcher.getRecords() :
+            playlist_fetcher.getRecords() :
             new recordList();
 
         // and away we go ...
@@ -209,6 +240,7 @@ public class aPlaylist extends Fragment implements
         ListItemAdapter adapter = (ListItemAdapter) the_list.getAdapter();
         if (adapter == null)
         {
+            Utils.log(dbg_aplay,1,"aPlaylist.init() building new ListItemAdapter");
             adapter = new ListItemAdapter(
                 artisan,
                 this,
@@ -221,6 +253,7 @@ public class aPlaylist extends Fragment implements
         }
         else
         {
+            Utils.log(dbg_aplay,1,"aPlaylist.init() using existing ListItemAdapter");
             adapter.setLargeFolders(true);
             adapter.setLargeTracks(!album_mode);
             adapter.setItems(records);
@@ -235,21 +268,23 @@ public class aPlaylist extends Fragment implements
 
             // and no matter what, I had a hard time
             // getting ny scroll thumb to show reliably
-            //     adapter.setScrollBar(true);
         }
-
-        updateTitleBar();
 
         // restore the scroll position anytime
         // the playlist did not change
 
         if (!cold_init && !pl_changed)
+        {
+            Utils.log(dbg_aplay,1,"aPlaylist.init() restoring scroll position");
             restoreScroll(content_changed);
+        }
+
+        // finished ...
+
+        updateTitleBar();
+        Utils.log(dbg_aplay,0,"aPlaylist.init(" + cold_init + ") finished");
 
     }   // init()
-
-
-
 
 
     //------------------------------------------------
@@ -276,7 +311,6 @@ public class aPlaylist extends Fragment implements
             init(false);
         }
     }
-
 
 
     public void saveScroll(boolean by_track)
@@ -317,16 +351,16 @@ public class aPlaylist extends Fragment implements
         Utils.log(0,0,"restoreScroll(" + scroll_index + "," + scroll_offset + ") track=" + (scroll_track==null ? null : scroll_track.getTitle()));
         Utils.log(0,3,"adapter count=" + the_list.getAdapter().getCount());
 
-        if (fetcher != null && scroll_track != null)
+        if (playlist_fetcher != null && scroll_track != null)
         {
-            Utils.log(0,3,"fetcher count=" + fetcher.getNumRecords());
+            Utils.log(0,3,"playlist_fetcher count=" + playlist_fetcher.getNumRecords());
 
             // if switching TO album_mode, start looking for the track forwards
             // if switching FROM album_mode, start looking backwards.
             // Note that care has been taken to ensure that the entire
             // record list has been rebuilt, and passed to the adapter.
 
-            recordList records = fetcher.getRecordsRef();
+            recordList records = playlist_fetcher.getRecordsRef();
             boolean done = false;
 
             int inc = album_mode ? 1 : -1;
@@ -361,7 +395,6 @@ public class aPlaylist extends Fragment implements
         scroll_offset = 0;
         scroll_track = null;
     }
-
 
 
     //--------------------------------
@@ -412,16 +445,16 @@ public class aPlaylist extends Fragment implements
         {
             res_ids.add(R.string.context_menu_new);
 
-            if (current_playlist.isDirty())
+            if (the_playlist.isDirty())
             {
                 res_ids.add(R.string.context_menu_save);
             }
-            if (!current_playlist.getName().isEmpty())
+            if (!the_playlist.getName().isEmpty())
             {
                 res_ids.add(R.string.context_menu_saveas);
                 res_ids.add(R.string.context_menu_rename);
                 res_ids.add(R.string.context_menu_delete);
-                if (current_playlist.getNumTracks()>0)
+                if (the_playlist.getNumTracks()>0)
                 {
                     res_ids.add(R.string.context_menu_shuffle);
                     res_ids.add(R.string.context_menu_edit_header);
@@ -438,8 +471,8 @@ public class aPlaylist extends Fragment implements
             res_ids.add(R.string.context_edit_metadata);
         }
 
-        if (!current_playlist.getName().isEmpty() &&
-            current_playlist.getNumTracks()>0)
+        if (!the_playlist.getName().isEmpty() &&
+            the_playlist.getNumTracks()>0)
         {
             res_ids.add(R.string.context_menu_download);
         }
@@ -451,11 +484,19 @@ public class aPlaylist extends Fragment implements
     private String getTitleBarText()
     {
         String msg = "Playlist: ";
-        String name = current_playlist.getName();
+        String name = the_playlist.getName();
         if (!name.isEmpty())
             msg += name;
-        if (current_playlist.isDirty())
+        if (the_playlist.isDirty())
             msg += "*";
+        if (the_playlist.getNumTracks() > 0)
+        {
+            msg += "(";
+            if (playlist_fetcher != null && playlist_fetcher.getNumRecords() < the_playlist.getNumTracks())
+                msg += playlist_fetcher.getNumRecords() + "/";
+            msg += the_playlist.getNumTracks();
+            msg += ")";
+        }
         return msg;
     }
 
@@ -477,7 +518,7 @@ public class aPlaylist extends Fragment implements
     };
 
 
-    public static class playlistFileDialog extends DialogFragment
+    private class playlistFileDialog extends DialogFragment
         implements
             TextWatcher,
             View.OnClickListener,
@@ -500,8 +541,7 @@ public class aPlaylist extends Fragment implements
             artisan = ma;
             command = what;
             parent = a_playlist;
-            CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
-            name_for_inflate = current_playlist.getName();
+            name_for_inflate = a_playlist.the_playlist.getName();
 
             if (what.equals("set_playlist") && param.isEmpty())
                 what = "new";
@@ -533,7 +573,7 @@ public class aPlaylist extends Fragment implements
                     Utils.error("Could not find playlist: " + param);
                     return;
                 }
-                if (!current_playlist.isDirty())
+                if (!the_playlist.isDirty())
                 {
                     parent.do_setPlaylist(param);
                     return;
@@ -708,7 +748,7 @@ public class aPlaylist extends Fragment implements
     public void setPlaylist(String name, boolean force)
     {
         playlistFileDialog dlg = new playlistFileDialog();
-        if (force || !current_playlist.isDirty())
+        if (force || !the_playlist.isDirty())
             do_setPlaylist(name);
         else
             dlg.setup(this,artisan,"set_playlist",name);
@@ -728,17 +768,15 @@ public class aPlaylist extends Fragment implements
             return;
         }
 
-        // associate it with the renderer and the CurrentPlaylist
+        // associate it with the renderer and the SystemPlaylist
 
-        current_playlist.setAssociatedPlaylist(new_playlist);
+        the_playlist.setAssociatedPlaylist(new_playlist);
         renderer.notifyPlaylistChanged();
 
         // send the event.
 
         artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,new_playlist);
     }
-
-
 
 
     //--------------------------------------------------------------
@@ -753,7 +791,7 @@ public class aPlaylist extends Fragment implements
         {
             case R.string.context_menu_new:
             {
-                if (!current_playlist.isDirty())
+                if (!the_playlist.isDirty())
                 {
                     do_setPlaylist("");
                 }
@@ -785,8 +823,6 @@ public class aPlaylist extends Fragment implements
         }
         return true;
     }
-
-
 
 
     @Override public void onClick(View v)
@@ -824,11 +860,13 @@ public class aPlaylist extends Fragment implements
         Utils.log(dbg_aplay,0,"aPlaylist.notifyFetchRecords(" + fetch_result + ") called with " + fetcher.getNumRecords() + " records");
         ((ListItemAdapter) the_list.getAdapter()).
             setItems(fetcher.getRecordsRef());
+        updateTitleBar();
     }
 
     @Override public void notifyFetcherStop(Fetcher fetcher,Fetcher.fetcherState fetcher_state)
     {
         Utils.warning(0,0,"aPlaylist.notifyFetcherStop() not implemented yet");
+        updateTitleBar();
     }
 
 

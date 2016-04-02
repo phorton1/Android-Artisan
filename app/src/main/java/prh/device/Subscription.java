@@ -1,17 +1,13 @@
 package prh.device;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
 
-import javax.xml.parsers.DocumentBuilderFactory;
-
 import prh.artisan.Artisan;
-import prh.artisan.myLoopingRunnable;
+import prh.utils.loopingRunnable;
 import prh.types.stringHash;
 import prh.utils.Utils;
 
@@ -27,7 +23,7 @@ public class Subscription
         // when it is over this percent expired.
 
     private Artisan artisan;
-    myLoopingRunnable my_looper;
+    loopingRunnable my_looper;
 
     private String sid;
     private Service service;
@@ -71,7 +67,7 @@ public class Subscription
                 {
                     public void run() { subscribe(); }
                 };
-                my_looper = new myLoopingRunnable(
+                my_looper = new loopingRunnable(
                     "subscribe(" + service.getServiceType() + ")",
                     restart,
                     expire_seconds * RESUBSCRIBE_PCT * 10);

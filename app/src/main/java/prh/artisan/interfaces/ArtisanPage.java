@@ -1,4 +1,4 @@
-package prh.artisan;
+package prh.artisan.interfaces;
 
 import android.widget.PopupMenu;
 

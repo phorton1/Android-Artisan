@@ -5,9 +5,6 @@
 package prh.server.utils;
 
 
-import prh.artisan.EventHandler;
-
-
 abstract public interface UpnpEventHandler
 {
     String getName();

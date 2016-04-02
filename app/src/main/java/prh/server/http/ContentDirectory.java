@@ -13,12 +13,10 @@ import java.util.Map;
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 import prh.artisan.Folder;
-import prh.artisan.Library;
-import prh.artisan.Playlist;
-import prh.artisan.PlaylistSource;
+import prh.artisan.interfaces.Library;
 import prh.artisan.Record;
-import prh.artisan.Renderer;
 import prh.artisan.Track;
+import prh.device.LocalLibrary;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
 import prh.server.utils.httpRequestHandler;
@@ -142,7 +140,7 @@ public class ContentDirectory implements httpRequestHandler
         String id)
     {
         Utils.log(dbg_stream+1,0,"stream_response(" + id + ")");
-        Library local_library = artisan.getLocalLibrary();
+        LocalLibrary local_library = artisan.getLocalLibrary();
         if (local_library == null)
         {
             Utils.error("No LocalLibrary found in DLNAServer.stream_response()");
@@ -267,7 +265,7 @@ public class ContentDirectory implements httpRequestHandler
         // the id is the id of the folder, from which we get the path and retrieve the folder.jpg
     {
         Utils.log(dbg_dlna,0,"folder_jpg_response(" + id + ")");
-        Library local_library = artisan.getLocalLibrary();
+        LocalLibrary local_library = artisan.getLocalLibrary();
         if (local_library == null)
         {
             Utils.error("No LocalLibrary found in folder_jpg_response()");
@@ -321,7 +319,7 @@ public class ContentDirectory implements httpRequestHandler
             return response;
         }
 
-        Library local_library = artisan.getLocalLibrary();
+        LocalLibrary local_library = artisan.getLocalLibrary();
         Folder folder = local_library.getLibraryFolder(id);
         if (folder == null)
         {

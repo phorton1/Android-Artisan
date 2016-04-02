@@ -1,5 +1,7 @@
-package prh.artisan;
+package prh.artisan.interfaces;
 
+
+import prh.artisan.Track;
 
 public interface Renderer
     // This is the base class for Renderers, that can play
@@ -56,7 +58,7 @@ public interface Renderer
 
     public void notifyPlaylistChanged();
         // called by Artisan when it gives a new LocalPlaylist
-        // to the CurrentPlaylist so that the renderer may be
+        // to the SystemPlaylist so that the renderer may be
         // aware that num_tracks, track_index, etc, changed.
 }   // base class Renderer
 

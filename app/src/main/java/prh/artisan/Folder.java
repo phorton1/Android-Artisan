@@ -9,21 +9,26 @@ import android.database.Cursor;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
-import java.util.HashMap;
-
-import prh.types.objectHash;
-import prh.utils.httpUtils;
+import prh.artisan.utils.Fetcher;
+import prh.device.LocalLibrary;
+import prh.types.libraryBrowseResult;
+import prh.types.recordList;
 import prh.utils.Utils;
+import prh.utils.httpUtils;
 
-public class Folder extends Record
+public class Folder extends Record implements Fetcher.FetcherSource
     // Although these can represent a database record,
     // at the current time, there is no API for writing them,
     // as the local database is considered read-only at this time.
 
 {
+    private static int dbg_folder = 0;
+
     // Construction
 
-    public Folder()  {};
+    public Folder()
+    {
+    }
 
     public Folder(Cursor cursor)
         // construct from a cursor pointing at a database record
@@ -31,16 +36,12 @@ public class Folder extends Record
         super(cursor);
     }
 
-
     public Folder(Folder other)
         // Copy Constructor
     {
         this.clear();
         this.putAll(other);
     }
-
-
-
 
     public Folder(Node didl_node)
     {
@@ -57,21 +58,8 @@ public class Folder extends Record
         if (artist.isEmpty())
             artist = Utils.getTagValue(node_ele,"upnp:albumArtist");
         setArtist(artist);
-
-
-
     }
 
-
-    /*
-    public Folder(String uri, String metadata)
-        // construct from didl METADATA from a dlna client
-        // the dummy boolean is used to give this a different
-        // signature than Folder(id)
-    {
-        // TBD
-    }
-    */
 
 
     //------------------------------------------
@@ -135,11 +123,8 @@ public class Folder extends Record
     public void setHighestTrackError  (int     value){ putInt("highest_track_error",value); }
 
 
-    // protect Record
-
-
     //------------------------------------------------------------
-    // Implementation Independent Accessors
+    // Implementation Accessors
     //------------------------------------------------------------
 
     public String getLocalArtUri()
@@ -199,6 +184,64 @@ public class Folder extends Record
             "<dc:date>" +  httpUtils.encode_value(getYearString()) + "</dc:date>" +
             "<upnp:albumArtURI>" +  httpUtils.encode_value(getPublicArtUri()) + "</upnp:albumArtURI>" +
             "</container>";
+    }
+
+
+
+    //--------------------------------------------------------
+    // FetcherSource Interface
+    //--------------------------------------------------------
+    // Every Folder is a Fetcher Source for aLibrary.
+    //
+    // The base class works against the LocalLibrary.
+    // Overridden by MediaServer.FolderPlus.
+    //
+    // Base class does not have assoicated fetchers
+
+    public Fetcher getFetcher() { return null; }
+
+
+    public Fetcher.fetchResult getFetchRecords(Fetcher fetcher, boolean initial_call, int num)
+        // A Folder form the LocalLibrary does not have a persistent
+        // fetcher, and all the records are gotten at once (num is ignored
+        // and 9999999 is passed to getSubItems()
+        //
+        // They are created as the library is traversed in aLibrary.
+        // Folders from remote sources (i.e. device.MediaServer) associate
+        // a fetcher with the folder persistently, as long as the Library
+        // is selected.
+        //
+        // It should never be the case that a persistent_fetcher is not passed
+        // back in .. if they are different, it constitutes an error.
+    {
+        if (this.getFetcher() != null && this.getFetcher() != fetcher)
+        {
+            Utils.error("TWO DIFFERENT FETCHERS ON THE SAME FOLDER: " + this.getFetcher().getTitle() + " new=" + fetcher.getTitle());
+            return Fetcher.fetchResult.FETCH_ERROR;
+        }
+
+        recordList records = fetcher.getRecordsRef();
+        if (records.size() >= getNumElements())
+            return Fetcher.fetchResult.FETCH_DONE;
+        if (records.size() > 0)
+        {
+            Utils.error("Unexpected call with a partially populated LocalFolder fetcher");
+            return Fetcher.fetchResult.FETCH_ERROR;
+        }
+
+        LocalLibrary local_library = fetcher.getArtisan().getLocalLibrary();
+        if (local_library == null)
+        {
+            Utils.error("Attempt to fetch from a LocalFolder with local_library==NULL");
+            return Fetcher.fetchResult.FETCH_ERROR;
+        }
+
+        // Overwrite local variable "records" with a new list
+        // and set it into the fetcher.
+
+        libraryBrowseResult result = local_library.getSubItems(this.getId(),0,999999,false);
+        fetcher.setRecords(result);
+        return Fetcher.fetchResult.FETCH_DONE;
     }
 
 

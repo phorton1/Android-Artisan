@@ -10,7 +10,7 @@ import prh.artisan.Artisan;
 import prh.artisan.Prefs;
 
 
-public class getStringDialog extends Dialog
+public class unused_getStringDialog extends Dialog
     implements View.OnClickListener
 {
     Artisan artisan;
@@ -26,7 +26,7 @@ public class getStringDialog extends Dialog
             //     1 = ok, i got it
 
 
-    public getStringDialog(stringValidator validator, Artisan ma, String msg, String s)
+    public unused_getStringDialog(stringValidator validator,Artisan ma,String msg,String s)
     {
         super(ma);
         artisan = ma;

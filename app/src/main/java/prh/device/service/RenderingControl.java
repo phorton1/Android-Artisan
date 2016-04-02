@@ -19,11 +19,10 @@ import org.w3c.dom.Element;
 import java.util.HashMap;
 
 import prh.artisan.Artisan;
-import prh.artisan.EventHandler;
-import prh.artisan.Volume;
+import prh.artisan.interfaces.EventHandler;
+import prh.artisan.interfaces.Volume;
 import prh.artisan.VolumeControl;
 import prh.device.Device;
-import prh.device.SSDPSearch;
 import prh.device.SSDPSearchService;
 import prh.device.Service;
 import prh.utils.Utils;

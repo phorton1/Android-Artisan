@@ -3,15 +3,14 @@ package prh.server;
 import android.content.Context;
 import android.media.AudioManager;
 import android.os.Build;
-import android.os.Handler;
 
 import prh.artisan.Artisan;
-import prh.artisan.myLoopingRunnable;
+import prh.utils.loopingRunnable;
 import prh.utils.Utils;
 
 
 public class LocalVolumeFixer implements
-    myLoopingRunnable.handler
+    loopingRunnable.handler
     // The main entry point is ctor, start(),
     // which sets up a timer loop to normalize the Android
     // and MTC volumes on the real car stereo.
@@ -34,7 +33,7 @@ public class LocalVolumeFixer implements
         // statics used by setMTCVolume()
 
     private Artisan artisan;
-    myLoopingRunnable my_looper = null;
+    loopingRunnable my_looper = null;
     private boolean in_vol_change = false;
 
 
@@ -59,7 +58,7 @@ public class LocalVolumeFixer implements
             Utils.log(0,0,"LocalVolumeFixer.start() ...");
             in_vol_change = false;
             VolumeNormalizer normalizer = new VolumeNormalizer();
-            my_looper = new myLoopingRunnable(
+            my_looper = new loopingRunnable(
                 "LocalVolumeFixer",
                 this,
                 normalizer,

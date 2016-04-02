@@ -37,8 +37,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.xml.parsers.DocumentBuilderFactory;
+
 import prh.artisan.Artisan;
-import prh.artisan.R;
 
 
 public class Utils {
@@ -162,7 +162,7 @@ public class Utils {
 
                 // optional .. only show one level past our package
 
-                if (true && !e.getClassName().startsWith("com.prh.carstereo")) { break; }
+                if (true && !e.getClassName().startsWith("prh")) { break; }
             }
         }
         // show an error dialog
@@ -191,7 +191,7 @@ public class Utils {
             StackTraceElement[] stack = Thread.currentThread().getStackTrace();
             int level = 0;
             while (level+call_level+4 < stack.length &&
-                stack[level+call_level+4].getClassName().startsWith("com.prh"))
+                stack[level+call_level+4].getClassName().startsWith("prh"))
             {
                 level++;
             }

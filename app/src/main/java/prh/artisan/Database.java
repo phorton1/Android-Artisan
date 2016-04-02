@@ -4,11 +4,9 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 
 import prh.utils.Utils;
-
 
 
 public class Database
@@ -34,7 +32,7 @@ public class Database
     {
         if (db == null)
         {
-            Utils.log(dbg_db,0,"starting database ...");
+            Utils.log(dbg_db,0,"starting Database ...");
             try
             {
                 String db_name = Prefs.getString(Prefs.id.DATA_DIR) + "/artisan.db";
@@ -46,11 +44,11 @@ public class Database
                 db = null;
                 return false;
             }
-            Utils.log(0,0,"database started");
+            Utils.log(0,0,"Database started");
         }
         else
         {
-            Utils.log(dbg_db,0,"database already started!");
+            Utils.log(dbg_db,0,"Database already started!");
         }
         return true;
     }

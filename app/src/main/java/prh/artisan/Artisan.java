@@ -1,29 +1,21 @@
 package prh.artisan;
 
 // TODO
+//    SSDPServer devices
+//    Basic Prefs
+//    Item Selection
+//    Item Context Menus
+//    Real write-thru image cache
+//       lru, memory limit?
+//    Memory usage, code cleanup
 //
-//      SSDPServer devices
-//      Basic Prefs
-//      Item Selection
-//      Basic Context Menus
-//      Auto-Albums in Playlist
-//
-// Real write-thru image cache
-//   lru, memory limit?
-// Memory usage, code cleanup
-//
-//     OpenHomeRenderer
-//     Fit it all together to there
-//         with no Playlist Sources
-//
-// Untestable OpenHome PlaylistManager
+// Untestable OpenHome PlaylistManager?
 //     - only does single song inserts
-// RemotePlaylistSource
+// RemotePlaylistSource?
 //     Copy, Compare, whole playlists
 //     inser, delete,t a bunch of records at once
 //     Re-order ... shuffling in general
 //     think it through, put it all together
-//
 // Niceties?
 //     Library (or even Playlist) TreeView
 //     Prefs Fragment becomes the
@@ -33,7 +25,6 @@ package prh.artisan;
 //     Implement DLNA Search in http.ContentServer
 //     Sorting, etc
 //     Form factors (phone, tablet, LibraryGridView)
-//
 // Artisan Pure Perl Server incompatabilities (object.container types)
 //      huge cleanup
 // Artisan Windows
@@ -43,107 +34,11 @@ package prh.artisan;
 
 
 
-
-
-
-
-// ARCHITCTURAL NOTES
-//
-// Loops and Events
-//
-//      We studiously try to not introduce Timer Loops into the program.
-//      There are currently four timer loops: two minor, one well behaved,
-//      and simple, and one important and hard to manage.
-//
-//      LocalVolumeFixer has a timer loop once per second to reconcile MTC and
-//      Android volumes only on the Car Stereo. The SSDPServer has a long timer,
-//      like once every 30 seconds, to broadcast a Keep-Alive message.
-//      The SSDP Search, which itself is a Thread Runnable, and called as such,
-//      essentially has a blocking timer loop for the duration of the call to run(),
-//      which entirely notifies Artisan of EVENT_NEW_DEVICE as it proceeds.
-//
-//      These are all low level "faceless" objects that do not make any direct
-//      UI calls. There are NO TIMER LOOPS IN THE UI.  All low level objects that
-//      may cause UI changes do so by dispatching ArtisanEvents to Artisan, who in
-//      turn dispatches them to the appropriate UI activities. The above four cases
-//      are relatively simple, and either don't need to dispatch events, or dispatch
-//      a small set of well understood Artisan Events.
-//
-//      The main, and complex case of a Timer loop is in Renderers.
-//
-//      Otherwise, THE ENTIRE UI IS EVENT DRIVEN.
-//
-// Renderer Timer Loop, EVENT_IDLE, and UPnP Event Subscribers
-//
-//      Each Derived Renderer has a polling timer loop (to poll the state of the local
-//      media_player or remote DLNA MediaServer) and dispatches a variety of Artisan
-//      events as it notices changes.
-//
-//      This timer loop does what it needs to do, but also dispatches EVENT_IDLE
-//      on each go-round.  The occurrence of the EVENT_IDLE artisan event is crucial
-//      in the implementation, because it triggers the dispatching of UPnP Events
-//      to subscribed clients.  Without a Renderer, no subscribed SSDP devices will
-//      receive any SSDP Events. Yet not all subscribers are to a Renderer .. they
-//      can also subscribe to the ContentServer which is logically independent
-//      of the Renderer.  Yet, there MUST BE A RENDERER PRESENT for them to
-//      get notfied.  This is just a fact of the implementation that should be known.
-//
-//      Although, logically, the dispatching of UPnP Events has nothing to do with
-//      the UI thread, it is implemented in the Artisan.handleArtisanEvent() method,
-//      as there is a significant correspondence between Artisan Events and UPnP
-//      Events.  We use the Artisan Event to bump a count of changes on the UPnP
-//      services (UpnpEventHandlers owned by the HTTPServer and registered with
-//      the UpnpEventManager), and then call UpnpEventManager.send_events() on
-//      each IDLE_EVENT.
-
-// UI Thread and Network Requests
-//
-//      The UI Objects, like aRenderer, aPreferences, aPlaylist, etc, are free to
-//      access each other and make directly method calls, as they all "live" in the
-//      main UI thread.
-//
-//      The devices, services, servers, etc - all low level faceless objects - call
-//      Artisan.handleArtisanEvent() to notify the UI of changes. The main dispatcher,
-//      Artisan.handleArtisanEvent() uses the built in Android runOnUiThread() method
-//      to block and wait for the UI thread to become available.   It should be the
-//      only call to runOnUiThread() in the system.
-//
-//      The Android OS does not allow us to make network requests on the main UI Thread.
-//
-//      This results in the need to fire off threads, and have handlers, for anything that
-//      hits the network ... like getting html or xml pages ... which in turn means for doing
-//      anything interesting, particularly from the faceless objects, like issuing UPnP actions,
-//      doing SSDP Searches and getting device descriptions, etc.
-//
-//      Therefore we generically implement a set Network Routines that can be used either
-//      Asynchronously, by passing in a handler for the results, or emulating Synchronous
-//      Network requests, by waiting for the reply ourselves, possibly on the UI thread.
-//      This results in a lot of additional complexity.
-//
-//      This complexity resulting from the use of Asynchronous network requests should be
-//      avoided in UI code.  It is nice if the UI code not only can be called safely from
-//      anywhere in the main UI thread, but it is also nice if it does not set up it's own
-//      asyncrhonous handlers.  If you find the need to setup an asynchronous handler in the
-//      UI code, it probably means there should be a low level object and Event created.
-//
-//      Factoid: the image in Now Playing is loaded via an asynchronous network request
-//      that is also RunOnUiThread().  This I think of as a local implementation of a
-//      synchronous Network Request.
-//
-// Truly Asynchronous Network Events
-//
-//      Otherwise, Aynchronous Network requests are hidden from the system, and limited
-//      to private usage in a single low level faceless object. That object then responds
-//      to the completion and does what it needs to do, and usually sends out Artisan Events
-//      as a result.
-
-
 import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
@@ -162,39 +57,32 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 
+import prh.artisan.interfaces.EventHandler;
+import prh.artisan.utils.Fetcher;
 import prh.device.Device;
 import prh.device.DeviceManager;
 import prh.device.LocalLibrary;
 import prh.device.LocalPlaylistSource;
 import prh.device.LocalRenderer;
-import prh.device.OpenHomeRenderer;
+import prh.artisan.interfaces.ArtisanPage;
+import prh.artisan.interfaces.Library;
+import prh.artisan.interfaces.Playlist;
+import prh.artisan.interfaces.PlaylistSource;
+import prh.artisan.interfaces.Renderer;
 import prh.server.HTTPServer;
 import prh.server.LocalVolumeFixer;
 import prh.server.SSDPServer;
-import prh.server.http.OpenPlaylist;
 import prh.server.utils.UpnpEventManager;
 import prh.types.intList;
 import prh.utils.Utils;
+import prh.utils.loopingRunnable;
 
-
-/*
-blah blah blah
- */
 
 
 public class Artisan extends FragmentActivity implements
     View.OnClickListener,
-    EventHandler,
-    Fetcher.FetcherClient
-/*
-blah blah blah
- */
-
+    EventHandler
 {
-/*
-blah blah blah
- */
-
     private static int dbg_main = 0;
 
     private static int NUM_PAGER_ACTIVITIES = 5;
@@ -203,7 +91,6 @@ blah blah blah
     public final static int PAGE_PLAYLIST = 1;
     public final static int PAGE_LIBRARY = 3;
     public final static int PAGE_EXPLORER = 4;
-
 
     public final static int START_PAGE = Build.ID.equals(Utils.ID_CAR_STEREO) ?
         PAGE_PLAYING : PAGE_PLAYING;
@@ -255,12 +142,12 @@ blah blah blah
     private Library library = null;
     private Renderer renderer = null;
     private PlaylistSource playlist_source = null;
-    private CurrentPlaylist current_playlist = null;
+    private SystemPlaylist current_playlist = null;
 
     public Library getLibrary() { return library; }
     public Renderer getRenderer() { return renderer; }
     public PlaylistSource getPlaylistSource() { return playlist_source; }
-    public CurrentPlaylist getCurrentPlaylist() { return current_playlist; }
+    public SystemPlaylist getCurrentPlaylist() { return current_playlist; }
 
     // Servers (no public access)
 
@@ -269,7 +156,6 @@ blah blah blah
     private SSDPServer ssdp_server = null;
     public HTTPServer getHTTPServer() { return http_server; }
         // then give it all away
-
 
     // the Device Manager and default Device Names
 
@@ -291,16 +177,10 @@ blah blah blah
     // onCreate()
     //--------------------------------------------------------
 
-    /**
-     * onCreate()
-     *
-     * @param savedInstanceState includes blah
-     *
-     */
     @Override
     protected void onCreate(Bundle savedInstanceState)
     {
-        Utils.log(dbg_main,0,"------ Artisan.onCreate() started ------");
+        Utils.log(-1,0,"------ Artisan.onCreate() started ------");
 
         // 0 = static initialization
 
@@ -316,9 +196,12 @@ blah blah blah
 
         // 1 = low level initialization
 
+        Utils.log(dbg_main,0,"creating and starting Database");
         database = new Database();
         if (!database.start())
             database = null;
+        else
+            Utils.log(dbg_main,0,"Database created and started");
 
         if (Utils.server_ip != null &&
             Prefs.getBoolean(Prefs.id.KEEP_WIFI_ALIVE))
@@ -333,6 +216,8 @@ blah blah blah
         //-------------------------------------------
         // create the main view and sub-views
         // set the main menu click handler
+
+        Utils.log(dbg_main,0,"creating Views");
 
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -371,12 +256,18 @@ blah blah blah
         main_menu = (MainMenu) findViewById(R.id.artisan_main_menu);
         hideMainMenu();
 
-        // start the volume control and set full page
+        Utils.log(dbg_main,0,"finished creating Views");
 
+        // start the volume control
+
+        Utils.log(dbg_main,0,"creating VolumeControl");
         volume_control = new VolumeControl(this);
+        Utils.log(dbg_main,0,"VolumeControl created");
+
+        // start off in full screen mode
+        // with the menu showing
+
         showFullScreen(true);
-            // start off in full screen mode
-            // with the menu showing
 
         //-------------------------------------------
         // 3 = Create the Object Context
@@ -387,11 +278,12 @@ blah blah blah
         if (database != null &&
             Prefs.getBoolean(Prefs.id.START_LOCAL_LIBRARY))
         {
-            Utils.log(dbg_main+1,0,"Creating LocalLibrary");
+            Utils.log(dbg_main,0,"creating and starting LocalLibrary");
             local_library = new LocalLibrary(this);
-            Utils.log(dbg_main+1,0,"LocalLibrary created");
             if (!local_library.startLibrary())
                 local_library = null;
+            else
+                Utils.log(dbg_main,0,"LocalLibrary created and started");
         }
         library = local_library;
 
@@ -399,18 +291,21 @@ blah blah blah
         // and START, even if it empty, or does not have write
         // privileges.
 
-        Utils.log(dbg_main+1,0,"Creating LocalPlaylistSource");
+        Utils.log(dbg_main,0,"creating and starting LocalPlaylistSource");
         local_playlist_source = new LocalPlaylistSource(this);
-        Utils.log(dbg_main+1,0,"PlaylistSource created");
         local_playlist_source.startPlaylistSource();
+        Utils.log(dbg_main,0,"LocalPlaylistSource created and started");
+
         playlist_source = local_playlist_source;
 
         // The current playlist is a singleton, being Edited
         // by aPlaylist and played by aRenderer. It can
         // be associated with, and/or return a Playlist.
 
-        current_playlist = new CurrentPlaylist(this);
-        current_playlist.startCurrentPlaylist();
+        Utils.log(dbg_main,0,"creating and starting SystemPlaylist");
+        current_playlist = new SystemPlaylist(this);
+        current_playlist.startPlaylist();
+        Utils.log(dbg_main,0,"SystemPlaylist created and started");
 
         // Now the Renderer can be started with the CURRENT_PLAYLIST
         // as a Queue ... It ALSO *should* also always construct,
@@ -418,10 +313,10 @@ blah blah blah
 
         if (Prefs.getBoolean(Prefs.id.START_LOCAL_RENDERER))
         {
-            Utils.log(dbg_main+1,0,"Creating LocalRenderer");
+            Utils.log(dbg_main,0,"creating and starting LocalRenderer");
             local_renderer = new LocalRenderer(this);
-            Utils.log(dbg_main+1,0,"LocalRenderer created");
             local_renderer.startRenderer();
+            Utils.log(dbg_main,0,"LocalRenderer created and started");
         }
         renderer = local_renderer;
 
@@ -443,8 +338,10 @@ blah blah blah
         if (Prefs.getBoolean(Prefs.id.START_VOLUME_FIXER) &&
             Utils.ID_CAR_STEREO.equals(Build.ID))
         {
+            Utils.log(dbg_main,0,"creating and starting LocalVolumeFixer");
             volume_fixer = new LocalVolumeFixer(this);
             volume_fixer.start();
+            Utils.log(dbg_main,0,"LocalVolumeFixer created and started");
         }
 
         if (Utils.server_ip  != null)
@@ -457,11 +354,12 @@ blah blah blah
 
                 try
                 {
+                    Utils.log(dbg_main,0,"creating and starting HTTP server ...");
                     http_server = new HTTPServer(this);
                 }
                 catch (Exception e)
                 {
-                    Utils.error("Error starting http_server:" + e.toString());
+                    Utils.error("Error creating HTTP server:" + e.toString());
                     http_server = null;
                 }
 
@@ -470,12 +368,13 @@ blah blah blah
                 if (http_server != null)
                 {
                     http_server.start();
+                    Utils.log(dbg_main,0,"HTTP server created and started");
 
-                    Utils.log(dbg_main+1,0,"starting ssdp_server ...");
+                    Utils.log(dbg_main,0,"creating and starting SSDP server thread...");
                     ssdp_server = new SSDPServer(this,http_server);
                     Thread ssdp_thread = new Thread(ssdp_server);
                     ssdp_thread.start();
-                    Utils.log(dbg_main+1,0,"ssdp_server started");
+                    Utils.log(dbg_main,0,"SSDP server created and thread started");
                 }
             }
         }
@@ -485,10 +384,12 @@ blah blah blah
         // local items to it, then see if we can find the
         // default items (if they're not local)
 
+        Utils.log(dbg_main,0,"creating DeviceManager ...");
         device_manager = new DeviceManager(this);
         device_manager.addDevice(local_library);
         device_manager.addDevice(local_renderer);
         device_manager.addDevice(local_playlist_source);
+        Utils.log(dbg_main,0,"DeviceManager created");
 
         // see if we can find the default devices and start them
         // clear the names if found, even if it fails
@@ -512,7 +413,10 @@ blah blah blah
         // the initial cache.
 
         if (Utils.server_ip != null)
+        {
+            Utils.log(dbg_main,0,"calling DeviceManager.doDeviceSearch()");
             device_manager.doDeviceSearch(false);
+        }
         else
         {
             if (!default_library_name.isEmpty())
@@ -526,7 +430,7 @@ blah blah blah
                 default_playlist_source_name = "";
         }
 
-        Utils.log(dbg_main,0,"------ Artisan.onCreate() finished ------");
+        Utils.log(dbg_main-1,0,"------ Artisan.onCreate() finished ------");
         artisan_created = true;
 
     }   // onCreate()
@@ -550,7 +454,7 @@ blah blah blah
     @Override
     public void onDestroy()
     {
-        Utils.log(dbg_main,0,"Artisan.onDestroy() started ------");
+        Utils.log(dbg_main-1,0,"Artisan.onDestroy() started ------");
         super.onDestroy();
 
         // 5 = stop the device manager
@@ -593,7 +497,7 @@ blah blah blah
         local_renderer = null;
 
         if (current_playlist != null)
-            current_playlist.stopCurrentPlaylist(true);
+            current_playlist.stopPlaylist(true);
         current_playlist = null;
 
         if (playlist_source != null)
@@ -635,7 +539,7 @@ blah blah blah
 
         Prefs.static_init(null);
         Utils.static_init(null);
-        Utils.log(dbg_main,0,"Artisan.onDestroy() finished ------");
+        Utils.log(dbg_main-1,0,"Artisan.onDestroy() finished ------");
     }
 
 
@@ -849,7 +753,7 @@ blah blah blah
 
     public void doVolumeControl()
     {
-        Utils.log(dbg_main + 1,0,"doVolumeControl()");
+        Utils.log(dbg_main,0,"doVolumeControl()");
         if (volume_control != null &&
             renderer != null &&
             renderer.getVolume() != null)
@@ -1181,28 +1085,13 @@ blah blah blah
     }
 
 
-    //------------------------------------------
-    // FetcherClient interface
-    //------------------------------------------
-    // pass-thrus from device.MediaServer to aLibrary
-
-    public void notifyFetchRecords(Fetcher fetcher,Fetcher.fetchResult fetch_result)
-    {
-        aLibrary.notifyFetchRecords(fetcher,fetch_result);
-    }
-    public void notifyFetcherStop(Fetcher fetcher,Fetcher.fetcherState fetcher_state)
-    {
-        aLibrary.notifyFetcherStop(fetcher,fetcher_state);
-    }
-
-
     //---------------------------------------------------------------------
     // EVENT UTILITIES
     //---------------------------------------------------------------------
     // delay OpenHome events
 
     boolean defer_openhome_events = false;
-    myLoopingRunnable open_home_delayer;
+    loopingRunnable open_home_delayer;
 
     private class OpenHomeEventDelayer implements Runnable
     {
@@ -1217,7 +1106,7 @@ blah blah blah
         defer_openhome_events = true;
         if (open_home_delayer != null)
             open_home_delayer.stop(false);
-        open_home_delayer = new myLoopingRunnable(
+        open_home_delayer = new loopingRunnable(
             "open_home_event_delayer",
             new OpenHomeEventDelayer(),
             1200);
@@ -1307,8 +1196,17 @@ blah blah blah
     public void handleArtisanEvent(final String event_id,final Object data)
     // run on UI async task to pass events to UI clients
     {
-        if (!event_id.equals(EVENT_POSITION_CHANGED))
-            Utils.log(dbg_main+1,0,"artisan.handleRendererEvent(" + event_id + ") " + data);
+        String dbg_data2 = data == null ? "null" : data.toString();
+        dbg_data2 = dbg_data2.replaceFirst("\t|\n","==");
+        dbg_data2 = dbg_data2.replaceAll("[\t|\n].*","");
+        final String dbg_data = dbg_data2;
+
+        int use_dbg = dbg_main+1;
+        if (event_id.equals(EVENT_IDLE) ||
+            event_id.equals(EVENT_POSITION_CHANGED))
+            use_dbg++;
+
+        Utils.log(use_dbg,0,"artisan.handleRendererEvent(" + event_id + ") " + dbg_data);
 
         // We do not wait for the UI thread to handle EVENT_DEVICE_STATUS_CHANGED
         // for a current device.  If a device goes offline, we call checkDeviceOffline(),
@@ -1332,14 +1230,11 @@ blah blah blah
             @Override
             public void run()
             {
-                // selective debugging
-
-                String dbg_data = data == null ? "null" : data.toString();
-                dbg_data = dbg_data.replaceFirst("\t|\n","==");
-                dbg_data = dbg_data.replaceAll("[\t|\n].*","");
-                if (!event_id.equals(EVENT_POSITION_CHANGED) &&
-                    !event_id.equals(EVENT_IDLE))
-                    Utils.log(dbg_main,0,"----> " + event_id + "(" + dbg_data + ")");
+                int use_dbg = dbg_main;
+                if (event_id.equals(EVENT_IDLE) ||
+                    event_id.equals(EVENT_POSITION_CHANGED))
+                    use_dbg++;
+                Utils.log(use_dbg,0,"----> " + event_id + "(" + dbg_data + ")");
 
                 //----------------------------------------------
                 // Command Events

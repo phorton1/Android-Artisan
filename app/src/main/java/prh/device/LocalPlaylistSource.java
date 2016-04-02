@@ -10,9 +10,9 @@ import java.util.Comparator;
 import java.util.HashMap;
 
 import prh.artisan.Artisan;
-import prh.artisan.EventHandler;
-import prh.artisan.Playlist;
-import prh.artisan.PlaylistSource;
+import prh.artisan.interfaces.EventHandler;
+import prh.artisan.interfaces.Playlist;
+import prh.artisan.interfaces.PlaylistSource;
 import prh.artisan.Prefs;
 import prh.server.SSDPServer;
 import prh.types.stringList;
@@ -152,12 +152,11 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
             // get the names from it
 
             Utils.log(dbg_pls,1,"getting playlist.db records ...");
-            String[] args = new String[]{};
             String query = "SELECT * FROM playlists ORDER BY num,name";
             Cursor cursor = null;
             try
             {
-                cursor = playlist_db.rawQuery(query,args);
+                cursor = playlist_db.rawQuery(query,null);
             }
             catch (Exception e)
             {

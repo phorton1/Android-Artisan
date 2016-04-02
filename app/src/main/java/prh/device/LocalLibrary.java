@@ -4,23 +4,16 @@ package prh.device;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-
 import prh.artisan.Artisan;
 import prh.artisan.Database;
 import prh.artisan.Folder;
-import prh.artisan.Library;
-import prh.artisan.Playlist;
-import prh.artisan.PlaylistSource;
+import prh.artisan.interfaces.Library;
+import prh.artisan.interfaces.Playlist;
+import prh.artisan.interfaces.PlaylistSource;
 import prh.artisan.Record;
-import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.server.SSDPServer;
 import prh.types.libraryBrowseResult;
-import prh.types.objectHash;
-import prh.types.recordList;
 import prh.types.stringList;
 import prh.utils.Utils;
 import prh.utils.httpUtils;
@@ -36,6 +29,13 @@ public class LocalLibrary extends Device implements Library
     public static LocalLibrary local_library = null;
     public static LocalLibrary getLocalLibrary() { return local_library; }
         // for Artisan-less access by Track and Folder
+        // for convertToLocal()
+
+    private Folder root_folder = null;
+
+    //----------------------------------------
+    // Device Interface
+    //----------------------------------------
 
     public LocalLibrary(Artisan a)
     {
@@ -55,19 +55,43 @@ public class LocalLibrary extends Device implements Library
     }
 
 
-    @Override public boolean isLocal() { return true; }
+    @Override public boolean isLocal()
+    {
+        return true;
+    }
 
-    @Override public void setCurrentFolder(Folder folder) {}
-        // prefetch scheme not used in local library
+
+    //----------------------------------------
+    // Library interface
+    //----------------------------------------
+
+
+    @Override public Folder getRootFolder()
+    {
+        return getLibraryFolder("0");
+    }
+
 
     @Override public boolean startLibrary()
     {
-        return db != null;
+        Utils.log(0,0,"LocalLibrary started");
+        if (db != null)
+        {
+            root_folder = getLibraryFolder("0");
+            if (root_folder == null)
+                Utils.error("No root folder in LocalLibrary.startLibary()");
+            else
+                return true;
+        }
+        else
+            Utils.error("No db in LocalLibrary.startLibary()");
+        return false;
     }
 
 
     @Override public void stopLibrary(boolean wait)
     {
+        Utils.log(0,0,"LocalLibary stopped");
         // db = null;
         // local_library = null;
     }
@@ -78,7 +102,11 @@ public class LocalLibrary extends Device implements Library
     }
 
 
-    @Override public Track getLibraryTrack(String id)
+    //---------------------------------------
+    // LocalLibrary specific API
+    //---------------------------------------
+
+    public Track getLibraryTrack(String id)
         // returns null on error or track not found
     {
         // virtual "select_playlist"  "tracks"
@@ -131,7 +159,7 @@ public class LocalLibrary extends Device implements Library
 
 
 
-    @Override public Folder getLibraryFolder(String id)
+    public Folder getLibraryFolder(String id)
     {
         // if 0, return a fake root record
         // that represents the the mp3s directory
@@ -210,7 +238,7 @@ public class LocalLibrary extends Device implements Library
 
 
 
-    @Override public libraryBrowseResult getSubItems(String id,int start,int count, boolean unsupported_meta_data)
+    public libraryBrowseResult getSubItems(String id,int start,int count, boolean unsupported_meta_data)
     {
         if (count == 0) count = 999999;
 
@@ -338,5 +366,4 @@ public class LocalLibrary extends Device implements Library
     }
 
 
-
-}
+}   // class LocalLibrary

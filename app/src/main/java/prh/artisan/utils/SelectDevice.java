@@ -1,27 +1,26 @@
-package prh.artisan;
+package prh.artisan.utils;
 
 //-------------------------------------
 // Select Device
 //-------------------------------------
 
 import android.content.Context;
-import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ListAdapter;
-import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import prh.artisan.Artisan;
+import prh.artisan.MainMenu;
+import prh.artisan.R;
+import prh.artisan.interfaces.EventHandler;
 import prh.device.Device;
 import prh.device.DeviceManager;
-import prh.utils.ImageLoader;
-import prh.utils.Utils;
+import prh.utils.imageLoader;
 
 
 public class SelectDevice extends RelativeLayout implements
@@ -167,7 +166,7 @@ public class SelectDevice extends RelativeLayout implements
         {
             ImageView image_view = (ImageView) list_item.findViewById(
                 R.id.select_device_item_icon);
-            ImageLoader.loadImage(artisan,image_view,icon_url);
+            imageLoader.loadImage(artisan,image_view,icon_url);
         }
 
         list_item.setOnClickListener(this);

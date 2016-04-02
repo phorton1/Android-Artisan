@@ -32,7 +32,6 @@ import prh.server.utils.UpnpEventHandler;
 import prh.server.utils.UpnpEventManager;
 import prh.server.utils.UpnpEventSubscriber;
 import prh.server.utils.httpRequestHandler;
-import prh.types.objectHash;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
@@ -295,7 +294,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
     @Override
     public Response serve(IHTTPSession session)
     {
-        synchronized (this)   // comment this out to run asynchronously
+        // synchronized (this)   // comment this out to run asynchronously
         {
             String uri = session.getUri();
 

@@ -1,7 +1,5 @@
 package prh.device;
 
-import org.w3c.dom.Document;
-
 import prh.artisan.Artisan;
 import prh.utils.Utils;
 

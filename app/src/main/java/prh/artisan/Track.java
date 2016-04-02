@@ -1,20 +1,17 @@
 package prh.artisan;
 
 
-import android.content.ContentValues;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
-import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import prh.device.LocalLibrary;
-import prh.utils.httpUtils;
 import prh.utils.Utils;
+import prh.utils.httpUtils;
 
 
 public class Track extends Record

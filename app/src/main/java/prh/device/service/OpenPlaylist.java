@@ -4,23 +4,22 @@ package prh.device.service;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
 
 import java.io.ByteArrayInputStream;
-import java.util.ArrayList;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
-import prh.artisan.EventHandler;
-import prh.artisan.Fetcher;
-import prh.artisan.Playlist;
-import prh.artisan.Renderer;
+import prh.artisan.interfaces.EventHandler;
+import prh.artisan.interfaces.FetchablePlaylist;
+import prh.artisan.utils.Fetcher;
+import prh.artisan.interfaces.Playlist;
+import prh.artisan.interfaces.Renderer;
 import prh.artisan.Track;
+import prh.artisan.utils.PlaylistFetcher;
 import prh.device.Device;
-import prh.device.SSDPSearch;
 import prh.device.SSDPSearchService;
 import prh.device.Service;
 import prh.server.utils.UpnpEventReceiver;
@@ -32,22 +31,17 @@ import prh.utils.Utils;
 
 
 // Is subscribed to a remote open playlist, and presents
-// that to the CurrentPlaylist via the Playlist interface.
+// that to the SystemPlaylist via the Playlist interface.
 
 public class OpenPlaylist extends Service implements
-    Playlist,
     UpnpEventReceiver,
-    Fetcher.FetcherSource
+    FetchablePlaylist
 {
-     // weird members
-
-    private boolean is_dirty;
-
     // Playlist contents
 
     private int num_tracks;
-    private int track_index;      // one based
-    private int my_shuffle;         //  overloaded to openhome shuffle
+    private int track_index;       // one based
+    private int my_shuffle;        //  overloaded to openhome shuffle
 
     // OpenHome contents
 
@@ -55,6 +49,21 @@ public class OpenPlaylist extends Service implements
     private boolean repeat;
     private int[] id_array;
     private intTrackHash tracks_by_open_id;
+    private trackList tracks_by_position;
+
+    // state
+
+    private boolean is_dirty;
+    private int playlist_count_id;
+    private int content_change_id;
+    private int recs_changed_count_id;
+
+
+    // Fetchable Playlist Interface
+    // except setAssociatedPlaylist
+
+    @Override public int getPlaylistCountId() { return playlist_count_id; }
+    @Override public int getContentChangeId() { return content_change_id; }
 
     // Basic Playlist Interface, except getTrack()
 
@@ -101,10 +110,16 @@ public class OpenPlaylist extends Service implements
         track_index = 0;
         my_shuffle = 0;
 
+        is_dirty = false;
+        playlist_count_id = 0;
+        content_change_id = 0;
+
         transport_state = "";
         repeat = false;
         id_array = new int[0];
+
         tracks_by_open_id = new intTrackHash();
+        tracks_by_position = new trackList();
     }
 
 
@@ -152,47 +167,84 @@ public class OpenPlaylist extends Service implements
         return "";
     }
 
-    //--------------------------------------
-    // Fetcher Interface
-    //--------------------------------------
+    //-------------------------------------------------
+    // FetchablePlaylist setAssociatedPlaylist()
+    //-------------------------------------------------
+    // Has the semantic of "change the remote playlist to this one",
+    // so an empty playlist means "DeleteAll", and otherwise, it's an
+    // expensive remote InsertTrack of every track.
+
+    @Override public void setAssociatedPlaylist(Playlist playlist)
+    {
+        Utils.warning(0,0,"SET ASSOCIATED PLAYLIST NOT IMPLEMENTED YET");
+    }
+
+
+    //------------------------------
+    // FetcherSource Interface
+    //------------------------------
 
     private static int dbg_fetch = -1;
 
-    @Override public boolean isDynamicFetcherSource() { return true;  }
-
-    @Override public Fetcher.fetchResult getFetchRecords(Fetcher fetcher, boolean initial_fetch, int num)
+    @Override public int getRecChangedCountId()
     {
-        Utils.log(dbg_fetch,0,"OpenPlaylist.getFetchRecords(" + initial_fetch + "," + num + ")");
+        return recs_changed_count_id;
+    }
 
-        int cur_num_tracks = tracks_by_open_id.size();
-        if (cur_num_tracks >= num_tracks)
-        {
-            Utils.log(dbg_fetch,0,"OpenPlaylist.getFetchRecords(" + initial_fetch + "," + num + ")  DONE");
+    @Override public trackList getFetchedTrackList()
+    {
+        return tracks_by_position;
+    }
+
+    public Fetcher.fetchResult getFetcherPlaylistRecords(int start, int num)
+    {
+        // short ending if all records gotten
+        // else determine tracks to add
+
+        Utils.log(dbg_fetch,0,"OpenPlaylist.getFetcherPlaylistRecords(" + start + "," + num + ") called");
+
+        if (start >= num_tracks)
             return Fetcher.fetchResult.FETCH_DONE;
-        }
 
-        // build the list of ids
+        // determine number of tracks to ADD
+        // we already have start..tracks_by_position.size()-1
 
-        int num_added = 0;
-        String id_string = "";
-        for (int i=cur_num_tracks; num_added<num && i<num_tracks; i++)
+        if (start < tracks_by_position.size())
         {
-            int open_id = id_array[i];
-            if (!id_string.isEmpty())
-                id_string += " ";
-            id_string +=  Integer.toString(open_id);
-            num_added++;
+            start = tracks_by_position.size();
+            num -= tracks_by_position.size();
+            Utils.log(dbg_fetch+1,1,"getFetcherPlaylistRecords() changing start,num to (" + start + "," + num + ")");
         }
 
-        // Call the ReadList action
+        // and we can't be asked to get more than the playlist has
+        // and we return FETCH_RECORDS if we don't get them all
+
+        if (start + num > num_tracks)
+        {
+            num = num_tracks - start;
+            Utils.log(dbg_fetch+1,1,"getFetcherPlaylistRecords() changing num to " + num);
+        }
+
+
+        // build the list of records to get
+
+        String id_list = "";
+        for (int i=start; i<start + num - 1; i++)
+        {
+            if (!id_list.isEmpty())
+                id_list += " ";
+            id_list += id_array[i];
+        }
+
+        // CALL THE REMOTE READLIST ACTION
 
         stringHash args = new stringHash();
-        args.put("IdList",id_string);
-        Utils.log(dbg_fetch + 1,1,"OpenPlaylist.getFetchRecords() asking remote for " + num_added + " more records");
+        args.put("IdList",id_list);
+        Utils.log(dbg_fetch+1,1,"getFetcherPlaylistRecords() asking remote for " + num + " records");
         Document result_doc = getDevice().doAction(getServiceType(),"ReadList",args);
         if (result_doc == null)
         {
-            Utils.warning(0,1,"OpenPlaylist.getFetchRecords() - ReadList returned null document");
+            Utils.warning(0,1,"getFetcherPlaylistRecords() - ReadList returned null document");
             return Fetcher.fetchResult.FETCH_ERROR;
         }
 
@@ -207,18 +259,18 @@ public class OpenPlaylist extends Service implements
 
         try
         {
-            Utils.log(dbg_fetch + 1,1,"OpenPlaylist.getFetchRecords() parsing xml");
+            Utils.log(dbg_fetch + 1,1,"getFetcherPlaylistRecords() parsing xml");
             DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
             tracklist_doc = builder.parse(stream);
         }
         catch (Exception e)
         {
-            Utils.warning(0,1,"OpenPlaylist.getFetchRecords() - Could not parse TrackList");
+            Utils.warning(0,1,"getFetcherPlaylistRecords() - Could not parse TrackList");
             return Fetcher.fetchResult.FETCH_ERROR;
         }
         if (tracklist_doc == null)
         {
-            Utils.warning(0,1,"OpenPlaylist.getFetchRecords() - null TrackList doc");
+            Utils.warning(0,1,"getFetcherPlaylistRecords() - null TrackList doc");
             return Fetcher.fetchResult.FETCH_ERROR;
         }
 
@@ -227,7 +279,7 @@ public class OpenPlaylist extends Service implements
         int num_gotten = 0;
         Element tracklist_ele = tracklist_doc.getDocumentElement();
         Node track_node = tracklist_ele.getFirstChild();
-        Utils.log(dbg_fetch+1,1,"OpenPlaylist.getFetchRecords() parsing tracks");
+        Utils.log(dbg_fetch+1,1,"getFetcherPlaylistRecords() parsing tracks");
 
         while (track_node != null)
         {
@@ -244,29 +296,28 @@ public class OpenPlaylist extends Service implements
 
         // Final error check
 
-        if (num_gotten != num_added)
+        if (num_gotten != num)
         {
-            Utils.warning(0,1,"OpenPlaylist.getFetchRecords() - expected " + num_added + " got " + num_gotten + " tracks");
+            Utils.warning(0,1,"getFetcherPlaylistRecords() - expected " + num + " got " + num_gotten + " tracks");
             return Fetcher.fetchResult.FETCH_ERROR;
         }
 
         // Return
 
-        Fetcher.fetchResult rslt = tracks_by_open_id.size() >= num_tracks ?
+        Fetcher.fetchResult rslt = tracks_by_position.size() >= num_tracks ?
             Fetcher.fetchResult.FETCH_DONE :
             Fetcher.fetchResult.FETCH_RECS;
 
-        Utils.log(dbg_fetch,0,"OpenPlaylist.getFetchRecords(" + initial_fetch + "," + num + ") returning " + rslt + " with " + num_gotten + " new records");
+        Utils.log(dbg_fetch,0,"getFetcherPlaylistRecords() returning " + rslt + " with " + num_gotten + " new records");
         return rslt;
 
-    }   // OpenPlaylist.getFetchRecords()
+    }   // OpenPlaylist.getFetcherPlaylistRecords()
 
 
 
     //-------------------------------------
     // UpnpEventReceiver Interface
     //-------------------------------------
-
 
     private int event_count = 0;
     public String last_transport_state = "";
@@ -316,10 +367,10 @@ public class OpenPlaylist extends Service implements
         {
             int byte_num = i * 4;
             int open_id =
-                (bytes[ byte_num + 0 ] << 24) +
-                    (bytes[ byte_num + 1 ] << 16) +
-                    (bytes[ byte_num + 2 ] << 8) +
-                    bytes[ byte_num + 3 ];
+                (((int) bytes[ byte_num + 0 ] & 0xff) << 24) +
+                (((int) bytes[ byte_num + 1 ] & 0xff) << 16) +
+                (((int) bytes[ byte_num + 2 ] & 0xff) << 8) +
+                (((int) bytes[ byte_num + 3 ] & 0xff));
             id_array[i] = open_id;
             dbg_id_array += " " + Integer.toString(open_id);
         }
@@ -359,12 +410,12 @@ public class OpenPlaylist extends Service implements
         Utils.log(0,1,"OpenPlaylist.response() new tracks_by_open_id.size=" + tracks_by_open_id.size());
 
         // if any changes, announce ourselves as a new
-        // playlist to the CurrentPlaylist and Renderer
+        // playlist to the SystemPlaylist and Renderer
         // and send out the change event
 
         if (any_changes)
         {
-            Utils.log(0,1,"OpenPlaylist.response() setting self as CurrentPlaylist.associated_playlist");
+            Utils.log(0,1,"OpenPlaylist.response() setting self as SystemPlaylist.associated_playlist");
             artisan.getCurrentPlaylist().setAssociatedPlaylist(this);
             // artisan.getRenderer().notifyPlaylistChanged();
             // hey wait a minute, that's us!
@@ -373,7 +424,7 @@ public class OpenPlaylist extends Service implements
         }
 
         // aPlaylist will now react by setting up a fetcher to call
-        // CurrentPlaylist, who will in knowledgeable turn, call our
+        // SystemPlaylist, who will in knowledgeable turn, call our
         // getReadTracks() method a chunk at a time
 
         if (!transport_state.equals(last_transport_state))

@@ -16,13 +16,11 @@ import java.util.Enumeration;
 import java.util.Collections;
 
 
-import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 
 import prh.artisan.Artisan;
-import prh.device.Device;
 import prh.device.DeviceManager;
 import prh.utils.httpUtils;
 import prh.utils.Utils;

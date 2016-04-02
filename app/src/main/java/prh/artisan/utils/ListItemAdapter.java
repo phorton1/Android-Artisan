@@ -1,4 +1,4 @@
-package prh.artisan;
+package prh.artisan.utils;
 
 import android.graphics.drawable.Drawable;
 import android.view.LayoutInflater;
@@ -10,11 +10,16 @@ import android.widget.ListView;
 
 import java.lang.reflect.Field;
 
-import prh.types.recordList;
+import prh.artisan.Artisan;
+import prh.artisan.Folder;
+import prh.artisan.R;
+import prh.artisan.Record;
+import prh.artisan.Track;
 import prh.utils.Utils;
+import prh.types.recordList;
 
 
-class ListItemAdapter extends ArrayAdapter<Record>
+public class ListItemAdapter extends ArrayAdapter<Record>
 {
     private static int dbg_la = 1;
 
@@ -106,12 +111,23 @@ class ListItemAdapter extends ArrayAdapter<Record>
     // add items
 
     public void setItems(recordList new_records)
-    // called by ARTISAN_EVENT when MediaServer adds more
-    // subitems to this adapter's folder ...
+        // called by ARTISAN_EVENT when MediaServer adds more
+        // subitems to this adapter's folder ...
     {
         Utils.log(dbg_la,0,"libraryListAdapter.setItems() num_items=" + new_records.size());
-        records.clear();
-        records.addAll(new_records);
+
+        // if called with the same record list just use it
+        // otherwise, clear our set of records and copy it
+
+        if (new_records != records)
+        {
+            records.clear();
+            records.addAll(new_records);
+        }
+
+        // always call notifyDataSetChanged
+
+        notifyDataSetChanged();
         num_items = records.size();
         setScrollBar(false);
         // handlePendingScroll();

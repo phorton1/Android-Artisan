@@ -1,4 +1,4 @@
-package prh.artisan;
+package prh.artisan.utils;
 
 // Implements a do-all list item for use in the Library and Playlist.
 //
@@ -26,19 +26,20 @@ import android.content.Context;
 import android.graphics.Color;
 import android.util.AttributeSet;
 import android.util.TypedValue;
-import android.view.ContextThemeWrapper;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.net.URI;
-
-import prh.utils.ImageLoader;
+import prh.artisan.Artisan;
+import prh.artisan.Folder;
+import prh.artisan.R;
+import prh.artisan.Record;
+import prh.artisan.SystemPlaylist;
+import prh.artisan.Track;
 import prh.utils.Utils;
+import prh.utils.imageLoader;
 
 
 public class ListItem extends RelativeLayout implements
@@ -207,13 +208,13 @@ public class ListItem extends RelativeLayout implements
         if (image_size == 0)
             image.setImageBitmap(null);
         else if (!art_uri.isEmpty())
-            ImageLoader.loadImage(artisan,image,art_uri);
+            imageLoader.loadImage(artisan,image,art_uri);
         else if (is_track)
-            ImageLoader.loadImage(artisan,image,R.drawable.icon_track);
+            imageLoader.loadImage(artisan,image,R.drawable.icon_track);
         else if (is_album)
-            ImageLoader.loadImage(artisan,image,R.drawable.icon_album);
+            imageLoader.loadImage(artisan,image,R.drawable.icon_album);
         else
-            ImageLoader.loadImage(artisan,image,R.drawable.icon_folder);
+            imageLoader.loadImage(artisan,image,R.drawable.icon_folder);
 
 
         // TITLE (First Line)
@@ -300,7 +301,7 @@ public class ListItem extends RelativeLayout implements
             s3 += folder.getGenre() + "      ";
             s3 += folder.getYearString();
 
-            int duration = folder.getInt("duration");
+            int duration = folder.getDuration();
             if (duration > 0)
                 s3 += "     " + Utils.durationToString(duration,Utils.how_precise.FOR_DISPLAY);
 
@@ -388,7 +389,7 @@ public class ListItem extends RelativeLayout implements
                 else
                 {
                     Track track = list_item.getTrack();
-                    CurrentPlaylist current_playlist = artisan.getCurrentPlaylist();
+                    SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
                     Utils.log(0,0,"Inserting Track(" + track.getTitle() + " into playlist");
                     current_playlist.insertTrack(track,0);
                 }

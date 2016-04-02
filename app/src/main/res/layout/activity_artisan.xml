@@ -75,33 +75,33 @@
                 android:layout_height="wrap_content">
 
 
-                <prh.artisan.MainMenuButton
+                <prh.artisan.utils.MainMenuButton
                     android:id = "@+id/command_playlist_albums"
                     android:src="@drawable/ic_album_view"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
 
-                <prh.artisan.MainMenuButton
+                <prh.artisan.utils.MainMenuButton
                     android:id = "@+id/command_playlist_tracks"
                     android:src="@drawable/ic_track_view"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
 
 
-                <prh.artisan.MainMenuButton
+                <prh.artisan.utils.MainMenuButton
                     android:id = "@+id/command_volume"
                     android:src="@drawable/ic_volume_small"
                     android:alpha="0.7"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
 
-                <prh.artisan.MainMenuButton
+                <prh.artisan.utils.MainMenuButton
                     android:id = "@+id/command_back"
                     android:src="@drawable/my_ic_menu_back"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
 
-                <prh.artisan.MainMenuButton
+                <prh.artisan.utils.MainMenuButton
                     android:id = "@+id/command_context"
                     android:src="@drawable/my_ic_menu_moreoverflow_normal_holo_dark"
                     android:layout_width="wrap_content"
@@ -118,7 +118,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content">
 
-                <prh.artisan.MainMenuButton
+                <prh.artisan.utils.MainMenuButton
                     android:id = "@+id/command_home"
                     android:src="@drawable/my_ic_menu_home"
                     android:layout_width="wrap_content"

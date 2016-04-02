@@ -6,10 +6,9 @@ import org.w3c.dom.Element;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
-import prh.artisan.EventHandler;
+import prh.artisan.interfaces.EventHandler;
 import prh.artisan.Track;
 import prh.device.Device;
-import prh.device.SSDPSearch;
 import prh.device.SSDPSearchService;
 import prh.device.Service;
 import prh.server.utils.UpnpEventReceiver;

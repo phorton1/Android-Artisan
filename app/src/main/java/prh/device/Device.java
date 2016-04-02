@@ -6,7 +6,7 @@ import org.w3c.dom.Document;
 import java.util.HashMap;
 
 import prh.artisan.Artisan;
-import prh.artisan.EventHandler;
+import prh.artisan.interfaces.EventHandler;
 import prh.device.service.AVTransport;
 import prh.device.service.ContentDirectory;
 import prh.device.service.OpenInfo;

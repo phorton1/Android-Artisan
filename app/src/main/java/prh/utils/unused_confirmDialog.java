@@ -5,11 +5,11 @@ import android.content.DialogInterface;
 
 import prh.artisan.Artisan;
 
-public class confirmDialog
+public class unused_confirmDialog
 {
     Artisan artisan;
 
-    public confirmDialog(Artisan ma)
+    public unused_confirmDialog(Artisan ma)
     {
         artisan = ma;
     }

@@ -37,23 +37,29 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 
-import prh.device.Device;
-import prh.device.MediaServer;
+import prh.artisan.interfaces.ArtisanPage;
+import prh.artisan.interfaces.EventHandler;
+import prh.artisan.interfaces.Library;
+import prh.artisan.utils.Fetcher;
+import prh.artisan.utils.ListItem;
+import prh.artisan.utils.ListItemAdapter;
 import prh.types.intList;
 import prh.types.recordList;
 import prh.types.selectedHash;
-import prh.types.stringList;
 import prh.utils.Utils;
 
 
 public class aLibrary extends Fragment implements
     ArtisanPage,
     EventHandler,
-    ListItem.ListItemListener,
-    Fetcher.FetcherClient
+    ListItem.ListItemListener
 {
-    private static int dbg_alib = 1;
+    private static int dbg_alib = 0;
 
+    // constants for LOCAL LIBRARY
+
+    private static int NUM_PER_FETCH = 300;
+    private static int NUM_INITIAL_FETCH = 100;
     class ViewStack extends ArrayList<viewStackElement> {}
 
     // These are not reset by view recycling
@@ -64,6 +70,9 @@ public class aLibrary extends Fragment implements
     private Library library = null;
     private ViewStack view_stack = null;
     selectedHash selected = new selectedHash();
+
+    Folder root_folder;
+
         // one level of selection
 
     // Due to view recycling, we cannot assume that
@@ -100,18 +109,29 @@ public class aLibrary extends Fragment implements
         else
             reInflate();
 
+        Utils.log(dbg_alib,0,"aLibrary.onCreateView() finished");
         return my_view;
     }
 
 
     private void init(Library lib)
     {
+        Utils.log(dbg_alib,0,"aLibrary.init() called");
+
         library = lib;
         selected.clear();
         my_view.removeAllViews();
+        for (int i=0; i<view_stack.size(); i++)
+            view_stack.get(i).stop();
+        view_stack.clear();
         if (library != null)
+        {
+            root_folder = library.getRootFolder();
             pushViewStack("0");
+        }
+        Utils.log(dbg_alib,0,"aLibrary.init() finished");
     }
+
 
 
     private void reInflate()
@@ -147,10 +167,25 @@ public class aLibrary extends Fragment implements
     @Override
     public void onDestroy()
     {
-        //view_stack.clear();
-        //view_stack = null;
-        //library = null;
         super.onDestroy();
+        Utils.log(dbg_alib,0,"aLibrary.onDestroy() called");
+
+        // as a precaution we pause any fetchers in progress
+        // and disassociate ourself from them ...
+
+        for (viewStackElement stack_element:view_stack)
+        {
+            stack_element.pause();
+            if (stack_element.getFolder().getFetcher() == null)
+                // && blah.getFetcher().getClient() == this
+                stack_element.getFetcher().setClient(null);
+        }
+
+        // We keep the stack and library around forever
+        // view_stack.clear();
+        // view_stack = null;
+        // library = null;
+        Utils.log(dbg_alib,0,"aLibrary.onDestroy() finished");
     }
 
 
@@ -159,26 +194,76 @@ public class aLibrary extends Fragment implements
     // viewStackElement
     //--------------------
 
-    private class viewStackElement
+    private class viewStackElement implements Fetcher.FetcherClient
     {
         private View view = null;
         private int scroll_index = 0;
         private int scroll_position = 0;
         private Folder folder;
-
+        private Fetcher fetcher;
+        boolean our_fetcher = false;
 
         public viewStackElement(Folder folder)
         {
             this.folder = folder;
+
+            // Create a fetcher if its local.
+            // Otherwise associate ourself with the fetcher
+
+            fetcher = folder.getFetcher();
+            if (fetcher == null)
+            {
+                our_fetcher = true;
+                fetcher = new Fetcher(
+                    artisan,
+                    folder,
+                    this,
+                    NUM_INITIAL_FETCH,
+                    NUM_PER_FETCH,
+                    "viewStack(" + folder.getTitle() + ")");
+            }
+            else
+                fetcher.setClient(this);
         }
+
 
         public Folder getFolder()
         {
             return folder;
         }
+        public Fetcher getFetcher()
+        {
+            return fetcher;
+        }
+        public View getView()
+        {
+            return view;
+        }
+        public void setView(View v)
+        {
+            view=v;
+        }
 
-        public View getView()       { return view; }
-        public void setView(View v) { view=v; }
+
+        public boolean start()
+        {
+            return fetcher.start();
+        }
+        public void stop()      // coming down the stack
+        {
+            if (our_fetcher)
+                fetcher.stop(true,false);
+            else
+            {
+                fetcher.pause(false);
+                // if (fetcher.getClient() == this)
+                fetcher.setClient(null);
+            }
+        }
+        public void pause()     // going up the stack, onDestroy (view cycling)
+        {
+           fetcher.pause(false);
+        }
 
 
         public ListView getListView()
@@ -195,7 +280,6 @@ public class aLibrary extends Fragment implements
             return adapter;
         }
 
-
         public void saveScroll()
         {
             ListView list_view = getListView();
@@ -210,7 +294,6 @@ public class aLibrary extends Fragment implements
             list_view.setSelectionFromTop(scroll_index,scroll_position);
         }
 
-
         public void inflate()
         {
             boolean is_album = folder.getType().equals("album");
@@ -220,14 +303,15 @@ public class aLibrary extends Fragment implements
             LayoutInflater inflater = LayoutInflater.from(artisan);
             ListView list_view = (ListView) inflater.inflate(R.layout.library_list,null,false);
 
-            int count = ((Device) library).isLocal() ? 999999 : 0;
-            recordList initial_items = library.getSubItems(folder.getId(),0,count,false);
+            // int count = ((Device) library).isLocal() ? 999999 : 0;
+            // recordList initial_items = library.getSubItems(folder.getId(),0,count,false);
+
             ListItemAdapter adapter = new ListItemAdapter(
                 artisan,
                 aLibrary.this,
                 list_view,
                 folder,
-                initial_items,
+                fetcher.getRecordsRef(),
                 false,
                 false);
             list_view.setAdapter(adapter);
@@ -249,13 +333,35 @@ public class aLibrary extends Fragment implements
         }
 
 
-    }
+        //------------------------------------------
+        // viewStack FetcherClient interface
+        //------------------------------------------
+
+        @Override public void notifyFetchRecords(Fetcher fetcher,Fetcher.fetchResult fetch_result)
+            // The library adapter uses the underlying array of records
+            // from the fetcher directly by reference.
+        {
+            Utils.log(dbg_alib,0,"viewStack.notifyFetchRecords(" + fetch_result + "," + fetcher.getTitle() + ")");
+            recordList records = fetcher.getRecordsRef();
+            getAdapter().setItems(records);
+        }
+
+        @Override public void notifyFetcherStop(Fetcher fetcher,Fetcher.fetcherState fetcher_state)
+        {
+            Utils.warning(0,0,"viewStack.notifyFetcherStop(" + fetcher.getTitle() + ")");
+            getAdapter().setItems(new recordList());
+            ListView list_view = (ListView) getView();
+            list_view.deferNotifyDataSetChanged();
+        }
+
+
+    }   // class viewStackElement
+
 
 
     //--------------------------------------------
     // utilities
     //--------------------------------------------
-
 
     @Override public void onSetPageCurrent(boolean current)
     {
@@ -316,32 +422,74 @@ public class aLibrary extends Fragment implements
 
     public void doBack()
     {
+        Utils.log(dbg_alib,0,"aLibrary.doBack() called");
         selected.clear();
+
         if (view_stack.size() > 1)
         {
+            viewStackElement tos = view_stack.get( view_stack.size() - 1);
+            tos.pause(); // leave it in memory
             view_stack.remove(view_stack.size() - 1);
+
             viewStackElement stack_element = view_stack.get(view_stack.size() - 1);
+            stack_element.start();
             showView(stack_element,true,true);
         }
+        Utils.log(dbg_alib,0,"aLibrary.doBack() finished");
     }
 
 
     private void pushViewStack(String id)
     {
+        Utils.log(dbg_alib,0,"aLibrary.pushViewStack(" + id + ") called");
+
         selected.clear();
-        Folder folder = library.getLibraryFolder(id);
-        viewStackElement stack_element = new viewStackElement(folder);
-        stack_element.inflate();
-        if (view_stack.size()>0)
+        int stack_size = view_stack.size();
+        viewStackElement tos = stack_size > 0 ?
+            view_stack.get( stack_size - 1) :
+            null;
+        if (tos != null)
+            tos.pause();
+
+        Folder folder = tos == null ?
+            root_folder :
+            findChildFolder(tos.getFetcher(),id);
+
+        Utils.log(dbg_alib,1,"aLibrary.pushViewStack(" + id + ") folder=" + folder.getTitle());
+
+        if (folder != null)
         {
-            viewStackElement tos = view_stack.get(view_stack.size() - 1);
-            tos.saveScroll();
+            viewStackElement stack_element = new viewStackElement(folder);
+            stack_element.start();
+            stack_element.inflate();
+            if (tos != null)
+                tos.saveScroll();
+            view_stack.add(stack_element);
+            showView(stack_element,true,false);
         }
-        view_stack.add(stack_element);
-        showView(stack_element,true,false);
+        else
+        {
+            Utils.error("No folder found in pushViewStack(" + id + ")");
+        }
+
+        Utils.log(dbg_alib,0,"aLibrary.pushViewStack(" + id + ") finished");
 
     }   // pushViewStack()
 
+
+
+    public Folder findChildFolder(Fetcher parent_fetcher, String id)
+    {
+        recordList records = parent_fetcher.getRecordsRef();
+        for (int i=0; i<records.size(); i++)
+        {
+            Record record = records.get(i);
+            if (record instanceof Folder &&
+                ((Folder)record).getId().equals(id))
+                return ((Folder)record);
+        }
+        return null;
+    }
 
 
     private void showView(viewStackElement stack_element, boolean last_one, boolean restore_scroll)
@@ -354,15 +502,12 @@ public class aLibrary extends Fragment implements
             stack_element.restoreScroll();
         if (last_one)
         {
-            artisan.getToolbar().enableButton(R.id.command_back,
+            artisan.getToolbar().enableButton(
+                R.id.command_back,
                 view_stack.size() > 1);
-            library.setCurrentFolder(stack_element.getFolder());
             updateTitleBar();
         }
     }
-
-
-
 
 
     //--------------------------------------------------------------
@@ -377,6 +522,8 @@ public class aLibrary extends Fragment implements
         // This called by ListItem.onClick()
     {
         int id = v.getId();
+        Utils.log(dbg_alib,0,"aLibrary.onClick( " + id + ")");
+
         switch (id)
         {
             case R.id.list_item_layout:
@@ -401,6 +548,7 @@ public class aLibrary extends Fragment implements
         // Currently does nothing in this class
         // This called by ListItem.onLongClick()
     {
+        Utils.log(dbg_alib,0,"aLibrary.onLongClick( " + v.getId() + ")");
         return false;
     }
 
@@ -425,41 +573,6 @@ public class aLibrary extends Fragment implements
     {
         return new intList();
     }
-
-
-
-    //---------------------------------------------------------------------
-    // FetcherClient interface from device.MediaServer via Artisan
-    //---------------------------------------------------------------------
-
-    @Override public void notifyFetchRecords(Fetcher fetcher,Fetcher.fetchResult fetch_result)
-    {
-        MediaServer.FolderPlus event_folder = (MediaServer.FolderPlus) fetcher.getSource();
-        Utils.log(dbg_alib,0,"aLibrary.notifyFetchRecords(" + fetch_result + ") called with fetcher.source=" +
-            "FolderPlus(" + event_folder.getTitle() + ")");
-        for (int stack_pos = view_stack.size() - 1; stack_pos >= 0; stack_pos--)
-        {
-            viewStackElement stack_ele = view_stack.get(stack_pos);
-            Folder folder = stack_ele.getFolder();
-            MediaServer.FolderPlus stack_folder = (folder instanceof MediaServer.FolderPlus) ?
-                (MediaServer.FolderPlus) folder : null;
-
-            if (stack_folder != null && stack_folder.equals(event_folder))
-            {
-                recordList records = fetcher.getRecordsRef();
-                Utils.log(dbg_alib,1,"aLibrary.notifyFetchRecords() calling adapter.setItems(" +
-                    records.size() + ") for the stack_folder(" + stack_folder.getTitle() + ")");
-                stack_ele.getAdapter().setItems(records);
-                return;
-            }
-        }
-    }
-
-    @Override public void notifyFetcherStop(Fetcher fetcher,Fetcher.fetcherState fetcher_state)
-    {
-        Utils.warning(0,0,"aLibrary.notifyFetcherStop() not implemented yet");
-    }
-
 
 
     //--------------------------------------------------------------

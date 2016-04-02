@@ -24,7 +24,7 @@ import java.util.HashMap;
 
 import prh.artisan.Artisan;
 import prh.artisan.Database;
-import prh.artisan.Playlist;
+import prh.artisan.interfaces.Playlist;
 import prh.artisan.Prefs;
 import prh.artisan.Track;
 import prh.types.trackList;
@@ -54,6 +54,12 @@ public class LocalPlaylist implements Playlist
     private trackList tracks_by_position;
     private SQLiteDatabase playlist_db;
     private SQLiteDatabase track_db = null;
+
+    public trackList getTracksByPositionRef()
+    {
+        return tracks_by_position;
+    }
+
 
     // accessors
 
@@ -219,14 +225,33 @@ public class LocalPlaylist implements Playlist
                 }
                 else
                 {
-                    for (int i = 0; i < num_tracks; i++)
+                    Cursor cursor = null;
+                    String query = "SELECT * FROM tracks ORDER BY position";
+                    try
                     {
-                        tracks_by_position.add(i,null);
+                        cursor = playlist_db.rawQuery(query,null);
+                    }
+                    catch (Exception e)
+                    {
+                        Utils.error("Could not execute query: " + query);
+                        return; // true; // false;
+                    }
+
+                    // construct the playlists
+                    // the name is 0th field in the cursor
+
+                    if (cursor != null && cursor.moveToFirst())
+                    {
+                        Utils.log(dbg_lp,1,"adding " + cursor.getCount() + " tracks ...");
+                        tracks_by_position.add(new Track(cursor));
+                        while (cursor.moveToNext())
+                            tracks_by_position.add(new Track(cursor));
                     }
                 }
             }
         }
     }
+
 
 
     @Override public void stopPlaylist(boolean wait_for_stop)
@@ -254,7 +279,7 @@ public class LocalPlaylist implements Playlist
         // get a track from the playlist
         // return null on error
         // LocalPlaylist assigns the openId for use
-        // by CurrentPlaylist ..
+        // by SystemPlaylist ..
     {
         if (index <= 0 || index > num_tracks)
             return null;

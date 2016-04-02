@@ -9,9 +9,6 @@ import java.util.HashMap;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
-import prh.artisan.CurrentPlaylist;
-import prh.artisan.Playlist;
-import prh.artisan.Renderer;
 import prh.artisan.Track;
 import prh.device.LocalRenderer;
 import prh.server.HTTPServer;

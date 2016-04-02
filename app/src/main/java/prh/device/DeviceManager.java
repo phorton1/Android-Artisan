@@ -9,8 +9,7 @@ import java.util.Collection;
 import java.util.HashMap;
 
 import prh.artisan.Artisan;
-import prh.artisan.EventHandler;
-import prh.types.stringList;
+import prh.artisan.interfaces.EventHandler;
 import prh.utils.Utils;
 import prh.utils.httpUtils;
 
@@ -92,7 +91,7 @@ public class DeviceManager
 {
 
     private static int dbg_dm = 1;
-    private static int dbg_cache = 0;
+    private static int dbg_cache = 1;
     private static String cache_file_name = "device_cache.txt";
     public static boolean USE_DEVICE_CACHE = true;
 
