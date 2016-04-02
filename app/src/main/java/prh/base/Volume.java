@@ -1,4 +1,4 @@
-package prh.artisan.interfaces;
+package prh.base;
 
 public interface Volume
     // base class of Volume control devices

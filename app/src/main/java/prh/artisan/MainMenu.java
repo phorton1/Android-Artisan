@@ -11,14 +11,13 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import prh.artisan.interfaces.EventHandler;
-import prh.artisan.utils.SelectDevice;
 import prh.device.Device;
+import prh.base.ArtisanEventHandler;
 import prh.types.intViewHash;
 
 
 public class MainMenu extends ListView implements
-    EventHandler,
+    ArtisanEventHandler,
     View.OnClickListener
 {
     private final static int NUM_MENU_ITEMS = 5;

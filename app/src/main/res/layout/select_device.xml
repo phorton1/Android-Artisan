@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<prh.artisan.utils.SelectDevice
+<prh.artisan.SelectDevice
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/select_device_layout"
     android:minHeight="@dimen/MainMenuItemHeight"
@@ -39,4 +39,4 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"/>
 
-</prh.artisan.utils.SelectDevice>
+</prh.artisan.SelectDevice>

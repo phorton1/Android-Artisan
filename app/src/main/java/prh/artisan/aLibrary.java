@@ -37,12 +37,9 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 
-import prh.artisan.interfaces.ArtisanPage;
-import prh.artisan.interfaces.EventHandler;
-import prh.artisan.interfaces.Library;
-import prh.artisan.utils.Fetcher;
-import prh.artisan.utils.ListItem;
-import prh.artisan.utils.ListItemAdapter;
+import prh.base.ArtisanEventHandler;
+import prh.base.ArtisanPage;
+import prh.base.Library;
 import prh.types.intList;
 import prh.types.recordList;
 import prh.types.selectedHash;
@@ -51,7 +48,7 @@ import prh.utils.Utils;
 
 public class aLibrary extends Fragment implements
     ArtisanPage,
-    EventHandler,
+    ArtisanEventHandler,
     ListItem.ListItemListener
 {
     private static int dbg_alib = 0;

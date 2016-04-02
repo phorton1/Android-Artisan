@@ -6,7 +6,7 @@ import org.w3c.dom.Document;
 import java.util.HashMap;
 
 import prh.artisan.Artisan;
-import prh.artisan.interfaces.EventHandler;
+import prh.base.ArtisanEventHandler;
 import prh.device.service.AVTransport;
 import prh.device.service.ContentDirectory;
 import prh.device.service.OpenInfo;
@@ -111,7 +111,7 @@ public abstract class Device implements Comparable<Device>
         boolean changed = device_status != new_status;
         device_status = new_status;
         if (changed)
-        artisan.handleArtisanEvent(EventHandler.EVENT_DEVICE_STATUS_CHANGED,this);
+        artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_DEVICE_STATUS_CHANGED,this);
 
     }
 

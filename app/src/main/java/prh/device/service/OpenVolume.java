@@ -6,11 +6,11 @@ import org.w3c.dom.Element;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
-import prh.artisan.interfaces.Volume;
+import prh.base.Volume;
 import prh.device.Device;
 import prh.device.SSDPSearchService;
 import prh.device.Service;
-import prh.server.utils.UpnpEventReceiver;
+import prh.base.UpnpEventReceiver;
 
 public class OpenVolume extends Service implements
     Volume,

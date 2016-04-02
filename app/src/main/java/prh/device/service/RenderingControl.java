@@ -19,8 +19,8 @@ import org.w3c.dom.Element;
 import java.util.HashMap;
 
 import prh.artisan.Artisan;
-import prh.artisan.interfaces.EventHandler;
-import prh.artisan.interfaces.Volume;
+import prh.base.ArtisanEventHandler;
+import prh.base.Volume;
 import prh.artisan.VolumeControl;
 import prh.device.Device;
 import prh.device.SSDPSearchService;
@@ -201,7 +201,7 @@ public class RenderingControl extends Service implements Volume
         // if any changed, send the event
 
         if (VolumeControl.changed(old_values,current_values))
-            artisan.handleArtisanEvent(EventHandler.EVENT_VOLUME_CHANGED,this);
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_VOLUME_CHANGED,this);
 
         return current_values.clone();
     }
@@ -247,7 +247,7 @@ public class RenderingControl extends Service implements Volume
                     current_values[idx] = value;
 
                 // since it changed, set the value
-                artisan.handleArtisanEvent(EventHandler.EVENT_VOLUME_CHANGED,this);
+                artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_VOLUME_CHANGED,this);
             }
         }
 

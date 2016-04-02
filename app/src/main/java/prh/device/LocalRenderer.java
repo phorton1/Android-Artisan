@@ -28,11 +28,11 @@ import android.net.Uri;
 import android.widget.Toast;
 
 import prh.artisan.Artisan;
-import prh.artisan.SystemPlaylist;
-import prh.artisan.interfaces.EventHandler;
-import prh.artisan.interfaces.Renderer;
+import prh.base.ArtisanEventHandler;
+import prh.base.EditablePlaylist;
+import prh.base.Renderer;
 import prh.artisan.Track;
-import prh.artisan.interfaces.Volume;
+import prh.base.Volume;
 import prh.artisan.VolumeControl;
 import prh.utils.loopingRunnable;
 import prh.server.SSDPServer;
@@ -95,7 +95,7 @@ public class LocalRenderer extends Device implements
         // as returned by the media player, reset
         // on transitions, and updated in updateState()
     private Track current_track = null;
-        // Renderers are always playling the SystemPlaylist,
+        // Renderers are always playling the tempEditablePlaylist,
         // but a Track can be pushed on top of it.
     private boolean repeat = true;
     private boolean shuffle = false;
@@ -245,9 +245,9 @@ public class LocalRenderer extends Device implements
             Utils.log(dbg_ren,0,"setTrack(" + track.getTitle() + ") interrupt=" + interrupt_playlist);
             // stop();
             if (interrupt_playlist)
-                artisan.setPlaylist("",true);
+                artisan.setPlaylist("");
             current_track = track;
-            artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_TRACK_CHANGED,track);
             transport_play();
         }
     }
@@ -263,8 +263,9 @@ public class LocalRenderer extends Device implements
         Track track = null;
          current_track = null;
 
-        SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
+        EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
         current_playlist.incGetTrack(inc);
+
         track = current_playlist.getCurrentTrack();
         if (track == null)
         {
@@ -279,7 +280,7 @@ public class LocalRenderer extends Device implements
 
         if (track == null)
             transport_stop();
-        artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
+        artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_TRACK_CHANGED,track);
     }
 
 
@@ -290,7 +291,7 @@ public class LocalRenderer extends Device implements
             mp_state != MP_STATE_STOPPED &&
             mp_state != MP_STATE_INITIALIZED)
         {
-            artisan.handleArtisanEvent(EventHandler.EVENT_POSITION_CHANGED,new Integer(position));
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_POSITION_CHANGED,new Integer(position));
             media_player.seekTo(position);
         }
     }
@@ -323,7 +324,7 @@ public class LocalRenderer extends Device implements
     {
         Utils.log(dbg_ren,0,"play() mp=" + getMediaPlayerState() + " rend=" + getRendererState());
         Track track = current_track;
-        SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
+        EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
         if (current_track==null && current_playlist != null)
             track = current_playlist.getCurrentTrack();
 
@@ -366,7 +367,7 @@ public class LocalRenderer extends Device implements
             setRendererState(RENDERER_STATE_PLAYING);
             total_tracks_played++;
 
-            // artisan.handleRendererEvent(EventHandler.EVENT_TRACK_CHANGED,track);
+            // artisan.handleRendererEvent(ArtisanEventHandler.EVENT_TRACK_CHANGED,track);
             // doesn't happen in play, which does not change the track
 
         }
@@ -405,7 +406,7 @@ public class LocalRenderer extends Device implements
     {
         renderer_state = to_state;
         Utils.log(0,0,renderer_state);
-        artisan.handleArtisanEvent(EventHandler.EVENT_STATE_CHANGED,renderer_state);
+        artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_STATE_CHANGED,renderer_state);
     }
 
 
@@ -528,7 +529,7 @@ public class LocalRenderer extends Device implements
             if (last_position != song_position / 100)
             {
                 last_position = song_position / 100;
-                artisan.handleArtisanEvent(EventHandler.EVENT_POSITION_CHANGED,new Integer(song_position));
+                artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_POSITION_CHANGED,new Integer(song_position));
             }
 
             // Hit the volume control, which will check if volumes
@@ -540,7 +541,7 @@ public class LocalRenderer extends Device implements
 
             // Currently acts as the main idle loop for Artisan
 
-            artisan.handleArtisanEvent(EventHandler.EVENT_IDLE,null);
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_IDLE,null);
 
         }   // updateState.run()
     }   // class updateState

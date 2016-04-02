@@ -1,7 +1,7 @@
-package prh.artisan.interfaces;
+package prh.base;
 
 
-public interface EventHandler
+public interface ArtisanEventHandler
     // handles events from a renderer
     // to update the Now Playing and other UI
 {
@@ -48,5 +48,5 @@ public interface EventHandler
 
     void handleArtisanEvent( String event_id, Object data );
 
-}   // class EventHandler
+}   // class ArtisanEventHandler
 

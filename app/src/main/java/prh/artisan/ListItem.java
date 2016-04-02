@@ -1,4 +1,4 @@
-package prh.artisan.utils;
+package prh.artisan;
 
 // Implements a do-all list item for use in the Library and Playlist.
 //
@@ -32,12 +32,7 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import prh.artisan.Artisan;
-import prh.artisan.Folder;
-import prh.artisan.R;
-import prh.artisan.Record;
-import prh.artisan.SystemPlaylist;
-import prh.artisan.Track;
+import prh.base.EditablePlaylist;
 import prh.utils.Utils;
 import prh.utils.imageLoader;
 
@@ -389,9 +384,9 @@ public class ListItem extends RelativeLayout implements
                 else
                 {
                     Track track = list_item.getTrack();
-                    SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
+                    EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
                     Utils.log(0,0,"Inserting Track(" + track.getTitle() + " into playlist");
-                    current_playlist.insertTrack(track,0);
+                    current_playlist.insertTrack(0,track);
                 }
                 break;
         }

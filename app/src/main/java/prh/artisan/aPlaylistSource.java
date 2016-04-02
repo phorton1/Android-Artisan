@@ -14,9 +14,9 @@ import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
-import prh.artisan.interfaces.EventHandler;
 import prh.device.Device;
-import prh.artisan.interfaces.ArtisanPage;
+import prh.base.ArtisanEventHandler;
+import prh.base.ArtisanPage;
 import prh.types.intList;
 import prh.types.intViewHash;
 import prh.utils.Utils;
@@ -25,7 +25,7 @@ import prh.utils.Utils;
 public class aPlaylistSource extends Fragment implements
     ArtisanPage,
     View.OnClickListener,
-    EventHandler
+    ArtisanEventHandler
 {
     private static int dbg_aprefs = 0;
 

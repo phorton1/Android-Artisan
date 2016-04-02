@@ -1,10 +1,11 @@
-package prh.server.utils;
+package prh.base;
 
 import org.w3c.dom.Document;
 
 import fi.iki.elonen.NanoHTTPD;
+import prh.server.utils.UpnpEventSubscriber;
 
-public interface httpRequestHandler
+public interface HttpRequestHandler
 {
     public abstract NanoHTTPD.Response response(
         NanoHTTPD.IHTTPSession session,

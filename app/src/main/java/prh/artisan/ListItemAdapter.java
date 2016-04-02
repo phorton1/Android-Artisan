@@ -1,4 +1,4 @@
-package prh.artisan.utils;
+package prh.artisan;
 
 import android.graphics.drawable.Drawable;
 import android.view.LayoutInflater;
@@ -10,11 +10,6 @@ import android.widget.ListView;
 
 import java.lang.reflect.Field;
 
-import prh.artisan.Artisan;
-import prh.artisan.Folder;
-import prh.artisan.R;
-import prh.artisan.Record;
-import prh.artisan.Track;
 import prh.utils.Utils;
 import prh.types.recordList;
 

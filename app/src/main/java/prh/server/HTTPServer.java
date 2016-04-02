@@ -28,10 +28,10 @@ import prh.server.http.OpenProduct;
 import prh.server.http.OpenTime;
 import prh.server.http.OpenVolume;
 import prh.server.http.RenderingControl;
-import prh.server.utils.UpnpEventHandler;
+import prh.base.HttpRequestHandler;
+import prh.base.UpnpEventHandler;
 import prh.server.utils.UpnpEventManager;
 import prh.server.utils.UpnpEventSubscriber;
-import prh.server.utils.httpRequestHandler;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
@@ -66,11 +66,11 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
 
     private UpnpEventManager event_manager = null;
     public UpnpEventManager getEventManager() { return event_manager; }
-    private HashMap<String,httpRequestHandler> handlers = null;
+    private HashMap<String,HttpRequestHandler> handlers = null;
     private OpenHomeRenderer open_home_renderer = null;
 
 
-    public httpRequestHandler getHandler(String service_name)
+    public HttpRequestHandler getHandler(String service_name)
     {
         return handlers.get(service_name);
     }
@@ -167,7 +167,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
 
     private boolean checkService(String service)
     {
-        httpRequestHandler handler = handlers.get(service);
+        HttpRequestHandler handler = handlers.get(service);
         if (handler == null)
         {
             Utils.warning(0,0,"Request for non-existent service: " + service);
@@ -185,7 +185,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
         boolean started = true;
         Utils.log(dbg_http,1,"HTTPServer.start() called  ...");
 
-        handlers = new HashMap<String,httpRequestHandler>();
+        handlers = new HashMap<String,HttpRequestHandler>();
         event_manager = new UpnpEventManager(artisan,this);
 
         // start the httpHandlers
@@ -270,7 +270,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
         // stop the handlers
         if (handlers != null)
         {
-            for (httpRequestHandler handler : handlers.values())
+            for (HttpRequestHandler handler : handlers.values())
             {
                 if (handler instanceof UpnpEventHandler)
                     ((UpnpEventHandler) handler).stop();
@@ -507,7 +507,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
                             // The httpHandlers are synchronized with their potential
                             // UpnpEventHandlers so that actions and events are atomic
 
-                            httpRequestHandler handler = handlers.get(use_service);
+                            HttpRequestHandler handler = handlers.get(use_service);
                             if (handler == null)
                                 Utils.error("No handler found for service(" + service + ")");
                             else synchronized (handler)

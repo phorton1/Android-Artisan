@@ -1,12 +1,8 @@
-package prh.artisan.utils;
+package prh.artisan;
 
 import java.util.List;
 
-import prh.artisan.Artisan;
-import prh.artisan.Folder;
-import prh.artisan.Track;
-import prh.artisan.interfaces.Playlist;
-import prh.types.recordList;
+import prh.base.Playlist;
 import prh.types.trackList;
 import prh.utils.Utils;
 
@@ -27,7 +23,6 @@ public class PlaylistFetcher extends Fetcher implements Fetcher.FetcherSource
     private boolean album_mode;
     private PlaylistFetcherSource my_source;
 
-    private trackList source_tracks;
     private int source_rec_changed_count_id;
 
     private int num_virtual_folders;
@@ -84,7 +79,6 @@ public class PlaylistFetcher extends Fetcher implements Fetcher.FetcherSource
         my_source = source;
         album_mode = false;
         source_rec_changed_count_id = -1;
-        source_tracks = my_source.getFetchedTrackList();
         initVirtualFolders();
     }
 
@@ -192,6 +186,7 @@ public class PlaylistFetcher extends Fetcher implements Fetcher.FetcherSource
     {
         // Add the next bunch of records to the Fetcher
 
+        trackList source_tracks = my_source.getFetchedTrackList();
         int num_tracks = source_tracks.size();
 
         Utils.log(dbg_plf,0,"PlaylistFetcher.getFetchRecords(" + fetcher.getTitle() +
@@ -254,7 +249,7 @@ public class PlaylistFetcher extends Fetcher implements Fetcher.FetcherSource
         {
             if (!album_mode)
             {
-                List<Track> to_add = source_tracks.subList(next_index,source_tracks.size() - 1);
+                List<Track> to_add = source_tracks.subList(next_index,source_tracks.size());
                 records.addAll(to_add);
             }
             else

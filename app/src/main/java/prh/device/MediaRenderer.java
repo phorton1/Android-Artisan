@@ -4,11 +4,11 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import prh.artisan.Artisan;
-import prh.artisan.SystemPlaylist;
-import prh.artisan.interfaces.EventHandler;
-import prh.artisan.interfaces.Renderer;
+import prh.base.ArtisanEventHandler;
+import prh.base.EditablePlaylist;
+import prh.base.Renderer;
 import prh.artisan.Track;
-import prh.artisan.interfaces.Volume;
+import prh.base.Volume;
 import prh.artisan.VolumeControl;
 import prh.utils.loopingRunnable;
 import prh.device.service.RenderingControl;
@@ -169,7 +169,7 @@ public class MediaRenderer extends Device implements
         {
             getUpdateRendererState();
             if (my_looper != null && my_looper.continue_loop())
-                artisan.handleArtisanEvent(EventHandler.EVENT_IDLE,null);   // prh !!!
+                artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_IDLE,null);   // prh !!!
         }
     }
 
@@ -210,7 +210,7 @@ public class MediaRenderer extends Device implements
 
         // We used to be responsible for sending out the null VOLUME_CONFIG_CHANGED message
         // Now sent by Artisan when it changes renderers
-        // artisan.handleArtisanEvent(EventHandler.EVENT_VOLUME_CONFIG_CHANGED,local_volume);
+        // artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_VOLUME_CONFIG_CHANGED,local_volume);
 
         Utils.log(dbg_mr,1,"MediaRenderer stopped");
     }
@@ -259,7 +259,7 @@ public class MediaRenderer extends Device implements
             Utils.log(dbg_mr,0,"setTrack(" + track.getTitle() + ") interrupt=" + interrupt_playlist);
             // stop();
             if (interrupt_playlist)
-                artisan.setPlaylist("",true);
+                artisan.setPlaylist("");
             current_track = track;
             Utils.log(1,1,"setTrack() calling play()");
             transport_play();
@@ -273,7 +273,7 @@ public class MediaRenderer extends Device implements
     {
         Utils.log(dbg_mr,0,"incAndPlay(" + inc + ")");
 
-        SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
+        EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
         Track track = current_playlist.incGetTrack(inc);
 
         if (track == null)
@@ -294,7 +294,7 @@ public class MediaRenderer extends Device implements
             // we send the new track event right away for the UI
             // so they will get two events
 
-            artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_TRACK_CHANGED,track);
 
             // but defer the actual doAction(Play) network call till two more
             // calls to getUpdateState() by setting do_play_on_next_update=2
@@ -415,7 +415,7 @@ public class MediaRenderer extends Device implements
     {
         renderer_state = to_state;
         Utils.log(0,0,renderer_state);
-        artisan.handleArtisanEvent(EventHandler.EVENT_STATE_CHANGED,renderer_state);
+        artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_STATE_CHANGED,renderer_state);
     }
 
 
@@ -502,7 +502,7 @@ public class MediaRenderer extends Device implements
                 // event that the playlist has gone to null
                 // the track and position changes will be evented below
 
-                artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,null);
+                artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_PLAYLIST_CHANGED,null);
             }
 
             // Remote Renderer has stopped
@@ -547,7 +547,7 @@ public class MediaRenderer extends Device implements
         if (last_position != song_position / 1000)
         {
             last_position = song_position / 1000;
-            artisan.handleArtisanEvent(EventHandler.EVENT_POSITION_CHANGED,new Integer(song_position));
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_POSITION_CHANGED,new Integer(song_position));
         }
 
         if (!new_track_uri.equals(last_track_uri))
@@ -561,7 +561,7 @@ public class MediaRenderer extends Device implements
                 track = new Track(new_track_uri,didl);
             }
             current_track = track;
-            artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_TRACK_CHANGED,track);
         }
 
         //----------------------------------------
@@ -575,7 +575,7 @@ public class MediaRenderer extends Device implements
 
         // Dispatch the IDLE event for Artisan
 
-        artisan.handleArtisanEvent(EventHandler.EVENT_IDLE,null);
+        artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_IDLE,null);
         return true;
 
     }   // MediaRenderer.getUpdateRendererState()

@@ -1,4 +1,4 @@
-package prh.artisan.utils;
+package prh.artisan;
 
 //-------------------------------------
 // Select Device
@@ -14,17 +14,14 @@ import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
-import prh.artisan.Artisan;
-import prh.artisan.MainMenu;
-import prh.artisan.R;
-import prh.artisan.interfaces.EventHandler;
 import prh.device.Device;
 import prh.device.DeviceManager;
+import prh.base.ArtisanEventHandler;
 import prh.utils.imageLoader;
 
 
 public class SelectDevice extends RelativeLayout implements
-    EventHandler,
+    ArtisanEventHandler,
     View.OnClickListener
 {
     private Artisan artisan;

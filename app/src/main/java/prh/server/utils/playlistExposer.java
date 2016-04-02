@@ -3,9 +3,9 @@ package prh.server.utils;
 import java.util.HashMap;
 
 import prh.artisan.Artisan;
-import prh.artisan.SystemPlaylist;
+import prh.base.ArtisanEventHandler;
+import prh.base.EditablePlaylist;
 import prh.artisan.Track;
-import prh.artisan.interfaces.EventHandler;
 import prh.utils.Utils;
 
 public class playlistExposer
@@ -102,7 +102,7 @@ public class playlistExposer
         // then to the end of the playlist, then from the beginning ... Bup playlist doesn't keep
         // the currentTrack in view if you stick things before it ...
     {
-        SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
+        EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
         int num = current_playlist.getNumTracks();
         int idx = current_playlist.getCurrentIndex();
         Utils.log(dbg_expose,0,"expose_more() track_index=" + idx + " num_exposed=" + num_exposed + " num_tracks=" +num);
@@ -122,7 +122,7 @@ public class playlistExposer
                 int try_index = (idx - 1) + offset * direction;
                 if (try_index > 0 && try_index <= num)
                 {
-                    Track track = current_playlist.getTrackLow(try_index);
+                    Track track = current_playlist.getTrack(try_index);
                     if (track != null && exposeTrack(track,true))
                         count_exposed++;
                 }
@@ -142,7 +142,7 @@ public class playlistExposer
            if (count_exposed > 0)
            {
                Utils.log(dbg_expose,1,"expose_more() sending EVENT_PLAYLIST_TRACKS_EXPOSED");
-               artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_TRACKS_EXPOSED,null);
+               artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_PLAYLIST_TRACKS_EXPOSED,null);
            }
 
             return count_exposed > 0;

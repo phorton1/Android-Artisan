@@ -6,16 +6,16 @@ import java.util.HashMap;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
-import prh.artisan.interfaces.Renderer;
+import prh.base.Renderer;
 import prh.artisan.Track;
-import prh.artisan.interfaces.Volume;
+import prh.base.Volume;
 import prh.device.service.OpenInfo;
 import prh.device.service.OpenPlaylist;
 import prh.device.service.OpenTime;
 import prh.device.service.OpenVolume;
 import prh.device.service.OpenProduct;
 import prh.server.HTTPServer;
-import prh.server.utils.UpnpEventReceiver;
+import prh.base.UpnpEventReceiver;
 import prh.types.stringHash;
 import prh.utils.Utils;
 
@@ -23,7 +23,7 @@ import prh.utils.Utils;
 // A class that presents a remote OpenHome device as a Renderer.
 // Because an OpenHome device is also has a playlist, there is
 // a tight binding between this object (the device.OpenPlaylist)
-// and the SystemPlaylist as seen by the rest of the system.
+// and the tempEditablePlaylist as seen by the rest of the system.
 
 // Unlike the other Renderers, the OpenHome device does not have
 // a looper, and does not call Artisan.handleArtisanEvent(EVENT_IDLE).
@@ -158,7 +158,7 @@ public class OpenHomeRenderer extends Device implements
 
         if (ok)
         {
-            // Attach our Playlist to the SystemPlaylist
+            // Attach our Playlist to the tempEditablePlaylist
         }
         else
         {
@@ -177,7 +177,7 @@ public class OpenHomeRenderer extends Device implements
     @Override
     public void stopRenderer(boolean wait_for_stop)
         // stop the http server from sending us more stuff
-        // stop the SystemPlaylist from accessing us, and
+        // stop the tempEditablePlaylist from accessing us, and
         // cancel any subscriptions
     {
         Utils.log(dbg_ohr,0,"OpenHomeRenderer.stopRenderer(" + wait_for_stop + ")");
@@ -284,7 +284,7 @@ public class OpenHomeRenderer extends Device implements
 
 
     //-------------------------------------------
-    // httpRequestHandler Interface
+    // HttpRequestHandler Interface
     //-------------------------------------------
     // SSDP Event Callback from a Service on the remote
     // OpenHomeRenderer to which we have subscribed.

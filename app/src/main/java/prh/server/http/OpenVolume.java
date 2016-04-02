@@ -10,17 +10,17 @@ import java.util.HashMap;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
-import prh.artisan.interfaces.Renderer;
-import prh.artisan.interfaces.Volume;
+import prh.base.Renderer;
+import prh.base.Volume;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
-import prh.server.utils.httpRequestHandler;
+import prh.base.HttpRequestHandler;
 import prh.server.utils.updateCounter;
-import prh.server.utils.UpnpEventHandler;
+import prh.base.UpnpEventHandler;
 import prh.utils.httpUtils;
 
 
-public class OpenVolume implements httpRequestHandler,UpnpEventHandler
+public class OpenVolume implements HttpRequestHandler,UpnpEventHandler
 {
     static private int dbg_volume = 0;
 

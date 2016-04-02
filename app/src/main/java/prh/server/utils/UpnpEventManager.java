@@ -15,6 +15,7 @@ import java.util.HashMap;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
+import prh.base.UpnpEventHandler;
 import prh.server.HTTPServer;
 import prh.utils.Utils;
 

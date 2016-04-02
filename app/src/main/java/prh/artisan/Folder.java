@@ -9,7 +9,6 @@ import android.database.Cursor;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
-import prh.artisan.utils.Fetcher;
 import prh.device.LocalLibrary;
 import prh.types.libraryBrowseResult;
 import prh.types.recordList;

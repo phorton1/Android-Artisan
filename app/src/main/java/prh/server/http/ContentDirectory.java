@@ -13,18 +13,18 @@ import java.util.Map;
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 import prh.artisan.Folder;
-import prh.artisan.interfaces.Library;
+import prh.base.HttpRequestHandler;
+import prh.base.Library;
 import prh.artisan.Record;
 import prh.artisan.Track;
 import prh.device.LocalLibrary;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
-import prh.server.utils.httpRequestHandler;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
-public class ContentDirectory implements httpRequestHandler
+public class ContentDirectory implements HttpRequestHandler
     // The DLNA Server serves the LOCAL LIBRARY
     // It is NOT a pass-thru server to remote libraries!
 {
@@ -88,7 +88,7 @@ public class ContentDirectory implements httpRequestHandler
             String name = uri.replace("select_playlist/","");
             name = name.replace(".mp3","");
             Utils.log(dbg_dlna,0,"dlnaServer request to select playlist(" + name + ")");
-            artisan.setPlaylist(name,true);
+            artisan.setPlaylist(name);
         }
 
         // Album Art /ContentDirectory/folder_id/folder.jpg

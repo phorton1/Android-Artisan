@@ -20,10 +20,11 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import prh.artisan.interfaces.EventHandler;
-import prh.artisan.interfaces.ArtisanPage;
-import prh.artisan.interfaces.PlaylistSource;
-import prh.artisan.interfaces.Renderer;
+import prh.base.ArtisanEventHandler;
+import prh.base.ArtisanPage;
+import prh.base.EditablePlaylist;
+import prh.base.PlaylistSource;
+import prh.base.Renderer;
 import prh.types.intList;
 import prh.types.stringList;
 import prh.utils.Utils;
@@ -32,7 +33,7 @@ import prh.utils.imageLoader;
 
 public class aRenderer extends Fragment implements
     ArtisanPage,
-    EventHandler,
+    ArtisanEventHandler,
     View.OnClickListener
 {
 
@@ -102,7 +103,7 @@ public class aRenderer extends Fragment implements
         // call our own event handler to set
         // everything up
 
-        handleArtisanEvent(EventHandler.EVENT_RENDERER_CHANGED,
+        handleArtisanEvent(ArtisanEventHandler.EVENT_RENDERER_CHANGED,
             artisan.getRenderer());
 
         return my_view;
@@ -169,7 +170,7 @@ public class aRenderer extends Fragment implements
             "Now Playing " :
             renderer.getRendererName() + " ";
 
-        SystemPlaylist cur = artisan.getCurrentPlaylist();
+        EditablePlaylist cur = artisan.getCurrentPlaylist();
         msg += ":: " +
             cur.getName();
         if (cur.isDirty())
@@ -398,7 +399,7 @@ public class aRenderer extends Fragment implements
                     Utils.log(dbg_anp,2,"onClick(" + v.getId() + ") position=" + position);
                     String name = playlist_names.get(position);
                     Utils.log(dbg_anp,3,"playlist name=" + name);
-                    artisan.setPlaylist(name,false);
+                    artisan.setPlaylist(name);
                         // tell artisan that the playlist has changed
                         // it will event the change back to us
                 }
@@ -407,7 +408,7 @@ public class aRenderer extends Fragment implements
             if (name.equals(""))
                 name = "default";
 
-            SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
+            EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
             btn.setTextColor(name.equals(current_playlist.getName())? 0xFFff9900:Color.WHITE);
             btn.setText(name);
             btn.setId(ID_BASE + position);
@@ -546,7 +547,7 @@ public class aRenderer extends Fragment implements
     {
         if (my_view != null)
         {
-            SystemPlaylist cur = artisan.getCurrentPlaylist();
+            EditablePlaylist cur = artisan.getCurrentPlaylist();
             //setPlayListButtonSelected(cur.getName(),true);
 
             boolean enable_next =

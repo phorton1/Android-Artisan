@@ -12,11 +12,10 @@ import javax.xml.parsers.DocumentBuilderFactory;
 
 import prh.artisan.Artisan;
 import prh.artisan.Folder;
-import prh.artisan.interfaces.Library;
+import prh.base.Library;
 import prh.artisan.Track;
-import prh.artisan.utils.Fetcher;
+import prh.artisan.Fetcher;
 import prh.types.objectHash;
-import prh.types.recordList;
 import prh.utils.imageLoader;
 import prh.utils.Utils;
 import prh.types.stringHash;

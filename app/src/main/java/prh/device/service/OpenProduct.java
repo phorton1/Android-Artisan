@@ -7,10 +7,9 @@ import org.w3c.dom.Element;
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 import prh.device.Device;
-import prh.device.SSDPSearch;
 import prh.device.SSDPSearchService;
 import prh.device.Service;
-import prh.server.utils.UpnpEventReceiver;
+import prh.base.UpnpEventReceiver;
 
 public class OpenProduct extends Service implements
     UpnpEventReceiver

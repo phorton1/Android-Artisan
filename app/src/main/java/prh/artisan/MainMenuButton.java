@@ -1,4 +1,4 @@
-package prh.artisan.utils;
+package prh.artisan;
 
 // My own version of an image that acts as a button by
 // changing the tint of the view when it's pressed and

@@ -1,8 +1,6 @@
-package prh.artisan.utils;
+package prh.artisan;
 
-import prh.artisan.Artisan;
 import prh.utils.Utils;
-import prh.artisan.interfaces.Playlist;
 import prh.types.recordList;
 
 

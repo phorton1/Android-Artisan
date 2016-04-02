@@ -1,4 +1,4 @@
-package prh.artisan.interfaces;
+package prh.base;
 
 
 import prh.artisan.Track;
@@ -58,7 +58,7 @@ public interface Renderer
 
     public void notifyPlaylistChanged();
         // called by Artisan when it gives a new LocalPlaylist
-        // to the SystemPlaylist so that the renderer may be
+        // to the tempEditablePlaylist so that the renderer may be
         // aware that num_tracks, track_index, etc, changed.
 }   // base class Renderer
 

@@ -9,7 +9,7 @@ import java.util.Collection;
 import java.util.HashMap;
 
 import prh.artisan.Artisan;
-import prh.artisan.interfaces.EventHandler;
+import prh.base.ArtisanEventHandler;
 import prh.utils.Utils;
 import prh.utils.httpUtils;
 
@@ -303,7 +303,7 @@ public class DeviceManager
 
             addDevice(device);
             // artisan explicitly checks after the device manager starts
-            // artisan.handleArtisanEvent(EventHandler.EVENT_NEW_DEVICE,device);
+            // artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_NEW_DEVICE,device);
 
         }
 
@@ -351,14 +351,14 @@ public class DeviceManager
         if (inc == 1 && busy_count == 1)
         {
             num_devices_added = 0;
-            artisan.handleArtisanEvent(EventHandler.EVENT_SSDP_SEARCH_STARTED,null);
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_SSDP_SEARCH_STARTED,null);
         }
         else if (inc == -1 && busy_count == 0)
         {
             // finished!
             if (USE_DEVICE_CACHE && num_devices_added > 0)
                 writeCache();
-            artisan.handleArtisanEvent(EventHandler.EVENT_SSDP_SEARCH_FINISHED,null);
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_SSDP_SEARCH_FINISHED,null);
         }
         return busy_count;
     }
@@ -557,7 +557,7 @@ public class DeviceManager
             num_devices_added ++;
             device.createSSDPServices(ssdp_device);
             addDevice(device);
-            artisan.handleArtisanEvent(EventHandler.EVENT_NEW_DEVICE,device);
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_NEW_DEVICE,device);
             return true;
         }
         return false;

@@ -10,17 +10,17 @@ import java.util.HashMap;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
-import prh.artisan.interfaces.Renderer;
+import prh.base.HttpRequestHandler;
+import prh.base.Renderer;
 import prh.artisan.Track;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
-import prh.server.utils.httpRequestHandler;
 import prh.server.utils.updateCounter;
-import prh.server.utils.UpnpEventHandler;
+import prh.base.UpnpEventHandler;
 import prh.utils.httpUtils;
 
 
-public class OpenTime implements httpRequestHandler,UpnpEventHandler
+public class OpenTime implements HttpRequestHandler,UpnpEventHandler
 {
     private Artisan artisan;
     private HTTPServer http_server;

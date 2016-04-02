@@ -7,8 +7,6 @@ import android.widget.LinearLayout;
 
 import java.util.HashMap;
 
-import prh.artisan.utils.MainMenuButton;
-
 
 public class MainMenuToolbar extends LinearLayout
 {

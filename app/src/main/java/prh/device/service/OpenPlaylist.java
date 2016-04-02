@@ -12,30 +12,30 @@ import javax.xml.parsers.DocumentBuilderFactory;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
-import prh.artisan.interfaces.EventHandler;
-import prh.artisan.interfaces.FetchablePlaylist;
-import prh.artisan.utils.Fetcher;
-import prh.artisan.interfaces.Playlist;
-import prh.artisan.interfaces.Renderer;
+import prh.base.ArtisanEventHandler;
+import prh.base.EditablePlaylist;
+import prh.artisan.Fetcher;
+import prh.base.PlaylistSource;
+import prh.base.Renderer;
 import prh.artisan.Track;
-import prh.artisan.utils.PlaylistFetcher;
 import prh.device.Device;
 import prh.device.SSDPSearchService;
 import prh.device.Service;
-import prh.server.utils.UpnpEventReceiver;
+import prh.base.UpnpEventReceiver;
 import prh.types.intTrackHash;
 import prh.types.stringHash;
 import prh.types.trackList;
 import prh.utils.Base64;
 import prh.utils.Utils;
+import prh.utils.playlistHelper;
 
 
 // Is subscribed to a remote open playlist, and presents
-// that to the SystemPlaylist via the Playlist interface.
+// that to the tempEditablePlaylist via the Playlist interface.
 
 public class OpenPlaylist extends Service implements
     UpnpEventReceiver,
-    FetchablePlaylist
+    EditablePlaylist
 {
     // Playlist contents
 
@@ -67,7 +67,9 @@ public class OpenPlaylist extends Service implements
 
     // Basic Playlist Interface, except getTrack()
 
-    @Override public void startPlaylist() {}
+    @Override public PlaylistSource getSource() { return null; }
+
+    @Override public boolean startPlaylist() { return true; }
     @Override public void stopPlaylist(boolean wait_for_stop)  {}
 
     @Override public String getName()         { return ""; }
@@ -82,6 +84,10 @@ public class OpenPlaylist extends Service implements
     @Override public boolean isDirty() { return is_dirty; }
     @Override public void setDirty(boolean b) { is_dirty = b; }
 
+    @Override public int getNumAvailableTracks()
+    {
+        return tracks_by_position.size();
+    }
 
     //----------------------------------
     // Sevice ctors
@@ -130,12 +136,22 @@ public class OpenPlaylist extends Service implements
 
     @Override public Track getTrack(int position)
     {
-        if (position-1 >= id_array.length)
+        int index = position -1;
+        if (index < 0 || index >= num_tracks)
         {
-            Utils.warning(0,0,"OpenPlaylist.getTrack() request for track(" + position + ") when id_array only has " + id_array.length + " elements");
+            Utils.warning(0,0,"OpenPlaylist.getTrack(" + position + ") position out range - num_tracks=" + num_tracks);
             return null;
         }
-        return tracks_by_open_id.get(id_array[position-1]);
+        if (index >= tracks_by_position.size())
+        {
+            Utils.warning(0,0,"OpenPlaylist.getTrack(" + position + ") track not loaded. available=" + getNumAvailableTracks());
+            return null;
+        }
+
+        Track track = tracks_by_position.get(index);
+        if (track == null)
+            Utils.error("OpenPlaylist.getTrack(" + position + ") returning null with available=" + getNumAvailableTracks());
+        return track;
     }
 
 
@@ -167,16 +183,42 @@ public class OpenPlaylist extends Service implements
         return "";
     }
 
-    //-------------------------------------------------
-    // FetchablePlaylist setAssociatedPlaylist()
-    //-------------------------------------------------
-    // Has the semantic of "change the remote playlist to this one",
-    // so an empty playlist means "DeleteAll", and otherwise, it's an
-    // expensive remote InsertTrack of every track.
 
-    @Override public void setAssociatedPlaylist(Playlist playlist)
+    //------------------------------
+    // EditablePlaylist Interface
+    //------------------------------
+
+    @Override public void setName(String new_name)
+    {}
+
+    @Override public Track incGetTrack(int inc)
     {
-        Utils.warning(0,0,"SET ASSOCIATED PLAYLIST NOT IMPLEMENTED YET");
+        return playlistHelper.incGetTrack(this,inc);
+    }
+
+    @Override public Track seekByIndex(int position)
+    {
+        Track track = null;
+        if (position>0 && position <= tracks_by_position.size())
+        {
+            track = tracks_by_position.get(position - 1);
+            saveIndex(position);
+        }
+        return track;
+    }
+
+
+    @Override public Track insertTrack(int position, Track track)
+    {
+        // action
+        return track;
+    }
+
+
+    @Override public boolean removeTrack(Track track)
+    {
+        // action
+        return false;
     }
 
 
@@ -410,28 +452,28 @@ public class OpenPlaylist extends Service implements
         Utils.log(0,1,"OpenPlaylist.response() new tracks_by_open_id.size=" + tracks_by_open_id.size());
 
         // if any changes, announce ourselves as a new
-        // playlist to the SystemPlaylist and Renderer
+        // playlist to the tempEditablePlaylist and Renderer
         // and send out the change event
 
         if (any_changes)
         {
-            Utils.log(0,1,"OpenPlaylist.response() setting self as SystemPlaylist.associated_playlist");
-            artisan.getCurrentPlaylist().setAssociatedPlaylist(this);
+            Utils.log(0,1,"OpenPlaylist.response() setting self as tempEditablePlaylist.associated_playlist");
+            artisan.setPlaylist(this);
             // artisan.getRenderer().notifyPlaylistChanged();
             // hey wait a minute, that's us!
-            Utils.log(0,1,"OpenPlaylist.response() sending EVENT_PLAYLIST_CHANGED");
-            artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,this);
+            //Utils.log(0,1,"OpenPlaylist.response() sending EVENT_PLAYLIST_CHANGED");
+            //artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_PLAYLIST_CHANGED,this);
         }
 
         // aPlaylist will now react by setting up a fetcher to call
-        // SystemPlaylist, who will in knowledgeable turn, call our
+        // tempEditablePlaylist, who will in knowledgeable turn, call our
         // getReadTracks() method a chunk at a time
 
         if (!transport_state.equals(last_transport_state))
         {
             last_transport_state = transport_state;
             Utils.log(0,1,"OpenPlaylist.response() sending EVENT_STATE_CHANGED(" + last_transport_state + ")");
-            artisan.handleArtisanEvent(EventHandler.EVENT_STATE_CHANGED,last_transport_state);
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_STATE_CHANGED,last_transport_state);
         }
 
         Utils.log(0,0,"OpenPlaylist.response() finished");

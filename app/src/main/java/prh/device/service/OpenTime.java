@@ -6,11 +6,11 @@ import org.w3c.dom.Element;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
-import prh.artisan.interfaces.EventHandler;
+import prh.base.ArtisanEventHandler;
 import prh.device.Device;
 import prh.device.SSDPSearchService;
 import prh.device.Service;
-import prh.server.utils.UpnpEventReceiver;
+import prh.base.UpnpEventReceiver;
 import prh.utils.Utils;
 
 public class OpenTime extends Service implements
@@ -74,7 +74,7 @@ public class OpenTime extends Service implements
         if (last_position != new_position)
         {
             last_position = new_position;
-            artisan.handleArtisanEvent(EventHandler.EVENT_POSITION_CHANGED,last_position * 1000);
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_POSITION_CHANGED,last_position * 1000);
         }
         return "";
     }

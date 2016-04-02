@@ -57,22 +57,22 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 
-import prh.artisan.interfaces.EventHandler;
-import prh.artisan.utils.Fetcher;
 import prh.device.Device;
 import prh.device.DeviceManager;
 import prh.device.LocalLibrary;
 import prh.device.LocalPlaylistSource;
 import prh.device.LocalRenderer;
-import prh.artisan.interfaces.ArtisanPage;
-import prh.artisan.interfaces.Library;
-import prh.artisan.interfaces.Playlist;
-import prh.artisan.interfaces.PlaylistSource;
-import prh.artisan.interfaces.Renderer;
 import prh.server.HTTPServer;
 import prh.server.LocalVolumeFixer;
 import prh.server.SSDPServer;
 import prh.server.utils.UpnpEventManager;
+import prh.base.ArtisanEventHandler;
+import prh.base.ArtisanPage;
+import prh.base.EditablePlaylist;
+import prh.base.Library;
+import prh.base.Playlist;
+import prh.base.PlaylistSource;
+import prh.base.Renderer;
 import prh.types.intList;
 import prh.utils.Utils;
 import prh.utils.loopingRunnable;
@@ -81,7 +81,7 @@ import prh.utils.loopingRunnable;
 
 public class Artisan extends FragmentActivity implements
     View.OnClickListener,
-    EventHandler
+    ArtisanEventHandler
 {
     private static int dbg_main = 0;
 
@@ -142,12 +142,12 @@ public class Artisan extends FragmentActivity implements
     private Library library = null;
     private Renderer renderer = null;
     private PlaylistSource playlist_source = null;
-    private SystemPlaylist current_playlist = null;
+    private EditablePlaylist current_playlist = null;
 
     public Library getLibrary() { return library; }
     public Renderer getRenderer() { return renderer; }
     public PlaylistSource getPlaylistSource() { return playlist_source; }
-    public SystemPlaylist getCurrentPlaylist() { return current_playlist; }
+    public EditablePlaylist getCurrentPlaylist() { return current_playlist; }
 
     // Servers (no public access)
 
@@ -302,10 +302,11 @@ public class Artisan extends FragmentActivity implements
         // by aPlaylist and played by aRenderer. It can
         // be associated with, and/or return a Playlist.
 
-        Utils.log(dbg_main,0,"creating and starting SystemPlaylist");
-        current_playlist = new SystemPlaylist(this);
+        Utils.log(dbg_main,0,"creating and starting tempEditablePlaylist");
+        Playlist empty = playlist_source.createEmptyPlaylist();
+        current_playlist = new PlaylistWrapper(this,empty);
         current_playlist.startPlaylist();
-        Utils.log(dbg_main,0,"SystemPlaylist created and started");
+        Utils.log(dbg_main,0,"tempEditablePlaylist created and started");
 
         // Now the Renderer can be started with the CURRENT_PLAYLIST
         // as a Queue ... It ALSO *should* also always construct,
@@ -781,21 +782,35 @@ public class Artisan extends FragmentActivity implements
     // Playlist
     //------------------------------------------------
 
-    public Playlist createEmptyPlaylist()
-    {
-        return playlist_source.createEmptyPlaylist();
-    }
-
-
-    public boolean setPlaylist(String name, boolean force)
+    public boolean setPlaylist(String name)
         // called from station button, we select the new
         // playlist and event it to any interested clients
     {
         Utils.log(dbg_main,0,"setPlaylist(" + name + ")");
-        aPlaylist.setPlaylist(name,force);
-        return true;    // whatever
+        Playlist new_playlist = playlist_source.getPlaylist(name);
+        if (new_playlist == null)
+        {
+            Utils.error("Could not find playlist(" + name + ")");
+            return false;
+        }
+        return setPlaylist(new PlaylistWrapper(this,new_playlist));
     }
 
+    public boolean setPlaylist(EditablePlaylist new_playlist)
+    // called from station button, we select the new
+    // playlist and event it to any interested clients
+    {
+        Utils.log(dbg_main,0,"setPlaylist(" + new_playlist.getName() + ")");
+        if (new_playlist.startPlaylist())
+        {
+            if (current_playlist != null)
+                current_playlist.stopPlaylist(false);
+            current_playlist = new PlaylistWrapper(this,new_playlist);
+            handleArtisanEvent(EVENT_PLAYLIST_CHANGED,current_playlist);
+            return true;
+        }
+        return false;    // whatever
+    }
 
 
 
@@ -875,7 +890,7 @@ public class Artisan extends FragmentActivity implements
             thing = "Library";
             cur_name = library.getLibraryName();
             prefs_id = Prefs.id.SELECTED_LIBRARY;
-            event_name = EventHandler.EVENT_LIBRARY_CHANGED;
+            event_name = ArtisanEventHandler.EVENT_LIBRARY_CHANGED;
             if (prefs_name.equals(Device.deviceType.LocalLibrary))
                 prefs_name = "";
         }
@@ -885,7 +900,7 @@ public class Artisan extends FragmentActivity implements
             thing = "Renderer";
             cur_name = renderer.getRendererName();
             prefs_id = Prefs.id.SELECTED_RENDERER;
-            event_name = EventHandler.EVENT_RENDERER_CHANGED;
+            event_name = ArtisanEventHandler.EVENT_RENDERER_CHANGED;
             if (prefs_name.equals(Device.deviceType.LocalRenderer))
                 prefs_name = "";
         }
@@ -895,7 +910,7 @@ public class Artisan extends FragmentActivity implements
             thing = "PlaylistSource";
             cur_name = playlist_source.getPlaylistSourceName();
             prefs_id = Prefs.id.SELECTED_PLAYLIST_SOURCE;
-            event_name = EventHandler.EVENT_PLAYLIST_SOURCE_CHANGED;
+            event_name = ArtisanEventHandler.EVENT_PLAYLIST_SOURCE_CHANGED;
             if (prefs_name.equals(Device.deviceType.LocalPlaylistSource))
                 prefs_name = "";
         }

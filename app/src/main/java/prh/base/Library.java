@@ -1,4 +1,4 @@
-package prh.artisan.interfaces;
+package prh.base;
 
 
 import prh.artisan.Folder;

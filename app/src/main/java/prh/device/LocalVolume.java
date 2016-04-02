@@ -8,8 +8,8 @@ import android.os.Build;
 import android.provider.Settings;
 
 import prh.artisan.Artisan;
-import prh.artisan.interfaces.EventHandler;
-import prh.artisan.interfaces.Volume;
+import prh.base.ArtisanEventHandler;
+import prh.base.Volume;
 import prh.artisan.VolumeControl;
 import prh.server.LocalVolumeFixer;
 import prh.utils.Utils;
@@ -153,7 +153,7 @@ public class LocalVolume implements Volume
             if (VolumeControl.changed(new_values,current_values))
             {
                 current_values = new_values;
-                artisan.handleArtisanEvent(EventHandler.EVENT_VOLUME_CHANGED,this);
+                artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_VOLUME_CHANGED,this);
             }
 
         }   // we have an audio manager
@@ -233,7 +233,7 @@ public class LocalVolume implements Volume
             // and send the event
 
             current_values[idx] = new_value;
-            artisan.handleArtisanEvent(EventHandler.EVENT_VOLUME_CHANGED,this);
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_VOLUME_CHANGED,this);
 
         }   // new_value != current_value[idx];
     }   // setValue()

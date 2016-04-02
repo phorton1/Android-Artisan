@@ -11,22 +11,23 @@ import java.util.HashMap;
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 
-import prh.artisan.SystemPlaylist;
-import prh.artisan.interfaces.EventHandler;
+import prh.base.HttpRequestHandler;
+import prh.base.ArtisanEventHandler;
+import prh.base.EditablePlaylist;
+import prh.base.ServablePlaylist;
 import prh.server.utils.playlistExposer;
 import prh.artisan.Track;
 import prh.device.LocalRenderer;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
 import prh.server.utils.updateCounter;
-import prh.server.utils.UpnpEventHandler;
-import prh.server.utils.httpRequestHandler;
+import prh.base.UpnpEventHandler;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
 public class OpenPlaylist implements
-    httpRequestHandler,
+    HttpRequestHandler,
     UpnpEventHandler
 {
     private static int dbg_playlist = 0;
@@ -86,7 +87,7 @@ public class OpenPlaylist implements
         String user_agent = subscriber.getUserAgent();
         String ipua = ip + ":" + user_agent;
         playlistExposer exposer = exposers.get(ipua);
-        SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
+        EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
 
         if (subscribe)
         {
@@ -123,6 +124,10 @@ public class OpenPlaylist implements
     }   // OpenPlaylist.notifySubscribed()
 
 
+    //---------------------------------------------------
+    // custom exposer interface
+    //---------------------------------------------------
+
     public void exposeTrack(Track track,boolean set_it)
         // called from the playlist itself on start()
         // to expose  the inital track to all exposers.
@@ -136,11 +141,8 @@ public class OpenPlaylist implements
     }
 
 
-
-
-
     public void clearAllExposers()
-        // called from the SystemPlaylist during setAssociatedPlaylist
+        // called from the tempEditablePlaylist during setAssociatedPlaylist
         // Clear the exposers (and the tracks in the playlist)
     {
         for (playlistExposer exposer : exposers.values())
@@ -149,6 +151,21 @@ public class OpenPlaylist implements
         }
     }
 
+
+    //--------------------------------------------------
+    // HttpRequestHandler interface
+    //--------------------------------------------------
+
+    private ServablePlaylist getServablePlaylist()
+    {
+        ServablePlaylist servable_playlist = null;
+        EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
+        if (current_playlist instanceof ServablePlaylist)
+            servable_playlist = (ServablePlaylist) current_playlist;
+        if (servable_playlist == null)
+            Utils.error("http.OpenPlaylist can only use ServablePlaylists");
+        return servable_playlist;
+    }
 
 
     @Override public NanoHTTPD.Response response(
@@ -164,7 +181,9 @@ public class OpenPlaylist implements
         boolean ok = true;
         HashMap<String,String> hash = new HashMap<>();
         LocalRenderer local_renderer = artisan.getLocalRenderer();
-        SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
+        ServablePlaylist servable_playlist = getServablePlaylist();
+        if (servable_playlist == null)
+            return response;
 
         String ipua =
             session.getHeaders().get("remote-addr") + ":" +
@@ -194,7 +213,6 @@ public class OpenPlaylist implements
             hash.put("Value",local_renderer.getShuffle() ? "1" : "0");
         }
 
-
         // get list of tracks/ids
 
         else if (action.equals("Id"))
@@ -205,7 +223,7 @@ public class OpenPlaylist implements
         else if (action.equals("IdArray"))
         {
             hash.put("Token",Integer.toString(getUpdateCount()));
-            hash.put("Array",current_playlist.getIdArrayString(exposer));
+            hash.put("Array",servable_playlist.getIdArrayString(exposer));
         }
         else if (action.equals("IdArrayChanged"))
         {
@@ -218,7 +236,7 @@ public class OpenPlaylist implements
         {
             int open_id = httpUtils.getXMLInt(doc,"Id",true);
             Utils.log(0,0,"open_id=" + open_id);
-            Track track = current_playlist.getByOpenId(open_id);
+            Track track = servable_playlist.getByOpenId(open_id);
             if (track == null)
                 return error_response(http_server,800,open_id);
             hash.put("Uri",track.getPublicUri());
@@ -226,9 +244,9 @@ public class OpenPlaylist implements
         }
         else if (action.equals("ReadList"))
         {
-            int id_array[] = current_playlist.string_to_id_array(
+            int id_array[] = servable_playlist.string_to_id_array(
                 httpUtils.getXMLString(doc,"IdList",true));
-            hash.put("TrackList",current_playlist.id_array_to_tracklist(
+            hash.put("TrackList",servable_playlist.id_array_to_tracklist(
                 id_array));
             if (exposer != null)
                 exposer.ThreadedExposeMore();
@@ -245,7 +263,7 @@ public class OpenPlaylist implements
 
         else if (action.equals("DeleteAll"))
         {
-            artisan.setPlaylist("",true);
+            artisan.setPlaylist("");
                 // artisan will send out the PLAYLIST_CHANGED event
                 // which will trigger the incUpdateCount() ..
         }
@@ -254,7 +272,7 @@ public class OpenPlaylist implements
             // 800 if not in list
             int open_id = httpUtils.getXMLInt(doc,"Value",true);
             Utils.log(0,0,"open_id=" + open_id);
-            if (!current_playlist.removeTrack(open_id,true))
+            if (!servable_playlist.removeTrack(open_id))
                 return error_response(http_server,800,open_id);
             incUpdateCount();
             artisan.setDeferOpenHomeEvents();
@@ -282,21 +300,21 @@ public class OpenPlaylist implements
                 String name = content_uri.replace(pattern,"");
                 name = name.replace(".mp3","");
                 Utils.log(0,0,"SELECTING PLAYLIST via Playlist Insert action");
-                artisan.setPlaylist(name,true);
+                artisan.setPlaylist(name);
                 hash.put("NewId","0");
             }
             else    // real playlist insert
             {
-                int save_index = current_playlist.getCurrentIndex();
-                Track track = current_playlist.insertTrack(after_id,content_uri,content_data);
+                int save_index = servable_playlist.getCurrentIndex();
+                Track track = servable_playlist.insertTrack(after_id,content_uri,content_data);
                 if (track == null)
                     return error_response(http_server,800,after_id);
 
                 exposeTrack(track,true);
-                if (save_index != current_playlist.getCurrentIndex() ||
+                if (save_index != servable_playlist.getCurrentIndex() ||
                     save_index == track.getPosition())
                 {
-                    artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
+                    artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_TRACK_CHANGED,track);
                 }
                 hash.put("NewId",Integer.toString(track.getOpenId()));
                 incUpdateCount();
@@ -332,9 +350,9 @@ public class OpenPlaylist implements
             Utils.log(0,0,"open_id=" + open_id);
             if (open_id > 0)
             {
-                Track track = current_playlist.seekByOpenId(open_id);
-                Utils.log(0,0,"after list.seekByOpenId() track_index=" + current_playlist.getCurrentIndex());
-                artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
+                Track track = servable_playlist.seekByOpenId(open_id);
+                Utils.log(0,0,"after list.seekByOpenId() track_index=" + servable_playlist.getCurrentIndex());
+                artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_TRACK_CHANGED,track);
                 if (track == null)
                     return error_response(http_server,800,open_id);
                 local_renderer.transport_play();
@@ -346,9 +364,9 @@ public class OpenPlaylist implements
             Utils.log(0,0,"index=" + index);
             if (index > 0)
             {
-                Track track = current_playlist.seekByIndex(index);
-                Utils.log(0,0,"after list.seekByIndex() track_index=" + current_playlist.getCurrentIndex());
-                artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,track);
+                Track track = servable_playlist.seekByIndex(index);
+                Utils.log(0,0,"after list.seekByIndex() track_index=" + servable_playlist.getCurrentIndex());
+                artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_TRACK_CHANGED,track);
                 if (track == null)
                     return error_response(http_server,800,index);
                 local_renderer.transport_play();
@@ -491,9 +509,14 @@ public class OpenPlaylist implements
     {
         HashMap<String,String> hash = new HashMap<>();
         LocalRenderer local_renderer = artisan.getLocalRenderer();
-        SystemPlaylist current_playlist = artisan.getCurrentPlaylist();
-        Track track = local_renderer.getRendererTrack();
-            // Our track may possibly NOT be in the playlist ...
+
+        ServablePlaylist servable_playlist = getServablePlaylist();
+        if (servable_playlist == null)
+            return "";
+
+        int position = servable_playlist.getCurrentIndex();
+        Track track = position == 0 ? null :
+            servable_playlist.getTrack(position);
 
         // EXPOSE_SCHEME support
 
@@ -507,7 +530,7 @@ public class OpenPlaylist implements
         hash.put("TracksMax",Integer.toString(MAX_TRACKS));
         hash.put("Shuffle",local_renderer.getShuffle() ? "1" : "0");
         hash.put("Repeat",local_renderer.getRepeat() ? "1" : "0");
-        hash.put("IdArray",current_playlist.getIdArrayString(exposer));
+        hash.put("IdArray",servable_playlist.getIdArrayString(exposer));
         hash.put("Id", track == null ? "0" : Integer.toString(track.getOpenId()));
 
         // state variables from XML that

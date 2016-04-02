@@ -12,15 +12,15 @@ import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 import prh.artisan.Prefs;
 import prh.server.HTTPServer;
+import prh.base.HttpRequestHandler;
 import prh.server.utils.UpnpEventSubscriber;
-import prh.server.utils.httpRequestHandler;
 import prh.server.utils.updateCounter;
-import prh.server.utils.UpnpEventHandler;
+import prh.base.UpnpEventHandler;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
-public class OpenProduct implements httpRequestHandler,UpnpEventHandler
+public class OpenProduct implements HttpRequestHandler,UpnpEventHandler
 {
     private static int dbg_product = 0;
     private static String source_name = "Playlist";

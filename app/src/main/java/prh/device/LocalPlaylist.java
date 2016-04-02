@@ -1,9 +1,10 @@
 package prh.device;
 
 // Constructing a LocalPlaylist is very quick, requiring
-// only 1 hit to the playlist.db file.  The initial array
-// of tracks is filled with nulls, indicating that the Track
-// database records have not yet been read into memory.
+// only 1 hit to the playlist.db file.
+//
+// The array of tracks is built on start() and torn down
+// on stop().
 //
 // Any call to getTrack() will cause the track to get
 // read in from the database if it is null in the list.
@@ -24,23 +25,25 @@ import java.util.HashMap;
 
 import prh.artisan.Artisan;
 import prh.artisan.Database;
-import prh.artisan.interfaces.Playlist;
+import prh.base.Playlist;
+import prh.base.PlaylistSource;
 import prh.artisan.Prefs;
 import prh.artisan.Track;
+import prh.server.HTTPServer;
+import prh.server.http.OpenPlaylist;
 import prh.types.trackList;
 import prh.utils.Utils;
 
 
-public class LocalPlaylist implements Playlist
+public class LocalPlaylist implements Playlist // EditablePlaylist
     // A Playlist associated with a local database (PlaylistSource),
-    // which hides the fact that not all of it's records are actually
-    // in memory until getTrack() is called ....
 {
     private int dbg_lp = 0;
 
     // member variables
 
     private Artisan artisan;
+    private LocalPlaylistSource source;
     private boolean is_started;
     private boolean is_dirty;
 
@@ -51,19 +54,14 @@ public class LocalPlaylist implements Playlist
     private String pl_query;
     private int track_index;      // one based
 
-    private trackList tracks_by_position;
     private SQLiteDatabase playlist_db;
-    private SQLiteDatabase track_db = null;
-
-    public trackList getTracksByPositionRef()
-    {
-        return tracks_by_position;
-    }
-
+    private trackList tracks_by_position;
 
     // accessors
 
-    @Override public String getName() { return name; }
+    @Override public PlaylistSource getSource() { return source; }
+
+    @Override public String getName()         { return name; }
     @Override public int getPlaylistNum()     { return playlist_num; }
     @Override public int getNumTracks()       { return num_tracks; }
     @Override public int getCurrentIndex()    { return track_index; }
@@ -75,6 +73,79 @@ public class LocalPlaylist implements Playlist
     @Override public boolean isDirty() { return is_dirty; }
     @Override public void setDirty(boolean b) { is_dirty = b; }
 
+    @Override public int getNumAvailableTracks()
+    {
+        return tracks_by_position.size();
+    }
+
+    @Override public Track getTrack(int index)
+    {
+        if (index <= 0 || index > num_tracks)
+            return null;
+        Track track = tracks_by_position.get(index - 1);
+        if (track == null)
+            Utils.warning(0,0,"No Track at 1-based position " + index);
+        return track;
+    }
+
+
+    // Utilities
+
+    public OpenPlaylist getHttpOpenPlaylist()
+    // OpenHome Server Support
+    // TODO this might just return null if
+    // artisan.getRenderer() != artisan.getLocalRenderer(),
+    // as we should only be serving stuff when the LocalRenderer
+    // is active. See other notes in this file.
+    {
+        HTTPServer http_server = artisan.getHTTPServer();
+        OpenPlaylist open_playlist = http_server == null ? null :
+            (OpenPlaylist) http_server.getHandler("Playlist");
+        return open_playlist;
+    }
+
+
+    // when playlist changes
+    // prh.server.http.OpenPlaylist open_playlist =
+    //        getHttpOpenPlaylist();
+    //        if (open_playlist != null)
+    //             open_playlist.clearAllExposers();
+
+    // Exposer Support - expose the first track
+    //
+    // THIS object should be asleep whenever device.service.OpenPlaylist
+    // (which is part of the OpenHomeRenderer) is active, and in general,
+    // all the http Renderer Servers (AVTransport, RenderingControl)
+    // should only be used when the LocalRenderer is the current renderer.
+    // In fact, attempts to use these servers should FORCE the current
+    // renderer to the LocalRenderer.
+    //
+    // Also this should only be for BubbleUp.
+    // And it is disabled at this time for testing.
+    // but not if open_playlist_device
+
+    // if (num_tracks > 0 && open_playlist != null)
+    // {
+    //     Track track = getCurrentTrack();
+    //     if (track != null)
+    //         open_playlist.exposeTrack(track,true);
+    // }
+
+
+
+    //---------------------------------------------------------------
+    // EditablePlaylist Interface
+    //---------------------------------------------------------------
+    /*
+    @Override public int getContentChangeId() { return 0; }
+
+    // FetcherSource Interface
+
+    @Override public int getRecChangedCountId()  { return 0; }
+    @Override public trackList getFetchedTrackList()    { return tracks_by_position; }
+    @Override public Fetcher.fetchResult getFetcherPlaylistRecords(int start, int num)
+        { return Fetcher.fetchResult.FETCH_DONE; }
+    */
 
     //----------------------------------------------------------------
     // Constructor
@@ -94,20 +165,22 @@ public class LocalPlaylist implements Playlist
     }
 
 
-    public LocalPlaylist(Artisan ma, SQLiteDatabase list_db)
+    public LocalPlaylist(Artisan ma,
+                         LocalPlaylistSource src,
+                         SQLiteDatabase list_db)
         // default constructor creates an un-named playlist ""
         // that is already started
     {
         artisan = ma;
+        source = src;
         playlist_db = list_db;
         clean_init();
         is_started = true;
     }
 
 
-
     public LocalPlaylist(Artisan ma,
-                         LocalPlaylistSource source,
+                         LocalPlaylistSource src,
                          SQLiteDatabase list_db,
                          String name,
                          Playlist playlist)
@@ -116,6 +189,7 @@ public class LocalPlaylist implements Playlist
         // is considered started
     {
         artisan = ma;
+        source = src;
         playlist_db = list_db;
         clean_init();
         is_started = true;
@@ -159,58 +233,64 @@ public class LocalPlaylist implements Playlist
 
 
 
-    private boolean openTrackDb()
-    {
-        if (track_db == null)
-        {
-            String db_name = Prefs.getString(Prefs.id.DATA_DIR) + "/playlists/" + name + ".db";
-            File check = new File(db_name);
+    //-----------------------------------------------------------
+    // startPlaylist() and stopPlaylist()
+    //-----------------------------------------------------------
 
-            if (check.exists()) // open existing database
+
+    private SQLiteDatabase openTrackDb(boolean create_if_not_found)
+    {
+        String db_name = Prefs.getString(Prefs.id.DATA_DIR) + "/playlists/" + name + ".db";
+
+        File check = new File(db_name);
+        SQLiteDatabase track_db = null;
+        if (check.exists()) // open existing database
+        {
+            try
             {
-                try
-                {
-                    track_db = SQLiteDatabase.openDatabase(db_name,null,0);
-                }
-                catch (Exception e)
-                {
-                    Utils.warning(0,0,"Could not open database " + db_name + ". Will try creating ...");
-                    return false;
-                }
+                Utils.log(dbg_lp,0,"Open existing track_db file " + db_name);
+                track_db = SQLiteDatabase.openDatabase(db_name,null,0);
             }
-            else // create new database
+            catch (Exception e)
             {
-                try
+                if (create_if_not_found)
+                    Utils.warning(0,0,"Could not open database " + db_name + ". Will try creating ...");
+                else
                 {
-                    Utils.log(dbg_lp,0,"Creating new playlist track_db file " + db_name);
-                    track_db = SQLiteDatabase.openOrCreateDatabase(db_name,null);
-                    // weird if above succeeds but below fails
-                    if (!Database.createTable(track_db,"tracks"))
-                    {
-                        track_db = null;
-                        return false;
-                    }
-                    Utils.log(dbg_lp,0,"playlist track_db " + db_name + " created");
-                }
-                catch (Exception e)
-                {
-                    Utils.error("Could not create database " + db_name);
-                    return false;
+                    Utils.warning(0,0,"Could not open database " + db_name + ")");
+                    return null;
                 }
             }
         }
+        else // create new database
+        {
+            try
+            {
+                Utils.log(dbg_lp,0,"Creating new playlist track_db file " + db_name);
+                track_db = SQLiteDatabase.openOrCreateDatabase(db_name,null);
+                // weird if above succeeds but below fails
+                if (!Database.createTable(track_db,"tracks"))
+                {
+                    track_db = null;
+                    return null;
+                }
+                Utils.log(dbg_lp,0,"playlist track_db " + db_name + " created");
+            }
+            catch (Exception e)
+            {
+                Utils.error("Could not create database " + db_name);
+                return null;
+            }
+        }
 
-        return true;
+        return track_db;
     }
 
 
 
-    //-------------------------------------------------------------
-    // Overridden Methods
-    //-------------------------------------------------------------
-
-    @Override public void startPlaylist()
+    @Override public boolean startPlaylist()
     {
+        Utils.log(dbg_lp,0,"startPlaylist(" + name + ") is_already_started="+is_started);
         if (!is_started)
         {
             is_started = true;
@@ -218,10 +298,11 @@ public class LocalPlaylist implements Playlist
 
             if (!name.equals(""))
             {
-                if (!openTrackDb())
+                SQLiteDatabase track_db = openTrackDb(false);
+                if (track_db == null)
                 {
-                    num_tracks = 0;
-                    track_index = 0;
+                    clean_init();
+                    return false;
                 }
                 else
                 {
@@ -229,16 +310,16 @@ public class LocalPlaylist implements Playlist
                     String query = "SELECT * FROM tracks ORDER BY position";
                     try
                     {
-                        cursor = playlist_db.rawQuery(query,null);
+                        cursor = track_db.rawQuery(query,null);
                     }
                     catch (Exception e)
                     {
-                        Utils.error("Could not execute query: " + query);
-                        return; // true; // false;
+                        Utils.error("Could not execute query: " + query + ":" + e);
+                        clean_init();
+                        return false;
                     }
 
-                    // construct the playlists
-                    // the name is 0th field in the cursor
+                    // construct and add the tracks
 
                     if (cursor != null && cursor.moveToFirst())
                     {
@@ -250,7 +331,10 @@ public class LocalPlaylist implements Playlist
                 }
             }
         }
+        Utils.log(dbg_lp,0,"startPlaylist(" + name + ") returning true");
+        return true;
     }
+
 
 
 
@@ -262,70 +346,20 @@ public class LocalPlaylist implements Playlist
         // started playlist until AFTER getTrack for
         // the track has been called.
     {
+        Utils.log(dbg_lp,0,"stopPlaylist(" + name + ") called");
         is_started = false;
-        if (track_db != null)
-        {
-            track_db.close();
-            track_db = null;
-        }
         if (tracks_by_position != null)
             tracks_by_position.clear();
         tracks_by_position.clear();
+        Utils.log(dbg_lp,0,"stopPlaylist(" + name + ") finished");
     }
 
 
 
-    @Override public Track getTrack(int index)
-        // get a track from the playlist
-        // return null on error
-        // LocalPlaylist assigns the openId for use
-        // by SystemPlaylist ..
-    {
-        if (index <= 0 || index > num_tracks)
-            return null;
 
-        // get from in-memory cache
-
-        if (index - 1 > tracks_by_position.size())
-        {
-            Utils.error("wtf");
-            return null;
-        }
-        Track track = tracks_by_position.get(index - 1);
-
-        // if not in-memory, then try to get it from the database
-
-        if (track == null && track_db != null)
-        {
-            Cursor cursor = null;
-            String query = "SELECT * FROM tracks WHERE position=" + index;
-            try
-            {
-                cursor = track_db.rawQuery(query,new String[]{});
-            }
-            catch (Exception e)
-            {
-                Utils.error("Could not execute query: " + query + " exception=" + e.toString());
-                cursor = null;
-            }
-            if (cursor == null || !cursor.moveToFirst())
-            {
-                Utils.error("No Track found for position(" + index + ")");
-            }
-            else
-            {
-                track = new Track(cursor);
-                tracks_by_position.set(index - 1,track);
-            }
-        }
-
-        return track;
-    }
-
-
-    //-----------------------------------------
+    //-------------------------------------------------------------------------
     // SaveAs
-    //-----------------------------------------
+    //-------------------------------------------------------------------------
     // Save THIS playlist to whatever name is passed in,
     // including all the tracks and the header.
     // Clears the dirty and is_new bits.
@@ -388,7 +422,8 @@ public class LocalPlaylist implements Playlist
 
         Utils.log(dbg_lp,0,"saveAs(" + name + ") saving " + num_tracks + " tracks");
 
-        if (!openTrackDb())
+        SQLiteDatabase track_db = openTrackDb(true);
+        if (track_db == null)
         {
             playlist_db.endTransaction();
             return false;
@@ -436,6 +471,7 @@ public class LocalPlaylist implements Playlist
         return true;
 
     }   // LocalPlaylistSource.saveTracks()
+
 
 
 

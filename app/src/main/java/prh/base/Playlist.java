@@ -1,4 +1,4 @@
-package prh.artisan.interfaces;
+package prh.base;
 
 
 import prh.artisan.Track;
@@ -21,13 +21,15 @@ public interface Playlist
     // LocalLibrary, the only thing we serve to remote clients
     // (we don't do any pass thru serving).
     //
-    // Likewise, the SystemPlaylist, which itself is a Playlist,
+    // Likewise, the tempEditablePlaylist, which itself is a Playlist,
     // can copy itself from one these generic guys, and then
-    // present it to the aPLaying UI as the current FetchablePlaylist.
-    // The device.service.OpenPlaylist is the other FetchablePlaylist
+    // present it to the aPLaying UI as the current EditablePlaylist.
+    // The device.service.OpenPlaylist is the other EditablePlaylist
     // in the system
 {
-    public void startPlaylist();
+    public PlaylistSource getSource();
+
+    public boolean startPlaylist();
     public void stopPlaylist(boolean wait_for_stop);
 
     public String getName();
@@ -41,11 +43,10 @@ public interface Playlist
     public boolean isDirty();
     public void setDirty(boolean b);
 
-    public void saveIndex(int index);
-        // On PlaylistSource?
-
+    public int getNumAvailableTracks();
     public Track getTrack(int index);
 
+    public void saveIndex(int index);
 
 }   // interface Playlist
 

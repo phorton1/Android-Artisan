@@ -2,8 +2,10 @@
 // UpnpEventHandler - API called by UpnpEventManager
 //-------------------------------------------------------
 
-package prh.server.utils;
+package prh.base;
 
+
+import prh.server.utils.UpnpEventSubscriber;
 
 abstract public interface UpnpEventHandler
 {

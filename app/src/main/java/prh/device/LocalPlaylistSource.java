@@ -10,9 +10,9 @@ import java.util.Comparator;
 import java.util.HashMap;
 
 import prh.artisan.Artisan;
-import prh.artisan.interfaces.EventHandler;
-import prh.artisan.interfaces.Playlist;
-import prh.artisan.interfaces.PlaylistSource;
+import prh.base.ArtisanEventHandler;
+import prh.base.Playlist;
+import prh.base.PlaylistSource;
 import prh.artisan.Prefs;
 import prh.server.SSDPServer;
 import prh.types.stringList;
@@ -73,7 +73,7 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
     @Override
     public Playlist createEmptyPlaylist()
     {
-        return new LocalPlaylist(artisan,playlist_db);
+        return new LocalPlaylist(artisan,this,playlist_db);
     }
 
 
@@ -83,7 +83,7 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
     // new LocalPlaylist() is called
     {
         if (name.isEmpty())
-            return new LocalPlaylist(artisan,playlist_db);
+            return new LocalPlaylist(artisan,this,playlist_db);
         return playlists.get(name);
     }
 
@@ -222,7 +222,7 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
         // finished, notify artisan as needed
 
         playlists.put(name,new_pl);
-        artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_SOURCE_CHANGED,this);
+        artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_PLAYLIST_SOURCE_CHANGED,this);
 
         Utils.log(dbg_pls,1,"saveAs(" + name + ") finished");
         return true;
@@ -260,7 +260,7 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
                 }
             }
         }
-        artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_SOURCE_CHANGED,this);
+        artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_PLAYLIST_SOURCE_CHANGED,this);
         return true;
     }
 

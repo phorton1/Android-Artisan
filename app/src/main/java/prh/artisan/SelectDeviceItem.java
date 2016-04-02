@@ -1,4 +1,4 @@
-package prh.artisan.utils;
+package prh.artisan;
 
 import android.content.Context;
 import android.util.AttributeSet;

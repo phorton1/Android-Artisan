@@ -6,12 +6,12 @@ import org.w3c.dom.Element;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
-import prh.artisan.interfaces.EventHandler;
+import prh.base.ArtisanEventHandler;
 import prh.artisan.Track;
 import prh.device.Device;
 import prh.device.SSDPSearchService;
 import prh.device.Service;
-import prh.server.utils.UpnpEventReceiver;
+import prh.base.UpnpEventReceiver;
 import prh.utils.Utils;
 
 public class OpenInfo extends Service implements
@@ -79,7 +79,7 @@ public class OpenInfo extends Service implements
                 last_track = new Track(new_uri,didl);
             }
             last_track_uri = new_uri;
-            artisan.handleArtisanEvent(EventHandler.EVENT_TRACK_CHANGED,last_track);
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_TRACK_CHANGED,last_track);
         }
 
         return "";

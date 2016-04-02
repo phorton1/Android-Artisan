@@ -21,16 +21,12 @@ import android.widget.PopupMenu;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
-import prh.artisan.interfaces.EventHandler;
-import prh.artisan.interfaces.ArtisanPage;
-import prh.artisan.interfaces.FetchablePlaylist;
-import prh.artisan.interfaces.Playlist;
-import prh.artisan.interfaces.PlaylistSource;
-import prh.artisan.interfaces.Renderer;
-import prh.artisan.utils.Fetcher;
-import prh.artisan.utils.ListItem;
-import prh.artisan.utils.ListItemAdapter;
-import prh.artisan.utils.PlaylistFetcher;
+import prh.base.ArtisanEventHandler;
+import prh.base.ArtisanPage;
+import prh.base.EditablePlaylist;
+import prh.base.Playlist;
+import prh.base.PlaylistSource;
+import prh.base.Renderer;
 import prh.types.intList;
 import prh.types.recordList;
 import prh.types.selectedHash;
@@ -42,7 +38,7 @@ import prh.utils.Utils;
 
 public class aPlaylist extends Fragment implements
     ArtisanPage,
-    EventHandler,
+    ArtisanEventHandler,
     ListItem.ListItemListener,
     Fetcher.FetcherClient
 {
@@ -55,7 +51,7 @@ public class aPlaylist extends Fragment implements
     private LinearLayout my_view = null;
     private ListView the_list = null;
     private PlaylistFetcher playlist_fetcher = null;
-    private FetchablePlaylist the_playlist = null;
+    private EditablePlaylist the_playlist = null;
 
     private boolean album_mode = false;
     private boolean is_current = false;
@@ -203,10 +199,12 @@ public class aPlaylist extends Fragment implements
 
         // set the album mode into the playlist_fetcher
 
+        boolean mode_changed = false;
         if (playlist_fetcher.getAlbumMode() != album_mode)
         {
             Utils.log(dbg_aplay,1,"aPlaylist.init() album_mode changed to " + album_mode);
             playlist_fetcher.setAlbumMode(album_mode);
+            mode_changed = true;
         }
 
         // start or rebuild the playlist_fetcher
@@ -217,7 +215,7 @@ public class aPlaylist extends Fragment implements
             Utils.log(dbg_aplay,1,"aPlaylist.init() calling fetcher.start()");
             ok = playlist_fetcher.start();
         }
-        else if (pl_changed)
+        else if (pl_changed || mode_changed)
         {
             Utils.log(dbg_aplay,1,"aPlaylist.init() calling fetcher.restart()");
             ok = playlist_fetcher.restart();
@@ -705,7 +703,7 @@ public class aPlaylist extends Fragment implements
                 }
                 else if (state == dlgState.confirm_delete)
                 {
-                    artisan.getCurrentPlaylist().setAssociatedPlaylist(null);
+                    //artisan.getCurrentPlaylist().setAssociatedPlaylist(null);
                     source.deletePlaylist(new_name);
                     parent.do_setPlaylist("");
                     this.dismiss();
@@ -757,25 +755,11 @@ public class aPlaylist extends Fragment implements
 
     public void do_setPlaylist(String name)
     {
-        PlaylistSource source = artisan.getPlaylistSource();
-        Renderer renderer = artisan.getRenderer();
-        Playlist new_playlist = name.isEmpty() ?
-            source.createEmptyPlaylist() :
-            source.getPlaylist(name);
-        if (new_playlist == null)
+        if (artisan.setPlaylist(name))
         {
-            Utils.error("Could not get Playlist named '" + name + "'");
-            return;
+            Renderer renderer = artisan.getRenderer();
+            renderer.notifyPlaylistChanged();
         }
-
-        // associate it with the renderer and the SystemPlaylist
-
-        the_playlist.setAssociatedPlaylist(new_playlist);
-        renderer.notifyPlaylistChanged();
-
-        // send the event.
-
-        artisan.handleArtisanEvent(EventHandler.EVENT_PLAYLIST_CHANGED,new_playlist);
     }
 
 
@@ -876,8 +860,9 @@ public class aPlaylist extends Fragment implements
 
     @Override public void handleArtisanEvent(final String event_id,final Object data)
     {
-        if (event_id.equals(EVENT_PLAYLIST_CHANGED) ||
-            event_id.equals(EVENT_PLAYLIST_CONTENT_CHANGED))
+        if (event_id.equals(EVENT_PLAYLIST_CHANGED))
+            init(true);
+        else if (event_id.equals(EVENT_PLAYLIST_CONTENT_CHANGED))
             init(false);
     }
 

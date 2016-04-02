@@ -9,16 +9,16 @@ import java.util.HashMap;
 
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
-import prh.artisan.interfaces.Renderer;
-import prh.artisan.interfaces.Volume;
+import prh.base.HttpRequestHandler;
+import prh.base.Renderer;
+import prh.base.Volume;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
-import prh.server.utils.httpRequestHandler;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
-public class RenderingControl implements httpRequestHandler
+public class RenderingControl implements HttpRequestHandler
 {
     private static int dbg_rc = 0;
     private static String default_channel = "MASTER";
