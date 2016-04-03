@@ -13,17 +13,23 @@ import java.util.HashMap;
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 import prh.artisan.Track;
+import prh.base.EditablePlaylist;
 import prh.base.Renderer;
+import prh.base.UpnpEventHandler;
+import prh.base.Volume;
 import prh.device.LocalRenderer;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
 import prh.base.HttpRequestHandler;
+import prh.server.utils.updateCounter;
 import prh.types.stringHash;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
-public class AVTransport implements HttpRequestHandler
+public class AVTransport implements
+    HttpRequestHandler,
+    UpnpEventHandler
 {
 
     private static int dbg_av = 0;
@@ -79,6 +85,20 @@ public class AVTransport implements HttpRequestHandler
 
         HashMap<String,String> hash = new HashMap<String,String>();
         LocalRenderer local_renderer = artisan.getLocalRenderer();
+        if (local_renderer == null)
+        {
+            Utils.error("No LocalRenderer found in AVTransport.response()");
+            return response;
+        }
+        if (local_renderer != artisan.getRenderer())
+        {
+            Utils.error("Only LocalRenderer allowed in AVTransport.response()");
+            return response;
+        }
+
+        EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
+        Track track = local_renderer.getRendererTrack();
+
             // shall never be null ..
 
         if (action.equals("GetDeviceCapabilities"))
@@ -94,8 +114,8 @@ public class AVTransport implements HttpRequestHandler
             String metadata = httpUtils.getXMLString(doc,"CurrentURIMetaData",false);
             Utils.log(dbg_av,0,"cur_uri="+cur_uri);
             Utils.log(dbg_av,0,"metadata=" + metadata);
-            Track track = new Track(cur_uri,metadata);
-            local_renderer.setRendererTrack(track,true);
+            Track new_track = new Track(cur_uri,metadata);
+            local_renderer.setRendererTrack(new_track,true);
             response = httpUtils.ok_response(http_server,urn,service,action);
         }
         else if (action.equals("Play"))
@@ -151,7 +171,6 @@ public class AVTransport implements HttpRequestHandler
             String user_agent = session.getHeaders().get("user-agent");
             if (Utils.isBubbleUp(user_agent))
             {
-                Track track = local_renderer.getRendererTrack();
                 String uri = track == null ? "" : track.getPublicUri();
                 String remote_ip = session.getHeaders().get("remote-addr");
                 String ip_ua = remote_ip + ":" + user_agent;
@@ -174,12 +193,8 @@ public class AVTransport implements HttpRequestHandler
         }
         else if (action.equals("GetPositionInfo"))
         {
-            Track track = local_renderer.getRendererTrack();
-            String track_index = "1";
-
-            track_index = Integer.toString(artisan.getCurrentPlaylist().
-                getCurrentIndex());
-            hash.put("Track",track_index);
+            hash.put("Track",Integer.toString(
+                current_playlist.getCurrentIndex()));
 
             hash.put("RelCount","0");
             hash.put("AbsCount","0");
@@ -205,15 +220,98 @@ public class AVTransport implements HttpRequestHandler
             hash.put("RecQualityMode","NOT_IMPLEMENTED");
             response = httpUtils.hash_response(http_server,urn,service,action,hash);
         }
+        else if (action.equals("GetMediaInfo"))
+        {
+            Utils.log(dbg_av,0,"");
+            hash.put("NrTracks",Integer.toString(current_playlist.getNumTracks()));
+            hash.put("CurrentURI",track == null ?
+                "" : track.getPublicUri());
+            hash.put("CurrentURIMetaData",track == null ? "" :
+                track.getDidl());
+
+            // unsupported
+            // hash.put("MediaDuration","");
+            // hash.put("NextURI","");
+            // hash.put("NextURIMetaData","");
+            // hash.put("PlayMedium","");
+            // hash.put("RecordMedium","");
+            // hash.put("WriteStatus","");
+
+            response = httpUtils.hash_response(http_server,urn,service,action,hash);
+        }
+
+        // We currently do not support GetCurrentTransportActions
+
         else
         {
-            // We currently do not support
-            // GetMediaInfo and GetCurrentTransportActions
             Utils.error("unknown/unsupported action(" + action + ") in AVTransport request");
         }
 
         return response;
     }
+
+
+
+
+    //----------------------------------------
+    // UPnP Event Dispatching
+    //----------------------------------------
+    // We rely on the underlyling LocalRenderer to dispatch
+    // EVENT_TRACK_CHANGED or EVENT_STATE_CHANGED for incUpdateCount()
+
+    private updateCounter update_counter = new updateCounter();
+
+    @Override public String getName()      { return "AVTransport"; };
+    @Override public int getUpdateCount()  { return update_counter.get_update_count(); }
+    @Override public int incUpdateCount()  { return update_counter.inc_update_count(); }
+    @Override public void notifySubscribed(UpnpEventSubscriber subscriber,boolean subscribe) {}
+    @Override public void start()          { http_server.getEventManager().RegisterHandler(this) ;}
+    @Override public void stop()           { http_server.getEventManager().UnRegisterHandler(this) ;}
+
+
+
+    @Override public String getEventContent(UpnpEventSubscriber unused_subscriber)
+    {
+        LocalRenderer local_renderer = artisan.getLocalRenderer();
+        if (local_renderer == null)
+        {
+            Utils.warning(0,0,"No local_renderer in Event");
+            return "";
+        }
+        if (local_renderer != artisan.getRenderer())
+        {
+            Utils.warning(0,0,"Cannot return Events for non-local Renderers");
+            return "";
+        }
+        Track track = local_renderer.getRendererTrack();
+
+        String text = httpUtils.startSubEventText();
+        text += httpUtils.subEventText("PlayMode","",null);
+        text += httpUtils.subEventText("RecQualityMode","NOT_IMPLEMENTED",null);
+        text += httpUtils.subEventText("PresetNameList","FactoryDefaults",null);
+        text += httpUtils.subEventText("CurrentTransportState",local_renderer.getRendererState(),null);
+        text += httpUtils.subEventText("CurrentTransportStatus",local_renderer.getRendererStatus(),null);
+        text += httpUtils.subEventText("CurrentSpeed","1",null);
+
+        text += httpUtils.subEventText("TrackDuration",track == null ?
+                "0:00" : Utils.durationToString(track.getDuration(),Utils.how_precise.FOR_SEEK),
+            null);
+        text += httpUtils.subEventText("TrackURI",track == null ?
+                "" : track.getPublicUri(),
+            null);
+        text += httpUtils.subEventText("TrackMetaData",track == null ?
+                "" : track.getDidl(),
+            null);
+
+        text += httpUtils.endSubEventText();
+        HashMap<String,String> hash = new HashMap<String,String>();
+
+        hash.put("InstanceID","0");
+        hash.put("LastChange",httpUtils.encode_xml(text));
+
+        return httpUtils.hashToXMLString(hash,true);
+    }
+
 
 
 }   // class AVTransport

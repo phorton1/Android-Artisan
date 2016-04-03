@@ -1374,15 +1374,22 @@ public class Artisan extends FragmentActivity implements
                 {
                     UpnpEventManager event_manager = http_server.getEventManager();
 
-                    if (event_id.equals(EVENT_STATE_CHANGED) ||
+                    if (event_id.equals(EVENT_STATE_CHANGED))
+                    {
+                        event_manager.incUpdateCount("Playlist");
+                        event_manager.incUpdateCount("AVTransport");
+                    }
+                    else if (
                         event_id.equals(EVENT_PLAYLIST_CHANGED) ||
                         event_id.equals(EVENT_PLAYLIST_CONTENT_CHANGED) ||
                         event_id.equals(EVENT_PLAYLIST_TRACKS_EXPOSED))
                         event_manager.incUpdateCount("Playlist");
 
                     else if (event_id.equals(EVENT_TRACK_CHANGED))
+                    {
+                        event_manager.incUpdateCount("AVTransport");
                         event_manager.incUpdateCount("Info");
-
+                    }
                     else if (event_id.equals(EVENT_POSITION_CHANGED))
                         event_manager.incUpdateCount("Time");
 
@@ -1392,6 +1399,10 @@ public class Artisan extends FragmentActivity implements
                         event_manager.incUpdateCount("RenderingControl");
                     }
 
+                    else if (event_id.equals(EVENT_VIRTUAL_FOLDER_CHANGED))
+                    {
+                        event_manager.incUpdateCount("ContentDirectory");
+                    }
 
                     else if (!defer_openhome_events &&
                         event_id.equals(EVENT_IDLE))

@@ -177,6 +177,20 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
     }
 
 
+    private void addHandler(HttpRequestHandler handler, String name)
+    {
+        if (handler instanceof UpnpEventHandler)
+        {
+            ((UpnpEventHandler) handler).start();
+            if (name == null)
+                name = ((UpnpEventHandler) handler).getName();
+        }
+        handlers.put(name,handler);
+    }
+
+
+
+
     @Override
     public void start()
         // override to start() the ssdp server
@@ -194,7 +208,8 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
             artisan.getLocalLibrary() != null)
         {
             Utils.log(dbg_http,1,"starting MediaServer http listener ...");
-            handlers.put("ContentDirectory",new ContentDirectory(artisan,this,httpUtils.upnp_urn));
+            addHandler(new ContentDirectory(artisan,this,httpUtils.upnp_urn),null);
+            Utils.log(dbg_http,1,"finished starting MediaServer http listener ...");
         }
 
         if ((Prefs.getBoolean(Prefs.id.START_HTTP_MEDIA_RENDERER) ||
@@ -202,50 +217,24 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
             artisan.getLocalRenderer() != null)
         {
             Utils.log(dbg_http,1,"starting MediaRenderer http listeners ...");
-            handlers.put("AVTransport",new AVTransport(artisan,this,httpUtils.upnp_urn));
-            RenderingControl rc = new RenderingControl(artisan,this,httpUtils.upnp_urn);
-            handlers.put("RenderingControl",rc);
-            rc.start();
+            addHandler(new AVTransport(artisan,this,httpUtils.upnp_urn),null);
+            addHandler(new RenderingControl(artisan,this,httpUtils.upnp_urn),null);
+            Utils.log(dbg_http,1,"finished starting MediaRenderer http listeners ...");
         }
 
         if (Prefs.getBoolean(Prefs.id.START_HTTP_OPEN_HOME_SERVER) &&
             artisan.getLocalRenderer() != null)
         {
             Utils.log(dbg_http,1,"starting OpenHomeRenderer http listeners ...");
-
-            OpenProduct  product  = new OpenProduct(artisan,this,httpUtils.open_service_urn);
-            OpenVolume   volume   = new OpenVolume(artisan,this,httpUtils.open_service_urn);
-            OpenPlaylist playlist = new OpenPlaylist(artisan,this,httpUtils.open_service_urn);
-            OpenInfo     info     = new OpenInfo(artisan,this,httpUtils.open_service_urn);
-            OpenTime     time     = new OpenTime(artisan,this,httpUtils.open_service_urn);
-
-            Utils.log(dbg_http,2,"OpenHomeRenderer http listeners created");
-
-            handlers.put("Product",product);
-            handlers.put("Volume",volume);
-            handlers.put("Playlist",playlist);
-            handlers.put("Info",info);
-            handlers.put("Time",time);
-
-            Utils.log(dbg_http,2,"OpenHomeRenderer http listeners registered");
-
-            // currently only the open home objects are also upnpEventHandlers
-            // so these two lists of handlers are separate, but it seems they
-            // should be the same, factored perhaps out of UpnpEventMangaer
-
-            product.start();
-            volume.start();
-            playlist.start();
-            info.start();
-            time.start();
-
+            addHandler(new OpenProduct(artisan,this,httpUtils.open_service_urn),"Product");
+            addHandler(new OpenVolume(artisan,this,httpUtils.open_service_urn),"Volume");
+            addHandler(new OpenPlaylist(artisan,this,httpUtils.open_service_urn),"Playlist");
+            addHandler(new OpenInfo(artisan,this,httpUtils.open_service_urn),"Info");
+            addHandler(new OpenTime(artisan,this,httpUtils.open_service_urn),"Time");
             Utils.log(dbg_http,2,"Finished starting OpenHomeRenderer http listeners");
-
         }
 
-
         // now start the superclass
-
 
         try
         {
@@ -259,6 +248,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
 
         Utils.log(dbg_http,1,"HTTPServer.start() finished");
     }
+
 
 
 

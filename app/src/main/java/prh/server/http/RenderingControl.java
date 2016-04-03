@@ -16,6 +16,7 @@ import prh.base.Volume;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
 import prh.server.utils.updateCounter;
+import prh.types.stringHash;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
@@ -29,7 +30,7 @@ public class RenderingControl implements
 
     private Artisan artisan;
     private HTTPServer http_server;
-    String urn;
+    private String urn;
 
     public RenderingControl(Artisan ma, HTTPServer http, String the_urn)
     {
@@ -190,6 +191,10 @@ public class RenderingControl implements
         }
         else
         {
+            // incUpdateCount() *should* happen when the LocalVolume dispatches
+            // the Artisan EVENT_VOLUME_CHANGED event ... I am leaving this here
+            // for now, as I don't think it hurts to over increment the update count.
+
             incUpdateCount();
             volume.setValue(ctrl_idx,val);
             response = ok_response(server,urn,service,action);
@@ -226,7 +231,7 @@ public class RenderingControl implements
         { "Volume", "Mute", "Loudness", "Balance", "Fade", "EQLow", "EQMid", "EQHigh" };
 
 
-    updateCounter update_counter = new updateCounter();
+    private updateCounter update_counter = new updateCounter();
 
     @Override public String getName()      { return "RenderingControl"; };
     @Override public int getUpdateCount()  { return update_counter.get_update_count(); }
@@ -242,30 +247,27 @@ public class RenderingControl implements
         int max_values[] = volume==null ? new int[]{0,0,0,0,0,0,0,0} : volume.getMaxValues();
         int cur_values[] = volume==null ? new int[]{0,0,0,0,0,0,0,0} : volume.getValues();
 
-        HashMap<String,String> hash = new HashMap<String,String>();
-        String change_body =
-            "<Event xmlns=\"urn:schemas-upnp-org:metadata-1-0/RCS\">" +
-            "<InstanceID val=\"0\">";
+        stringHash hash = new stringHash();
+        stringHash args = new stringHash();
+        args.put("master_channel",master_channel);
 
+        String text = httpUtils.startSubEventText();
         for (int i= Volume.CTRL_VOL; i<Volume.NUM_CTRLS; i++)
         {
             if (max_values[i] > 0)
             {
-                change_body += "<" +
-                    upnp_names[i] + " " +
-                    "val=\"" + cur_values[i] +
-                    "\"> channel=\"" +
-                    master_channel + "\">";
+                text += httpUtils.subEventText(
+                    upnp_names[i],
+                    Integer.toString(cur_values[i]),
+                    args);
             }
         }
-
-        change_body += "<PresetNameList val=\"FactoryDefaults\">" +
-                "</InstanceID>" +
-                "</Event>";
+        text += httpUtils.subEventText("PresetNameList","FactoryDefaults",null);
+        text += httpUtils.endSubEventText();
 
         hash.put("InstanceID","0");
         hash.put("Channel",master_channel);
-        hash.put("LastChange",httpUtils.encode_xml(change_body));
+        hash.put("LastChange",httpUtils.encode_xml(text));
 
         return httpUtils.hashToXMLString(hash,true);
     }

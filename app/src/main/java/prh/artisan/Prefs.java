@@ -9,11 +9,23 @@ import prh.utils.Utils;
 
 // Possibles
 //
-// SaveChangedPlaylistsOnRemoteNew
+// SaveChangedPlaylistsOnRemoteNew = false
 //       Save changed, named playlists when any remote action,
 //       like a remote OpenPlaylist "Clear" (DeleteAll),
 //       does a "New" with a dirty changed, named playlist
 //       or more generically, AutoSaveChangedPlaylists
+//
+// ExternalAVTransportUseEvents = false
+// ExternalRenderingControlUseEvents = false
+// ExternalOpenHomeRendererUseEvents = true
+// ExternalContentDirectoryUseEvent = false;
+
+// UseHardwareVolumeButtons = true
+//      Should default to true for LocalRenderer
+//      Need to use Audio Focus in case a call comes in
+// (UseHardwareTransportControlButtons)
+// PauseResumeOnPhoneCall
+//      Otherwise Mutes
 
 public class Prefs
 {

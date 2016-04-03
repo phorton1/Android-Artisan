@@ -77,7 +77,7 @@ public class OpenTime implements HttpRequestHandler,UpnpEventHandler
     //----------------------------------------
     // the count is bumped in the Renderer
 
-    updateCounter update_counter = new updateCounter();
+    private updateCounter update_counter = new updateCounter();
     @Override public int getUpdateCount()  { return update_counter.get_update_count(); }
     @Override public int incUpdateCount()  { return update_counter.inc_update_count(); }
     @Override public String getName() { return "Time"; };

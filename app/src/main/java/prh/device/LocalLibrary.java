@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteDatabase;
 import prh.artisan.Artisan;
 import prh.artisan.Database;
 import prh.artisan.Folder;
+import prh.base.ArtisanEventHandler;
 import prh.base.Library;
 import prh.base.Playlist;
 import prh.base.PlaylistSource;
@@ -32,6 +33,7 @@ public class LocalLibrary extends Device implements Library
         // for convertToLocal()
 
     private Folder root_folder = null;
+
 
     //----------------------------------------
     // Device Interface
@@ -194,24 +196,53 @@ public class LocalLibrary extends Device implements Library
 
         // virtual "select(ed)_playlist_"  folders
         // if it's selected, we actually start the playlist
+        // We check for the same playlist on selected_
+        // and only send artisan EVENT_VIRTUAL_FOLDER_CHANGED
+        // for the whole tree, and the previously selected folder
+        // if it actually changed.
 
         else if (id.startsWith("select_playlist_") ||
                  id.startsWith("selected_playlist_"))
         {
+            String current_selected_name = artisan.getCurrentPlaylist().getName();
+
             boolean is_selected = id.startsWith("selected_playlist_");
             String name = id.replace("select_playlist_","");
             name = name.replace("selected_playlist_","");
 
             boolean ok = false;
             String title = name;
-
-            // can I at least force them to re-load the item going forward?
-
             if (is_selected)
             {
+                boolean changed = false;
                 Utils.log(dbg_lib,0,"Local Library Selecting Playlist(" + name + ")");
-                ok = artisan.setPlaylist(name);
-                title += ok ? " selected" : " had an error in selection";
+                if (!ok)
+                {
+                    changed = true;
+                    ok = artisan.setPlaylist(name);
+                }
+                if (ok)
+                {
+                    title += " selected";
+                    if (changed)
+                    {
+                        // Send EVENT_VIRTUAL_FOLDER_CHANGED for the whole playlist
+                        // and for the playlist coming into, and going out of, focus
+
+                        artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_VIRTUAL_FOLDER_CHANGED,"select_playlist");
+                        if (!current_selected_name.isEmpty())
+                        {
+                            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_VIRTUAL_FOLDER_CHANGED,"select_playlist_" + current_selected_name);
+                            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_VIRTUAL_FOLDER_CHANGED,"selected_playlist_" + current_selected_name);
+                        }
+                        artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_VIRTUAL_FOLDER_CHANGED,"select_playlist_" + name);
+                        artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_VIRTUAL_FOLDER_CHANGED,"selected_playlist_" + name);
+                    }
+                }
+                else
+                {
+                    title += " had an error in selection";
+                }
             }
             else
             {
@@ -223,6 +254,8 @@ public class LocalLibrary extends Device implements Library
                     return null;
                 }
                 title += "(" + playlist.getNumTracks() + ")";
+                if (name.equals(current_selected_name))
+                    title += " selected";
             }
 
             Folder folder = new Folder();

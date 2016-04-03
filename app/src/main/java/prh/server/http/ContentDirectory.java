@@ -7,6 +7,7 @@ import org.w3c.dom.Document;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -17,15 +18,24 @@ import prh.base.HttpRequestHandler;
 import prh.base.Library;
 import prh.artisan.Record;
 import prh.artisan.Track;
+import prh.base.Renderer;
+import prh.base.UpnpEventHandler;
+import prh.base.Volume;
 import prh.device.LocalLibrary;
+import prh.device.LocalRenderer;
 import prh.device.Service;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
+import prh.server.utils.updateCounter;
+import prh.types.stringIntHash;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
-public class ContentDirectory implements HttpRequestHandler
+public class ContentDirectory implements
+    HttpRequestHandler,
+    UpnpEventHandler
+
     // The DLNA Server serves the LOCAL LIBRARY
     // It is NOT a pass-thru server to remote libraries!
 {
@@ -74,7 +84,13 @@ public class ContentDirectory implements HttpRequestHandler
         Library local_library = artisan.getLocalLibrary();
         if (local_library == null)
         {
-            Utils.error("No LocalLibrary found in dlna_server_response()");
+            Utils.error("No LocalLibrary found in ContentDirectory.response()");
+            return response;
+        }
+        if (local_library != artisan.getLibrary())
+        {
+            Utils.error("Only LocalLibrary allowed in ContentDirectory.response()");
+            return response;
         }
 
 
@@ -104,13 +120,26 @@ public class ContentDirectory implements HttpRequestHandler
         //------------------------------------
         // Currently only supports Browse
         // HTTPServer has already parsed the action and doc
+        // We do not support actions:
+        //    Search
+        //    GetUpdateId,
+        //    GetSearchCapabilities
+        //    GetSortCapabilities
+        //    Search
+        //    CreateObject
+        //    DestroyObject
+        //    UpdateObject
+        //    ImportResource
+        //    ExportResource
+        //    StopTransferResource
+        //    GetTransferProgress
+        //    DeleteResource
+        //    CreateReference
 
         else if (uri.equals("control"))
         {
             if (action.equals("Browse"))
                response = browse_response(http_server,response,doc,urn);
-            else if (action.equals("Search"))
-                ;
             else
                 Utils.error("Unsupported action: " + action + " in ContentServer1");
         }
@@ -358,6 +387,7 @@ public class ContentDirectory implements HttpRequestHandler
         response_text += httpUtils.encode_xml(didl);
 
         response_text += content_response_footer(
+            folder,
             urn,
             "Browse",
             num_items,
@@ -379,42 +409,99 @@ public class ContentDirectory implements HttpRequestHandler
     //-----------------------------------------------------------
 
 
-    private static String content_response_footer(String urn, String action, int num_actual, int num_total)
+    private String content_response_footer(
+        Folder folder, String urn, String action, int num_actual, int num_total)
     {
+        Integer update_id = getFolderChangeCount(folder.getId());
+            // FOLDER update id
         return httpUtils.action_response_footer(
             urn,
             action,
-            "<UpdateID>12345</UpdateID>\n" +
+            "<UpdateID>" + update_id + "</UpdateID>\n" +
                 "<NumberReturned>" + num_actual + "</NumberReturned>\n" +
                 "<TotalMatches>" + num_total + "</TotalMatches>\n");
     }
 
 
 
-    public static String unused_getVirtualFolderMetadata(Folder folder)
-        // supports virtual select_playlist_ items
+    //----------------------------------------
+    // UPnP Event Dispatching
+    //----------------------------------------
+    // The only change that can occur on virtual folders
+    // which must send VIRTUAL_FOLDER_CHANGED,id for artisan
+    // to incUpdateCount()
+
+    private updateCounter update_counter = new updateCounter();
+    private stringIntHash folder_change_count = new stringIntHash();
+    // Volatile (i.e. Virtual Folders)
+    // Should set, and update, a count in this hash
+    // which also triggers incUpdateCount() for the
+    // whole ContentDirectory.  This is the only event
+    // sent by us.
+
+    @Override public String getName()      { return "ContentDirectory"; };
+    @Override public int getUpdateCount()  { return update_counter.get_update_count(); }
+    @Override public int incUpdateCount()  { return update_counter.inc_update_count(); }
+    @Override public void notifySubscribed(UpnpEventSubscriber subscriber,boolean subscribe) {}
+    @Override public void start()          { http_server.getEventManager().RegisterHandler(this) ;}
+    @Override public void stop()           { http_server.getEventManager().UnRegisterHandler(this) ;}
+
+
+    private int getFolderChangeCount(String id)
     {
-        String id = folder.getId();
-        Utils.log(dbg_dlna + 2,0,"starting xml_item(" + id + ")");
+        Integer cur_val = folder_change_count.get(id);
+        if (cur_val == null) cur_val = 0;
+        return cur_val;
+    }
+    private void incFolderChangeCount(String id)
+    {
+        Integer cur_val = getFolderChangeCount(id);
+        folder_change_count.put(id,++cur_val);
+        incUpdateCount();
+    }
 
-        // virtual items
 
-        if (id.startsWith("select_playlist_"))
+
+    @Override public String getEventContent(UpnpEventSubscriber unused_subscriber)
+    {
+        LocalLibrary local_library = artisan.getLocalLibrary();
+        if (local_library == null)
         {
-            String name = id.replace("select_playlist_","");
-            String text =
-                    "<item id=\"" + id + "\" parentID=\"" + folder.getParentId() + "\" restricted=\"1\">" +
-                    "<dc:title>" + folder.getTitle() + "</dc:title>" +
-                    "<upnp:class>object.container</upnp:class>" +
-                    "<res protocolInfo=\"http-get:*:audio/mpeg:*:\">" +
-                    Utils.server_uri + "/" + Service.serviceType.ContentDirectory.toString() + "/select_playlist/" + name + ".mp3" +
-                    "</res>" +
-                    "</item>";
-            Utils.log(dbg_dlna + 1,0,"VIRTUAL xml_item(" + name + ")\n" + text);
-            return text;
+            Utils.warning(0,0,"No local_renderer in Event");
+            return "";
+        }
+        if (local_library != artisan.getLibrary())
+        {
+            Utils.warning(0,0,"Cannot return Events for non-local Renderers");
+            return "";
         }
 
-        return folder.getMetadata();
+        // build changed container ids string
+
+        String container_ids = "";
+        for (String id : folder_change_count.keySet())
+        {
+            if (!container_ids.isEmpty())
+                container_ids += ",";
+            container_ids += id + folder_change_count.get(id);
+        }
+        folder_change_count.clear();
+
+        // build subEvent text
+
+        String text = httpUtils.startSubEventText();
+        if (!container_ids.isEmpty())
+            text += httpUtils.subEventText("ContainerUpdateIDs",container_ids,null);
+        text += httpUtils.subEventText("ContainerUpdateIDs",container_ids,null);
+        text += httpUtils.subEventText("UpdateID",Integer.toString(getUpdateCount()),null);
+        text += httpUtils.endSubEventText();
+
+        // build hash of values returned by event
+
+        HashMap<String,String> hash = new HashMap<String,String>();
+        hash.put("InstanceID","0");
+        hash.put("LastChange",httpUtils.encode_xml(text));
+        return httpUtils.hashToXMLString(hash,true);
     }
 
 

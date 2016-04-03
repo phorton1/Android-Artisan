@@ -18,6 +18,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Prefs;
 import prh.server.HTTPServer;
+import prh.types.stringHash;
 
 
 public class httpUtils
@@ -276,6 +277,40 @@ public class httpUtils
         }
         return rslt;
     }
+
+
+    // dispatched UpNP LastChange events use a single LastChange variable
+    // with a sub list of all evented variables
+
+    public static String startSubEventText()
+    {
+        return
+            "<Event xmlns=\"urn:schemas-upnp-org:metadata-1-0/RCS\">" +
+            "<InstanceID val=\"0\">";
+    }
+
+    public static String endSubEventText()
+    {
+        return "</InstanceID>" + "</Event>";
+    }
+
+    public static String subEventText(String name, String value, stringHash other_values)
+    // common LastChange subEvent code
+    {
+        String text = "<" + name + " ";
+        text += "val=\"" + value + "\" ";
+        if (other_values != null)
+        {
+            for (String key:other_values.keySet())
+            {
+                String val = other_values.get(key);
+                text += key + "=\"" + val + "\" ";
+            }
+        }
+        text += ">";
+        return text;
+    }
+
 
 
 

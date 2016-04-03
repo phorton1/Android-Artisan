@@ -19,6 +19,8 @@ public interface ArtisanEventHandler
     public static String EVENT_DEVICE_STATUS_CHANGED   = "DEVICE_STATUS_CHANGED";         // data = Device
     public static String EVENT_SSDP_SEARCH_STARTED     = "SSDP_SEARCH_STARTED";           // data = null
     public static String EVENT_SSDP_SEARCH_FINISHED    = "SSDP_SEARCH_FINISHED";          // data = null
+    public static String EVENT_VIRTUAL_FOLDER_CHANGED  = "VIRTUAL_FOLDER_CHANGED";        // data = Virtual Folder Id
+
 
     //-----------------------------
     // ARTISAN ONLY EVENTS
