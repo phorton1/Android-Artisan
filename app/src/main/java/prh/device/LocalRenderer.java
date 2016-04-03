@@ -242,7 +242,8 @@ public class LocalRenderer extends Device implements
     {
         if (track != null)
         {
-            Utils.log(dbg_ren,0,"setTrack(" + track.getTitle() + ") interrupt=" + interrupt_playlist);
+            Utils.log(dbg_ren,0,"setRendererTrack(" + track.getTitle() + ") interrupt=" + interrupt_playlist);
+            // setRendererState(RENDERER_STATE_TRANSITIONING);
             // stop();
             if (interrupt_playlist)
                 artisan.setPlaylist("");
@@ -260,27 +261,25 @@ public class LocalRenderer extends Device implements
 
         song_position = 0;
 
-        Track track = null;
-         current_track = null;
-
         EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
         current_playlist.incGetTrack(inc);
 
-        track = current_playlist.getCurrentTrack();
-        if (track == null)
+        current_track = current_playlist.getCurrentTrack();
+        if (current_track == null)
         {
             if (!current_playlist.getName().equals(""))
                 noSongsMsg();
         }
         else
         {
-            Utils.log(dbg_ren,1,"incAndPlay(" + inc + ") got " + track.getPosition() + ":" + track.getTitle());
+            Utils.log(dbg_ren,1,"incAndPlay(" + inc + ") got " + current_track.getPosition() + ":" + current_track.getTitle());
+            // setRendererState(RENDERER_STATE_TRANSITIONING);
             transport_play();
         }
 
-        if (track == null)
+        if (current_track == null)
             transport_stop();
-        artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_TRACK_CHANGED,track);
+        artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_TRACK_CHANGED,current_track);
     }
 
 
@@ -323,28 +322,33 @@ public class LocalRenderer extends Device implements
     @Override public void transport_play()
     {
         Utils.log(dbg_ren,0,"play() mp=" + getMediaPlayerState() + " rend=" + getRendererState());
-        Track track = current_track;
-        EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
-        if (current_track==null && current_playlist != null)
-            track = current_playlist.getCurrentTrack();
 
-        if (track == null)
+        //Track track = current_track;
+        //EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
+        //if (current_track==null && current_playlist != null)
+        //    track = current_playlist.getCurrentTrack();
+
+        if (current_track == null)
         {
             Utils.error("nothing to play");
             return;
         }
-        else if (!Utils.supportedType(track.getType()))
+        else if (!Utils.supportedType(current_track.getType()))
         {
-            Utils.error("Unsupported song type(" + track.getType() + ") " + track.getTitle());
+            Utils.error("Unsupported song type(" + current_track.getType() + ") " + current_track.getTitle());
             transport_stop();
         }
         try
         {
+            // Paused just goes back to playing
+            // Otherwise, load the current_track
+            // into the media_player
+
             if (mp_state != MP_STATE_PAUSED)
             {
                 media_player.reset();
                 mp_state = MP_STATE_IDLE;
-                String uri = track.getLocalUri();
+                String uri = current_track.getLocalUri();
 
                 // ANDROID EMULATOR CANT PLAY WMA FILES !!!
 
@@ -362,14 +366,11 @@ public class LocalRenderer extends Device implements
                 media_player.prepare();
                 mp_state = MP_STATE_PREPARED;
             }
+
             media_player.start();
             mp_state = MP_STATE_STARTED;
             setRendererState(RENDERER_STATE_PLAYING);
             total_tracks_played++;
-
-            // artisan.handleRendererEvent(ArtisanEventHandler.EVENT_TRACK_CHANGED,track);
-            // doesn't happen in play, which does not change the track
-
         }
         catch (Exception e)
         {
@@ -400,9 +401,6 @@ public class LocalRenderer extends Device implements
 
 
     private void setRendererState(String to_state)
-    // any time the renderer state changes
-    // the OpenPlayList and other clients
-    // must be evented
     {
         renderer_state = to_state;
         Utils.log(0,0,renderer_state);

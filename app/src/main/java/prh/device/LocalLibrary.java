@@ -109,29 +109,6 @@ public class LocalLibrary extends Device implements Library
     public Track getLibraryTrack(String id)
         // returns null on error or track not found
     {
-        // virtual "select_playlist"  "tracks"
-
-        if (id.startsWith("select_playlist_"))
-        {
-            String name = id.replace("select_playlist_","");
-            Utils.log(dbg_lib+1,0,"VIRTUAL get_track(" + id + ")");
-
-            PlaylistSource playlist_source = artisan.getPlaylistSource();
-                // NEVER NULL
-            Playlist playlist = playlist_source.getPlaylist(name);
-            if (playlist == null)
-            {
-                Utils.error("Could not get playlist for " + id);
-                return null;
-            }
-
-            Track track = new Track();
-            track.setId("select_playlist_" + name);
-            track.setParentId("select_playlist");
-            track.setTitle(name + "(" + (playlist == null ? "0" : Integer.toString(playlist.getNumTracks())) + ")");
-            return track;
-        }
-
         // return the first record found by the query
 
         Cursor cursor = null;
@@ -161,6 +138,9 @@ public class LocalLibrary extends Device implements Library
 
     public Folder getLibraryFolder(String id)
     {
+        //--------------------------------------
+        // Root Folder
+        //--------------------------------------
         // if 0, return a fake root record
         // that represents the the mp3s directory
         // that is probably in the datbase with an id of ""
@@ -194,23 +174,72 @@ public class LocalLibrary extends Device implements Library
             return folder;
         }
 
+        //--------------------------------------
+        // Virtual Folders
+        //--------------------------------------
         // a virtual folder that contains playlist items
         // a child of "1" == the mp3s directory
 
         else if (id.equals("select_playlist"))
         {
             PlaylistSource playlist_source = artisan.getPlaylistSource();
-                // Never Null
-
             Folder folder = new Folder();
             folder.setId("select_playlist");
             folder.setParentId("1");
             folder.setTitle("Select Playlist");
-            folder.setType("folder");
+            folder.setType("virtual_folder");
             folder.setNumElements(playlist_source.getPlaylistNames().size());
             return folder;
         }
 
+        // virtual "select(ed)_playlist_"  folders
+        // if it's selected, we actually start the playlist
+
+        else if (id.startsWith("select_playlist_") ||
+                 id.startsWith("selected_playlist_"))
+        {
+            boolean is_selected = id.startsWith("selected_playlist_");
+            String name = id.replace("select_playlist_","");
+            name = name.replace("selected_playlist_","");
+
+            boolean ok = false;
+            String title = name;
+
+            // can I at least force them to re-load the item going forward?
+
+            if (is_selected)
+            {
+                Utils.log(dbg_lib,0,"Local Library Selecting Playlist(" + name + ")");
+                ok = artisan.setPlaylist(name);
+                title += ok ? " selected" : " had an error in selection";
+            }
+            else
+            {
+                PlaylistSource playlist_source = artisan.getPlaylistSource();
+                Playlist playlist = playlist_source.getPlaylist(name);
+                if (playlist == null)
+                {
+                    Utils.error("Could not get playlist for " + id);
+                    return null;
+                }
+                title += "(" + playlist.getNumTracks() + ")";
+            }
+
+            Folder folder = new Folder();
+
+            folder.setId(id);
+            folder.setParentId("select_playlist" +
+                (is_selected ? "_" + name : ""));
+            folder.setType("virtual_folder");
+            folder.setNumElements(is_selected?0:1);
+            folder.setTitle(title);
+            return folder;
+        }
+
+
+        //--------------------------------------
+        // Normal getLibraryFolder() Request
+        //--------------------------------------
         // return the first record found by the query
 
         String[] args = new String[]{};
@@ -233,7 +262,7 @@ public class LocalLibrary extends Device implements Library
 
         return null;
 
-    }   // getFolder()
+    }   // getLibraryFolder()
 
 
 
@@ -253,11 +282,10 @@ public class LocalLibrary extends Device implements Library
             return retval;
         }
 
-        // request for select_playlists
-        // returns items that are of the form /dlna_renderer/select_playlist_blah.jpg
-        // when the dlnaServer recieves a request for this special jpg file, it will
-        // change the current playlist, and, apart from backing out of the folder
-        // the openHomeRenderer (bubbleUp) should up and show the new station.
+        //--------------------------------------------
+        // Virtual SubItem Requests
+        //--------------------------------------------
+        // request for select_playlists adds to found
 
         if (id.equals("select_playlist"))
         {
@@ -271,9 +299,15 @@ public class LocalLibrary extends Device implements Library
             while (position < lists.size() && retval.size() < count)
             {
                 String name = lists.get(position++);
-                Record vtrack = getLibraryTrack("select_playlist_" + name);
-                location = addItem(retval,start,location,count,vtrack);
+                Folder vfolder = getLibraryFolder("select_playlist_" + name);
+                location = addItem(retval,start,location,count,vfolder);
             }
+        }
+        else if (id.startsWith("select_playlist_"))
+        {
+            String name = id.replace("select_playlist_","");
+            Folder vfolder = getLibraryFolder("selected_playlist_" + name);
+            location = addItem(retval,start,location,count,vfolder);
         }
 
         // normal request for database items
@@ -282,6 +316,19 @@ public class LocalLibrary extends Device implements Library
 
         else
         {
+            // ROOT VIRTUAL FOLDER(S)
+            // add the select_playlist virtual folder first
+
+            if (SHOW_PLAYLISTS && id.equals("0"))      // the "mp3s" solitary single non-root node
+            {
+                Utils.log(dbg_lib,2,"adding virtual folder: select_playlist");
+                total_found ++;
+                Folder vfolder = getLibraryFolder("select_playlist");
+                location = addItem(retval,start,location,count,vfolder);
+            }
+
+            // SUBITEMS of current folder
+
             Folder folder = getLibraryFolder(id);
             boolean is_album = folder.getType().equals("album");
             String table = is_album ? "tracks" : "folders";
@@ -291,30 +338,16 @@ public class LocalLibrary extends Device implements Library
                 "ORDER BY " + sort_clause + "path";
 
             Utils.log(dbg_lib + 2,1,"query=" + query);
-            String[] args = new String[]{};
             Cursor cursor = null;
             try
             {
-                cursor = db.rawQuery(query,args);
+                cursor = db.rawQuery(query,null);
             }
             catch (Exception e)
             {
                 Utils.error("SQL Error: " + e);
             }
             Utils.log(dbg_lib + 2,1,"cursor created");
-
-
-            // add the select_playlist virtual folder first
-            // it contains virtual ids that link back to
-            // changing the current playlist in the renderer
-
-            if (SHOW_PLAYLISTS && id.equals("0"))      // the "mp3s" solitary single non-root node
-            {
-                Utils.log(dbg_lib,2,"adding virtual folder: select_playlist");
-                total_found ++;
-                location = addItem(retval,start,location,count,
-                    getLibraryFolder("select_playlist"));
-            }
 
             if (cursor != null)
                 total_found += cursor.getCount();

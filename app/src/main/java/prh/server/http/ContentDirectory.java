@@ -18,6 +18,7 @@ import prh.base.Library;
 import prh.artisan.Record;
 import prh.artisan.Track;
 import prh.device.LocalLibrary;
+import prh.device.Service;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
 import prh.utils.httpUtils;
@@ -80,20 +81,9 @@ public class ContentDirectory implements HttpRequestHandler
         //------------------------------------
         // URI Handlers
         //------------------------------------
-        // Select Playlist pseudo url
-        // the 404 is ignored by bubble up, and the pseudo meta data shows
-
-        if (uri.startsWith("select_playlist/"))
-        {
-            String name = uri.replace("select_playlist/","");
-            name = name.replace(".mp3","");
-            Utils.log(dbg_dlna,0,"dlnaServer request to select playlist(" + name + ")");
-            artisan.setPlaylist(name);
-        }
-
         // Album Art /ContentDirectory/folder_id/folder.jpg
 
-        else if (uri.matches("(.*)/folder.jpg"))
+        if (uri.matches("(.*)/folder.jpg"))
         {
             Utils.log(dbg_dlna,0,"dlnaServer request for " + uri);
             uri = uri.replaceAll("/folder.jpg$", "");
@@ -359,7 +349,7 @@ public class ContentDirectory implements HttpRequestHandler
         {
             String part;
             if (rec instanceof Track)
-                part = getTrackMetadata((Track)rec);
+                part = ((Track)rec).getMetadata();
             else
                 part = ((Folder) rec).getMetadata();
             didl += part;
@@ -400,10 +390,11 @@ public class ContentDirectory implements HttpRequestHandler
     }
 
 
-    public static String getTrackMetadata(Track track)
+
+    public static String unused_getVirtualFolderMetadata(Folder folder)
         // supports virtual select_playlist_ items
     {
-        String id = track.getId();
+        String id = folder.getId();
         Utils.log(dbg_dlna + 2,0,"starting xml_item(" + id + ")");
 
         // virtual items
@@ -412,18 +403,18 @@ public class ContentDirectory implements HttpRequestHandler
         {
             String name = id.replace("select_playlist_","");
             String text =
-                    "<item id=\"" + id + "\" parentID=\"" + track.getParentId() + "\" restricted=\"1\">" +
-                    "<dc:title>" + track.getTitle() + "</dc:title>" +
-                    "<upnp:class>object.item.audioItem</upnp:class>" +
+                    "<item id=\"" + id + "\" parentID=\"" + folder.getParentId() + "\" restricted=\"1\">" +
+                    "<dc:title>" + folder.getTitle() + "</dc:title>" +
+                    "<upnp:class>object.container</upnp:class>" +
                     "<res protocolInfo=\"http-get:*:audio/mpeg:*:\">" +
-                    Utils.server_uri + "/dlna_server/select_playlist/" + name + ".mp3" +
+                    Utils.server_uri + "/" + Service.serviceType.ContentDirectory.toString() + "/select_playlist/" + name + ".mp3" +
                     "</res>" +
                     "</item>";
             Utils.log(dbg_dlna + 1,0,"VIRTUAL xml_item(" + name + ")\n" + text);
             return text;
         }
 
-        return track.getMetadata();
+        return folder.getMetadata();
     }
 
 

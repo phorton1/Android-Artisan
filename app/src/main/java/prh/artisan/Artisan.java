@@ -298,15 +298,16 @@ public class Artisan extends FragmentActivity implements
 
         playlist_source = local_playlist_source;
 
-        // The current playlist is a singleton, being Edited
-        // by aPlaylist and played by aRenderer. It can
-        // be associated with, and/or return a Playlist.
+        // The current_playlist is a EditablePlaylist.
+        // Here we initialize it with a PlaylistWrapper
+        // around an empty Playlist as given by the
+        // LocalPlaylistSource
 
-        Utils.log(dbg_main,0,"creating and starting tempEditablePlaylist");
-        Playlist empty = playlist_source.createEmptyPlaylist();
+        Utils.log(dbg_main,0,"creating and starting empty current_playlist");
+        Playlist empty = local_playlist_source.createEmptyPlaylist();
         current_playlist = new PlaylistWrapper(this,empty);
         current_playlist.startPlaylist();
-        Utils.log(dbg_main,0,"tempEditablePlaylist created and started");
+        Utils.log(dbg_main,0,"current_playlist created and started");
 
         // Now the Renderer can be started with the CURRENT_PLAYLIST
         // as a Queue ... It ALSO *should* also always construct,
@@ -801,12 +802,23 @@ public class Artisan extends FragmentActivity implements
     // playlist and event it to any interested clients
     {
         Utils.log(dbg_main,0,"setPlaylist(" + new_playlist.getName() + ")");
+        if (new_playlist == current_playlist)
+            return true;
         if (new_playlist.startPlaylist())
         {
             if (current_playlist != null)
                 current_playlist.stopPlaylist(false);
-            current_playlist = new PlaylistWrapper(this,new_playlist);
+            current_playlist = new_playlist;
             handleArtisanEvent(EVENT_PLAYLIST_CHANGED,current_playlist);
+
+            // when Artisan is satisfied that it has a new playlist
+            // with some songs in it, it tells the actual renderer
+            // to start playing the current song. This does NOT stop
+            // the renderer on a new empty playlist ...
+
+            if (current_playlist.getNumTracks() > 0)
+                renderer.incAndPlay(0);
+
             return true;
         }
         return false;    // whatever
@@ -1375,7 +1387,11 @@ public class Artisan extends FragmentActivity implements
                         event_manager.incUpdateCount("Time");
 
                     else if (event_id.equals(EVENT_VOLUME_CHANGED))
+                    {
                         event_manager.incUpdateCount("Volume");
+                        event_manager.incUpdateCount("RenderingControl");
+                    }
+
 
                     else if (!defer_openhome_events &&
                         event_id.equals(EVENT_IDLE))

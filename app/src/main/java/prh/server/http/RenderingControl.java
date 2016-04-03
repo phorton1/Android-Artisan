@@ -11,17 +11,21 @@ import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 import prh.base.HttpRequestHandler;
 import prh.base.Renderer;
+import prh.base.UpnpEventHandler;
 import prh.base.Volume;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
+import prh.server.utils.updateCounter;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
 
-public class RenderingControl implements HttpRequestHandler
+public class RenderingControl implements
+    HttpRequestHandler,
+    UpnpEventHandler
 {
     private static int dbg_rc = 0;
-    private static String default_channel = "MASTER";
+    private static String master_channel = "Master";
 
     private Artisan artisan;
     private HTTPServer http_server;
@@ -33,6 +37,8 @@ public class RenderingControl implements HttpRequestHandler
         http_server = http;
         urn = the_urn;
     }
+
+
 
     //-----------------------------------------------------------
     // control_response (Actions)
@@ -184,6 +190,7 @@ public class RenderingControl implements HttpRequestHandler
         }
         else
         {
+            incUpdateCount();
             volume.setValue(ctrl_idx,val);
             response = ok_response(server,urn,service,action);
         }
@@ -205,8 +212,62 @@ public class RenderingControl implements HttpRequestHandler
         Utils.log(dbg_rc+1,1,"returning " + field + "=" + val);
         HashMap<String,String> hash = new HashMap<String,String>();
         hash.put(field,Integer.toString(val));
-        hash.put("Channel","MASTER");
+        hash.put("Channel",master_channel);
         return httpUtils.hash_response(server,urn,service,action,hash);
+    }
+
+
+
+    //----------------------------------------
+    // Event Dispatching
+    //----------------------------------------
+
+    static String upnp_names[] = new String[]
+        { "Volume", "Mute", "Loudness", "Balance", "Fade", "EQLow", "EQMid", "EQHigh" };
+
+
+    updateCounter update_counter = new updateCounter();
+
+    @Override public String getName()      { return "RenderingControl"; };
+    @Override public int getUpdateCount()  { return update_counter.get_update_count(); }
+    @Override public int incUpdateCount()  { return update_counter.inc_update_count(); }
+    @Override public void notifySubscribed(UpnpEventSubscriber subscriber,boolean subscribe) {}
+    @Override public void start()          { http_server.getEventManager().RegisterHandler(this) ;}
+    @Override public void stop()           { http_server.getEventManager().UnRegisterHandler(this) ;}
+
+    @Override public String getEventContent(UpnpEventSubscriber unused_subscriber)
+    {
+        Renderer renderer = artisan.getRenderer();
+        Volume volume = renderer==null ? null : renderer.getVolume();
+        int max_values[] = volume==null ? new int[]{0,0,0,0,0,0,0,0} : volume.getMaxValues();
+        int cur_values[] = volume==null ? new int[]{0,0,0,0,0,0,0,0} : volume.getValues();
+
+        HashMap<String,String> hash = new HashMap<String,String>();
+        String change_body =
+            "<Event xmlns=\"urn:schemas-upnp-org:metadata-1-0/RCS\">" +
+            "<InstanceID val=\"0\">";
+
+        for (int i= Volume.CTRL_VOL; i<Volume.NUM_CTRLS; i++)
+        {
+            if (max_values[i] > 0)
+            {
+                change_body += "<" +
+                    upnp_names[i] + " " +
+                    "val=\"" + cur_values[i] +
+                    "\"> channel=\"" +
+                    master_channel + "\">";
+            }
+        }
+
+        change_body += "<PresetNameList val=\"FactoryDefaults\">" +
+                "</InstanceID>" +
+                "</Event>";
+
+        hash.put("InstanceID","0");
+        hash.put("Channel",master_channel);
+        hash.put("LastChange",httpUtils.encode_xml(change_body));
+
+        return httpUtils.hashToXMLString(hash,true);
     }
 
 

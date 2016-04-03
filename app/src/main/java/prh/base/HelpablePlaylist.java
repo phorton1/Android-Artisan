@@ -4,7 +4,10 @@ import prh.artisan.Track;
 import prh.types.trackList;
 
 public interface HelpablePlaylist
-    // Routines needed by openHomeHelper
+    // Playlist routines needed by openHomeHelper.
+    // ServablePlaylists generally implement this Interface
+    // so that they can use openHomeHelper to provide
+    // the basic methods required by http.server.OpenPlaylist
 {
     // this one is special
 

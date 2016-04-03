@@ -1,18 +1,19 @@
 package prh.base;
 
-// An Editable Playlist is one that can be associated with aPlaying.
-//
-// It not only presents editing functions like insertTrack() and
-// removeTrack(), but it also implements the PlaylistFetcherSource
-// interface.
-
 import prh.artisan.PlaylistFetcher;
 import prh.artisan.Track;
 
 public interface EditablePlaylist extends
     Playlist,
     PlaylistFetcher.PlaylistFetcherSource
+    // An Editable Playlist is one that can be associated with
+    // aPlaying and can be advanced by Renderers.
+    //
+    // It not only presents editing functions like insertTrack() and
+    // removeTrack(), but it also implements the PlaylistFetcherSource
+    // interface.
 {
+    // Change detection for aPlaying
 
     int getPlaylistCountId();
         // Bump this if the essential identity of the playlist
@@ -25,14 +26,14 @@ public interface EditablePlaylist extends
         // aPlaying will try to retain the selection and the
         // cursor position.
 
-    Track insertTrack(int position, Track track);
-        // ONE-BASED POSITION SIGNATURE
-    boolean removeTrack(Track track);
-
-    public Track seekByIndex(int position);
-        // ONE-BASED POSITION SIGNATURE
+    // Playlist Manipulators required by aPlaylist
 
     public void setName(String new_name);
+    Track insertTrack(int position, Track track);
+    boolean removeTrack(Track track);
+    public Track seekByIndex(int position);
+
+    // called by Renderers
 
     public Track incGetTrack(int inc);
 

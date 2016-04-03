@@ -4,12 +4,13 @@ import prh.artisan.Track;
 import prh.server.utils.playlistExposer;
 
 public interface ServablePlaylistHelper
-    // These methods are the subset of the playlist methods
-    // required by server.http.OpenPlaylist that are presented
-    // by the openHomeHelper class. The rest of the methods
-    // required by the http server are presented in the derived
-    // ServablePlaylist Interface. ServablePlaylists usually
-    // provide these methods by instantiating an openHomeHelper.
+    // These methods are the set of Playlist methods
+    // required by server.http.OpenPlaylist, that are
+    // presented by the openHomeHelper class.
+    //
+    // A ServablePlaylist usually uses a pass-thru
+    // openHomeHelper to provide the actual implementation
+    // of these methods.
     //
     // If not for server.http.OpenPlaylist, none of these
     // methods would otherwise show up on a Playlist

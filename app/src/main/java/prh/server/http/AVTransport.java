@@ -2,6 +2,9 @@
 
 package prh.server.http;
 
+// NOTE: BubbleUp does NOT notice that the track changed
+// in getPositionInfo(), presumably because no RendererState
+// change occurs during it's polling interval.
 
 import org.w3c.dom.Document;
 
@@ -10,10 +13,12 @@ import java.util.HashMap;
 import fi.iki.elonen.NanoHTTPD;
 import prh.artisan.Artisan;
 import prh.artisan.Track;
+import prh.base.Renderer;
 import prh.device.LocalRenderer;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
 import prh.base.HttpRequestHandler;
+import prh.types.stringHash;
 import prh.utils.httpUtils;
 import prh.utils.Utils;
 
@@ -27,6 +32,22 @@ public class AVTransport implements HttpRequestHandler
     private HTTPServer http_server;
     private String urn;
 
+    // BubbleUPnP Kludge
+    //
+    // BubbleUp does not notice tracks changing in GetPositionInfo.
+    // In fact it only seems to notice tracks changing if it gets a
+    // STOPPED state during it's polling hit to GetTransportInfo
+    //
+    // So, if the track changes on a BubbleUPnP client, we send out
+    // one fake GetTransportInfo with STOPPED.
+
+    stringHash last_bubbleup_uri = new stringHash();
+
+
+    //-----------------------------------------------------------
+    // ctor
+    //-----------------------------------------------------------
+
     public AVTransport(Artisan ma,HTTPServer http,String the_urn )
     {
         artisan = ma;
@@ -34,9 +55,6 @@ public class AVTransport implements HttpRequestHandler
         urn = the_urn;
     }
 
-
-    // not a UpnpEventHandler (yet)
-    // so there are no start() or stop() methods
 
     //-----------------------------------------------------------
     // control_response (Actions)
@@ -126,8 +144,31 @@ public class AVTransport implements HttpRequestHandler
         }
         else if (action.equals("GetTransportInfo"))
         {
+            String use_state =  local_renderer.getRendererState();
+
+            // implementation of BubbleUPnP kludge
+
+            String user_agent = session.getHeaders().get("user-agent");
+            if (Utils.isBubbleUp(user_agent))
+            {
+                Track track = local_renderer.getRendererTrack();
+                String uri = track == null ? "" : track.getPublicUri();
+                String remote_ip = session.getHeaders().get("remote-addr");
+                String ip_ua = remote_ip + ":" + user_agent;
+
+                String old_uri = last_bubbleup_uri.get(ip_ua);
+                if (old_uri == null || !old_uri.equals(uri))
+                {
+                    last_bubbleup_uri.put(ip_ua,uri);
+                    Utils.log(dbg_av,0,"BubbleUPnP song changed: " + uri);
+                    use_state = Renderer.RENDERER_STATE_STOPPED;
+                }
+            }
+
+            // regular code
+
+            hash.put("CurrentTransportState",use_state);
             hash.put("CurrentTransportStatus",local_renderer.getRendererStatus());
-            hash.put("CurrentTransportState",local_renderer.getRendererState());
             hash.put("CurrentSpeed","1");
             response = httpUtils.hash_response(http_server,urn,service,action,hash);
         }

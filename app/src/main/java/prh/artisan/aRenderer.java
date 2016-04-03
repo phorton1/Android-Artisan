@@ -599,7 +599,6 @@ public class aRenderer extends Fragment implements
             update_position(current_position);
             update_state(current_state);
             updateTitleBar();
-
         }
 
 

@@ -92,20 +92,13 @@ public class aPlaylist extends Fragment implements
         // selected == null or if the playlist has changed
 
         boolean cold_init = false;
+        EditablePlaylist new_playlist = artisan.getCurrentPlaylist();
+            // assert new_playlist != null
 
         if (selected == null)
         {
+            Utils.log(dbg_aplay,1,"aPlaylist.onCreateView() COLD_INIT");
             selected = new selectedHash();
-            the_playlist = artisan.getCurrentPlaylist();
-
-            playlist_fetcher = new PlaylistFetcher(
-                artisan,
-                the_playlist,
-                this,
-                FETCH_INITIAL,
-                NUM_PER_FETCH,
-                "aPlaylist");
-
             cold_init = true;
         }
 
@@ -160,17 +153,56 @@ public class aPlaylist extends Fragment implements
 
         Utils.log(dbg_aplay,0,"aPlaylist.init(" + cold_init + ") called");
 
-        // detect a change in the basic playlist identity
+        // see if the playlist really changed
+        // Artisan handles the starts and stops.
+
+        boolean pl_changed = cold_init;
+        EditablePlaylist new_playlist = artisan.getCurrentPlaylist();
+        // assert new_playlist != null
+
+        if (new_playlist != the_playlist)
+        {
+            Utils.log(dbg_aplay,1,"aPlaylist.init(pl_changed) playlist changed to '" +
+                new_playlist.getName() + "' from '" +
+                (the_playlist==null?"null":the_playlist.getName()) + "'");
+            the_playlist = new_playlist;
+            pl_changed = true;
+        }
+
+        // detect a change in the basic playlist identity as
+        // given by the playlistCountId on the playlist
 
         int new_count_id = the_playlist.getPlaylistCountId();
-        boolean pl_changed = cold_init;
-
         if (!pl_changed && playlist_count_id != new_count_id)
         {
-            Utils.log(dbg_aplay,1,"aPlaylist.init() setting pl_changed=TRUE due to playlist_count=" + playlist_count_id + ", new_count_id=" + new_count_id);
+            Utils.log(dbg_aplay,1,"aPlaylist.init(pl_changed) playlist_count_id changed from " + playlist_count_id + " to =" + new_count_id);
             pl_changed = true;
         }
         playlist_count_id = new_count_id;
+
+        // If no fetcher create one, otherwise,
+        // if the playlist changed, clear the selection,
+        // stop the old fetcher, and reset its source
+
+        if (playlist_fetcher == null)
+        {
+            // fetcher should only be created on cold_init,
+            // so there is no need to call selected.clear() here
+
+            playlist_fetcher = new PlaylistFetcher(
+                artisan,
+                the_playlist,
+                this,
+                FETCH_INITIAL,
+                NUM_PER_FETCH,
+                "aPlaylist");
+        }
+        else if (pl_changed)
+        {
+            selected.clear();
+            playlist_fetcher.stop(true,false);
+            playlist_fetcher.setPlaylistSource(the_playlist);
+        }
 
         // detect change in playlist contents
 
@@ -178,20 +210,16 @@ public class aPlaylist extends Fragment implements
         int new_content_id = the_playlist.getContentChangeId();
         if (!content_changed && playlist_content_count_id != new_content_id)
         {
-            Utils.log(dbg_aplay,1,"aPlaylist.init() setting content_changed=TRUE due to playlist_content_count=" + playlist_content_count_id + ", new_content_id=" + new_content_id);
-            pl_changed = true;
+            Utils.log(dbg_aplay,1,"aPlaylist.init(content_changed) playlist_content_count_id changed from " + playlist_content_count_id + " to " + new_content_id);
+            content_changed = true;
         }
         playlist_content_count_id = new_content_id;
 
-        // clear the selection if the playlist changed
-
-        if (pl_changed)
-            selected.clear();
 
         // save the cursor position if the content changed
         // but not the playlist ....
 
-        if (!pl_changed && content_changed)
+        if (content_changed && !pl_changed)
         {
             Utils.log(dbg_aplay,1,"aPlaylist.init() saving scroll position");
             saveScroll(true);
@@ -207,7 +235,7 @@ public class aPlaylist extends Fragment implements
             mode_changed = true;
         }
 
-        // start or rebuild the playlist_fetcher
+        // start or restart the playlist_fetcher
 
         boolean ok = true;
         if (cold_init)
@@ -215,17 +243,11 @@ public class aPlaylist extends Fragment implements
             Utils.log(dbg_aplay,1,"aPlaylist.init() calling fetcher.start()");
             ok = playlist_fetcher.start();
         }
-        else if (pl_changed || mode_changed)
+        else if (pl_changed || mode_changed || content_changed)
         {
             Utils.log(dbg_aplay,1,"aPlaylist.init() calling fetcher.restart()");
             ok = playlist_fetcher.restart();
         }
-        // else if (mode_changed || content_changed)
-        // {
-        //     ok = playlist_fetcher.();
-        // }
-
-
 
         // get the records
 

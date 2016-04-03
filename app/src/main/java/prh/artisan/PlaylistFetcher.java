@@ -60,15 +60,14 @@ public class PlaylistFetcher extends Fetcher implements Fetcher.FetcherSource
             // However, it does not modify the fetcher's list of records
             // directly, but instead, this object calls getFetchedTracks()
             // and adds those to the list
-
-
     }
+
 
     // ctor and simple accessors
 
     public PlaylistFetcher(
         Artisan artisan,
-        PlaylistFetcherSource source,
+        PlaylistFetcherSource src,
         FetcherClient client,
         int num_initial_fetch,
         int num_per_fetch,
@@ -76,8 +75,16 @@ public class PlaylistFetcher extends Fetcher implements Fetcher.FetcherSource
     {
         super(artisan,null,client,num_initial_fetch,num_per_fetch,dbg_title);
         setSource(this);    // also sets is_dynamic_source
-        my_source = source;
+        my_source = src;
         album_mode = false;
+        source_rec_changed_count_id = -1;
+        initVirtualFolders();
+    }
+
+
+    void setPlaylistSource(PlaylistFetcherSource src)
+    {
+        my_source = src;
         source_rec_changed_count_id = -1;
         initVirtualFolders();
     }

@@ -19,14 +19,21 @@ import org.w3c.dom.Element;
 import java.util.HashMap;
 
 import prh.artisan.Artisan;
+import prh.artisan.Track;
 import prh.base.ArtisanEventHandler;
+import prh.base.Renderer;
+import prh.base.UpnpEventHandler;
 import prh.base.Volume;
 import prh.artisan.VolumeControl;
 import prh.device.Device;
 import prh.device.SSDPSearchService;
 import prh.device.Service;
+import prh.server.HTTPServer;
+import prh.server.utils.UpnpEventSubscriber;
+import prh.server.utils.updateCounter;
 import prh.utils.Utils;
 import prh.types.stringHash;
+import prh.utils.httpUtils;
 
 public class RenderingControl extends Service implements Volume
 {
@@ -34,7 +41,7 @@ public class RenderingControl extends Service implements Volume
 
     // static variables
 
-    static String master_channel = "Master";
+    public static String master_channel = "Master";
         // The required, and only channel we support
 
     static HashMap<Integer,String> var_names= new HashMap<Integer,String>();
@@ -244,10 +251,10 @@ public class RenderingControl extends Service implements Volume
                 if (null == getDevice().doAction(serviceType.RenderingControl,"Set" + var_name,args))
                     error_msg = "could not setValue(" + value + ")";
                 else
+                {
                     current_values[idx] = value;
-
-                // since it changed, set the value
-                artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_VOLUME_CHANGED,this);
+                    artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_VOLUME_CHANGED,this);
+                }
             }
         }
 
@@ -259,5 +266,6 @@ public class RenderingControl extends Service implements Volume
         return true;
 
     }   // doCommand()
+
 
 }   // class RenderingControl

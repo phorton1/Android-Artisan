@@ -203,7 +203,9 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
         {
             Utils.log(dbg_http,1,"starting MediaRenderer http listeners ...");
             handlers.put("AVTransport",new AVTransport(artisan,this,httpUtils.upnp_urn));
-            handlers.put("RenderingControl",new RenderingControl(artisan,this,httpUtils.upnp_urn));
+            RenderingControl rc = new RenderingControl(artisan,this,httpUtils.upnp_urn);
+            handlers.put("RenderingControl",rc);
+            rc.start();
         }
 
         if (Prefs.getBoolean(Prefs.id.START_HTTP_OPEN_HOME_SERVER) &&
@@ -298,8 +300,8 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
         {
             String uri = session.getUri();
 
-            String dbg_from = session.getHeaders().get("remote-addr");
-            Utils.log(dbg_requests,0,dbg_from + " " + session.getMethod() + " " +  uri);
+            String dbg_from = session.getHeaders().get("remote-addr") + " ";
+            Utils.log(dbg_requests,0,dbg_from + session.getMethod() + " " +  uri);
 
             // Default response is 404 not found
 
@@ -455,17 +457,17 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
                                 action = action.replaceAll("^.*#","");
                                 action = action.replaceAll("\"","");
 
-                                boolean is_loop_action =
-                                    action.equals("GetTransportInfo") ||
-                                    action.equals("GetPositionInfo") ||
-                                    action.equals("Time") ||
-                                    (service.equals("RenderingControl") &&
-                                     action.startsWith("Get"));
+                                boolean is_loop_action = false
+                                    || action.equals("GetTransportInfo")
+                                    || action.equals("GetPositionInfo")
+                                    || action.equals("Time")
+                                    // || (service.equals("RenderingControl") && action.startsWith("Get"))
+                                    ;
 
                                 int use_dbg = is_loop_action ?
                                     dbg_looping_control_requests :
                                     dbg_control_requests;
-                                Utils.log(use_dbg,1,dbg_from + "control request " + service + "(" + action + ")");
+                                Utils.log(use_dbg,1,dbg_from + " control request " + service + "(" + action + ")");
 
                                 // get the xml document
 

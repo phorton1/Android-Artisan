@@ -29,6 +29,7 @@ public class LocalVolume implements Volume
 
     private int max_values[];
     private int current_values[];
+    private boolean use_fake_mute;
 
     @Override public int[] getMaxValues()  { return max_values; }
     @Override public int[] getValues()     { return current_values.clone(); }
@@ -62,7 +63,10 @@ public class LocalVolume implements Volume
         if (Utils.ID_CAR_STEREO.equals(Build.ID))
             max_values = new int[]{15, 1, 1, 28, 28, 20, 20, 20};
         else
-            max_values = new int[]{15, 0, 0, 0, 0, 0, 0, 0};
+        {
+            max_values = new int[]{15,1,0,0,0,0,0,0};
+            use_fake_mute = true;
+        }
 
         // initialize some current values
 
@@ -96,15 +100,23 @@ public class LocalVolume implements Volume
 
         if (am != null)
         {
-            // volume
+            if (use_fake_mute && current_values[CTRL_MUTE] > 0)
+                new_values[CTRL_VOL] = current_values[CTRL_VOL];
+            else
+            {
+                new_values[CTRL_VOL] = VolumeControl.valid(max_values,CTRL_VOL,
+                    am.getStreamVolume(AudioManager.STREAM_MUSIC));
+                Utils.log(dbg_vol + 1,1,"vol=" + new_values[CTRL_VOL]);
+            }
 
-            new_values[CTRL_VOL] = VolumeControl.valid(max_values,CTRL_VOL,
-                am.getStreamVolume(AudioManager.STREAM_MUSIC));
-            Utils.log(dbg_vol + 1,1,"vol=" + new_values[CTRL_VOL]);
+            // use fake mute ... implies !car stereo
+
+            if (use_fake_mute)
+                new_values[CTRL_MUTE] = current_values[CTRL_MUTE];
 
             // car stereo gets/sets other value
 
-            if (Utils.ID_CAR_STEREO.equals(Build.ID))
+            else
             {
                 String mute_str = am.getParameters("av_mute=");
                 new_values[CTRL_MUTE] = mute_str.equals("true") ? 1 : 0;   // inherently valid
@@ -183,6 +195,26 @@ public class LocalVolume implements Volume
             if (idx == CTRL_VOL)
             {
                 LocalVolumeFixer.setMTCVolume(am,new_value);
+
+                // volume turns off (fake) mute
+                if (use_fake_mute)
+                    current_values[CTRL_MUTE] = 0;
+
+            }
+
+            // fake mute for !car stereo
+
+            if (use_fake_mute)
+            {
+                if (idx == CTRL_MUTE)
+                {
+                    int fake_vol = 0;
+                    if (new_value > 0)
+                        fake_vol = 0;
+                    else
+                        fake_vol = current_values[CTRL_VOL];
+                    LocalVolumeFixer.setMTCVolume(am,fake_vol);
+                }
             }
 
             // only car stereo gets controls besides volume
@@ -190,7 +222,7 @@ public class LocalVolume implements Volume
             // could not change from their initial states if the
             // original maxValues are setup correctly.
 
-            if (Utils.ID_CAR_STEREO.equals(Build.ID))
+            else
             {
                 if (idx == CTRL_MUTE)
                 {

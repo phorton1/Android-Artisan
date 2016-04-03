@@ -6,26 +6,15 @@ import prh.artisan.Track;
 public interface Playlist
     // Generic Interface for Playlists.
     //
-    // These are the most abstract playlists.
+    // These is the most abstract Interface for a
+    // playlist in Artisan.
     //
-    // For example, they are generically passed to PlaylistSource
-    // saveAs(), which can write a new one, or overwrite an existing
-    // one, based on this interface on this interface.
+    // These get passed as parameters to a variety of
+    // methods on a variety of objects.
     //
-    // There are special purpose derived Playlists which are
-    // not, at some level, interchangeable. For example, the
-    // LocalPlaylist is the only playlist that can be accessed
-    // by our server.http.OpenPlaylist (which, interestingly is
-    // NOT a Playlist), as it is the only one that contains
-    // the outgoing open_home id_array routines, and like the
-    // LocalLibrary, the only thing we serve to remote clients
-    // (we don't do any pass thru serving).
-    //
-    // Likewise, the tempEditablePlaylist, which itself is a Playlist,
-    // can copy itself from one these generic guys, and then
-    // present it to the aPLaying UI as the current EditablePlaylist.
-    // The device.service.OpenPlaylist is the other EditablePlaylist
-    // in the system
+    // At this time there is no class that strictly
+    // implements this class.  Even the LocalPlaylist
+    // has class-specficic methods on it.
 {
     public PlaylistSource getSource();
 
@@ -45,8 +34,21 @@ public interface Playlist
 
     public int getNumAvailableTracks();
     public Track getTrack(int index);
+        // Not all track are required to be available to
+        // clients. Partially constructed Playlists can
+        // return getNumAvailableTracks() < getNumTracks(),
+        // at at NO TIME shall a client call getTrack() on
+        // an unavailable index.
+        //
+        // Operations that act on a whole playlist, like saveAs(),
+        // or that modify a playlist, like insertTrack() or removeTrack()
+        // may only function when all tracks are available, and give
+        // user level error messages when they are not.
 
     public void saveIndex(int index);
+        // At a minimum this method shall set the track_index
+        // returned by getCurrentIndex.  Where possible the
+        // number shall be written persistently to the Playlist.
 
 }   // interface Playlist
 

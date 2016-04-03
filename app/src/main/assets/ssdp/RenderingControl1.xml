@@ -484,7 +484,7 @@
     <stateVariable>
       <name>A_ARG_TYPE_PresetName</name>
       <allowedValueList>
-        <allowedValue>FactoryDefault</allowedValue>
+        <allowedValue>FactoryDefaults</allowedValue>
       </allowedValueList>
       <dataType>string</dataType>
       <sendEvents>no</sendEvents>
