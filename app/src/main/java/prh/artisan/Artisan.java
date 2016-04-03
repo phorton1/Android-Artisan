@@ -1218,6 +1218,14 @@ public class Artisan extends FragmentActivity implements
     //---------------------------------------------------------------------
     // THE MAIN EVENT HANDLER
     //---------------------------------------------------------------------
+    // TODO Need to change whole architecture .. don't like loopers in devices
+    // Could use EVENT_IDLE (outside of UI thread) to get rid of other Timer Loops,
+    // Call Renderer, LocalVolumeFixer, Volume etc to let them dispatch Artisan Events
+    //
+    // TODO Fix Volume Event Dispatching
+    // Currently Changes made outside of Artisan to the underlying stream/mtc volume
+    // are not evented back to Artisan, except when the VolumeControl window is open
+    // and the device is hit during the RENDERER'S loop!
 
     @Override
     public void handleArtisanEvent(final String event_id,final Object data)
@@ -1324,8 +1332,6 @@ public class Artisan extends FragmentActivity implements
                 // Global Events to main Views
                 //----------------------------------------------------------
                 // Send all events non-IDLE to all known event handlers
-                // prh = Could use EVENT_IDLE to get rid of other Timer Loops,
-                // i.e. to hit LocalVolumeFixer and polling Volume objects.
                 // Note the selective dispatch to the volumeControl only
                 // if it's showing
 

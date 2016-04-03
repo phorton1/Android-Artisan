@@ -17,7 +17,7 @@ public class SSDPSearch implements Runnable
     // for interesting devices and services.
     //
     // Devices are uniquely identified by their TYPE and FRIENDLY_NAME.
-    // PRH - The unique ID should really be the device UUID
+    // NOTE - The unique ID should really be the device UUID
     //
     // As devices are found, it asks Artisan if it should proceed to get
     // to get the device_description, a costly operation, as Artisan maintains

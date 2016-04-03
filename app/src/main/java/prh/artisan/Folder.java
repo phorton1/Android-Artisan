@@ -1,8 +1,5 @@
 package prh.artisan;
 
-// prh - should have a "folder" image when the thing is not an album
-// or deliver no uri ...
-
 
 import android.database.Cursor;
 
@@ -19,7 +16,6 @@ public class Folder extends Record implements Fetcher.FetcherSource
     // Although these can represent a database record,
     // at the current time, there is no API for writing them,
     // as the local database is considered read-only at this time.
-
 {
     private static int dbg_folder = 0;
 

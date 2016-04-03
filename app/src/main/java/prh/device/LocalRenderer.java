@@ -500,7 +500,8 @@ public class LocalRenderer extends Device implements
     // updateState
     //----------------------------------------------------------
     // updates and events the song position
-    // prh - stalled renderer detection
+    // TODO: need to implement stalled renderer detection
+    // TODO: need to implement transfer of playing song to new Renderer
 
 
     public boolean continue_loop()

@@ -322,7 +322,8 @@ public class aRenderer extends Fragment implements
         // and ids to create the buttons. The id is the
         // index into the array of playlist_names[]
         //
-        // prh - need to handle changes to length of list
+        // TODO need EVENT_PLAYLIST_SOURCE_CONTENT_CHANGED
+        // to handle changes to length of list
     {
         private int ID_BASE = 93393;
         public stringList playlist_names;

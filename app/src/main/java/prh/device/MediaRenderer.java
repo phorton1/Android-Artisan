@@ -169,7 +169,8 @@ public class MediaRenderer extends Device implements
         {
             getUpdateRendererState();
             if (my_looper != null && my_looper.continue_loop())
-                artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_IDLE,null);   // prh !!!
+                artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_IDLE,null);
+                    // TODO this goes away in new EVENT_IDLE architecture
         }
     }
 

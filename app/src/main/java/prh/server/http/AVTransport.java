@@ -4,7 +4,8 @@ package prh.server.http;
 
 // NOTE: BubbleUp does NOT notice that the track changed
 // in getPositionInfo(), presumably because no RendererState
-// change occurs during it's polling interval.
+// change occurs during it's polling interval, and it does
+// not use AVTransport Eventing (by default)
 
 import org.w3c.dom.Document;
 
@@ -241,10 +242,12 @@ public class AVTransport implements
         }
 
         // We currently do not support GetCurrentTransportActions
+        // Cannot seem to get BubbleUp Transport buttons to work agains
+        // our playlist, prolly cuz BuP considers itself to have the ONLY playlist
 
         else
         {
-            Utils.error("unknown/unsupported action(" + action + ") in AVTransport request");
+             Utils.error("unknown/unsupported action(" + action + ") in AVTransport request");
         }
 
         return response;

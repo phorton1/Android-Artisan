@@ -117,7 +117,7 @@ public class OpenInfo implements HttpRequestHandler,UpnpEventHandler
 
         hash.put("Uri",track==null ? "" : track.getPublicUri());
         hash.put("Duration",Integer.toString(track==null ? 0 : track.getDuration() / 1000));
-        // prh hash.put("TrackCount",Integer.toString(renderer.getTotalTracksPlayed()));
+        hash.put("TrackCount",Integer.toString(local_renderer.getTotalTracksPlayed()));
         hash.put("CodecName",track==null ? "" : track.getType());
         hash.put("Metadata",track == null ? "" : track.getDidl());
             // not passed thru by renderer

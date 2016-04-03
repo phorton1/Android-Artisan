@@ -285,7 +285,7 @@ public class Track extends Record
     //------------------------------------------------------------
     // Implementation Independent Accessors
     //------------------------------------------------------------
-    // prh - I either have to disable mime-checking in bubbleUp
+    // NOTE - I either have to disable mime-checking in bubbleUp
     // or return return MP3 extensions for everything or it barfs
     // on m4a's ...
 
