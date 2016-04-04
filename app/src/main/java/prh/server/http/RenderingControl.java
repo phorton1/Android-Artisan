@@ -265,9 +265,9 @@ public class RenderingControl implements
         text += httpUtils.subEventText("PresetNameList","FactoryDefaults",null);
         text += httpUtils.endSubEventText();
 
-        hash.put("InstanceID","0");
-        hash.put("Channel",master_channel);
-        hash.put("LastChange",httpUtils.encode_xml(text));
+        // hash.put("InstanceID","0");
+        // hash.put("Channel",master_channel);
+        hash.put("LastChange",httpUtils.encode_lite(text));
 
         return httpUtils.hashToXMLString(hash,true);
     }

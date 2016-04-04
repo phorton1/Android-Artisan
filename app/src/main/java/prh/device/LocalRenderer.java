@@ -221,6 +221,14 @@ public class LocalRenderer extends Device implements
     @Override public void setRepeat(boolean value)      { repeat = value; }
     @Override public void setShuffle(boolean value)     { shuffle = value; };
 
+    @Override public int getRendererTrackNum()
+    {
+        return artisan.getCurrentPlaylist().getCurrentIndex();
+    }
+    @Override public int getRendererNumTracks()
+    {
+        return artisan.getCurrentPlaylist().getNumTracks();
+    }
 
     @Override public Track getRendererTrack()
         // all DLNA stuff and accessors to the
@@ -229,9 +237,7 @@ public class LocalRenderer extends Device implements
     {
         if (current_track != null)
             return current_track;
-        //if (current_playlist != null)
-            return artisan.getCurrentPlaylist().getCurrentTrack();
-        //return null;
+        return artisan.getCurrentPlaylist().getCurrentTrack();
     }
 
 
@@ -384,12 +390,6 @@ public class LocalRenderer extends Device implements
     // Implementation
     //-----------------------------------------------
 
-    @Override public void notifyPlaylistChanged()
-        // called directly as needed
-   {
-        if (artisan.getCurrentPlaylist().getNumTracks()>0)
-            incAndPlay(0);
-    }
 
     public void noSongsMsg()
     {

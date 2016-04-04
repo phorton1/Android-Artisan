@@ -151,10 +151,10 @@ public class Folder extends Record implements Fetcher.FetcherSource
     public String getDidl()
         // return the metadata, wrapped in Didl tags, and xml_encoded
     {
-        return httpUtils.encode_xml(
+        return httpUtils.encode_lite(
             httpUtils.start_didl() +
-            getMetadata() +
-            httpUtils.end_didl());
+                getMetadata() +
+                httpUtils.end_didl());
     }
 
 
@@ -171,13 +171,13 @@ public class Folder extends Record implements Fetcher.FetcherSource
             "searchable=\"1\" " +
             "restricted=\"1\" " +
             "childCount=\"" + getNumElements() + "\">" +
-            "<dc:title>" +  httpUtils.encode_value(getTitle()) + "</dc:title>" +
+            "<dc:title>" +  httpUtils.encode_xml(getTitle()) + "</dc:title>" +
             "<upnp:class>" + container + "</upnp:class>" +
-            "<upnp:artist>" +  httpUtils.encode_value(getArtist()) + "</upnp:artist>" +
-            "<upnp:albumArtist>" +  httpUtils.encode_value(getArtist()) + "</upnp:albumArtist>" +
-            "<upnp:genre>" +  httpUtils.encode_value(getGenre()) + "</upnp:genre>" +
-            "<dc:date>" +  httpUtils.encode_value(getYearString()) + "</dc:date>" +
-            "<upnp:albumArtURI>" +  httpUtils.encode_value(getPublicArtUri()) + "</upnp:albumArtURI>" +
+            "<upnp:artist>" +  httpUtils.encode_xml(getArtist()) + "</upnp:artist>" +
+            "<upnp:albumArtist>" +  httpUtils.encode_xml(getArtist()) + "</upnp:albumArtist>" +
+            "<upnp:genre>" +  httpUtils.encode_xml(getGenre()) + "</upnp:genre>" +
+            "<dc:date>" +  httpUtils.encode_xml(getYearString()) + "</dc:date>" +
+            "<upnp:albumArtURI>" +  httpUtils.encode_xml(getPublicArtUri()) + "</upnp:albumArtURI>" +
             "</container>";
     }
 

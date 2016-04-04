@@ -4,6 +4,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import prh.artisan.Artisan;
+import prh.artisan.Prefs;
 import prh.base.ArtisanEventHandler;
 import prh.base.EditablePlaylist;
 import prh.base.Renderer;
@@ -20,6 +21,9 @@ import prh.types.stringHash;
 public class MediaRenderer extends Device implements
     Renderer,
     loopingRunnable.handler
+    // TODO: Implemenent as UpnpEventSubscriber
+    // TODO: Pref to use external MediaRenderer events
+
     // Represents a DLNA AVTransport, with a possible
     // DLNA RenderingControl for volume changes.
     //
@@ -46,6 +50,8 @@ public class MediaRenderer extends Device implements
         // and the renderer is STOPPED, then we consider it
         // a user control, and stop the current playlist
 
+    private static boolean GET_REMOTE_MEDIA_INFO = true;
+
 
     //------------------------------------------
     // VARIABLES
@@ -69,6 +75,11 @@ public class MediaRenderer extends Device implements
         // or some other track completely local to the renderer.
     private int total_tracks_played = 0;
         // counter of tracks played
+
+    // separate, remote number of tracks and track index
+
+    private int remote_num_tracks = 0;
+    private int remote_track_num = 0;
 
     // change detection
 
@@ -95,13 +106,6 @@ public class MediaRenderer extends Device implements
     public MediaRenderer(Artisan artisan)
     {
         super(artisan);
-    }
-
-
-    @Override public void notifyPlaylistChanged()
-    {
-        if (artisan.getCurrentPlaylist().getNumTracks()>0)
-            incAndPlay(0);
     }
 
 
@@ -233,6 +237,46 @@ public class MediaRenderer extends Device implements
     @Override public void setShuffle(boolean value)     { shuffle = value; };
 
 
+    @Override public int getRendererTrackNum()
+        // return the track number corresponding
+        // to getRenderNumTracks()
+    {
+        int track_num = 0;
+        int pref = Prefs.getInt(Prefs.id.PREFER_REMOTE_RENDERER_TRACKS);
+        int local_num = artisan.getCurrentPlaylist().getCurrentIndex();
+
+        if (pref == Prefs.USE_RENDERER_TRACKS_FIRST &&
+            remote_num_tracks > 1)
+            track_num = remote_track_num;
+        if (track_num == 0)
+            track_num = local_num;
+        if (track_num == 0 &&
+            pref != Prefs.USE_RENDERER_TRACKS_NEVER &&
+            remote_num_tracks > 1)
+            track_num = remote_track_num;
+        return track_num;
+    }
+
+
+    @Override public int getRendererNumTracks()
+    {
+        int num_tracks = 0;
+        int pref = Prefs.getInt(Prefs.id.PREFER_REMOTE_RENDERER_TRACKS);
+        int local_count = artisan.getCurrentPlaylist().getNumTracks();
+
+        if (pref == Prefs.USE_RENDERER_TRACKS_FIRST &&
+            remote_num_tracks > 1)
+            num_tracks = remote_num_tracks;
+        if (num_tracks == 0)
+            num_tracks = local_count;
+        if (num_tracks == 0 &&
+            pref != Prefs.USE_RENDERER_TRACKS_NEVER &&
+            remote_num_tracks > 1)
+            num_tracks = remote_num_tracks;
+        return num_tracks;
+    }
+
+
     //-----------------------------------------------
     // Duplicated methods
     //-----------------------------------------------
@@ -268,40 +312,81 @@ public class MediaRenderer extends Device implements
     }
 
 
+    private void transport_IncAndPlay(int inc)
+    {
+        Utils.log(dbg_mr,1,"transport_incAndPlay(" + inc + ")");
+        if (!renderer_state.equals(RENDERER_STATE_NONE))
+        {
+            if (inc > 0)
+                doCommand("Next",null);
+            else if (inc < 0)
+                doCommand("Previous",null);
+            else
+            {
+                stringHash args = new stringHash();
+                args.put("Speed","1");
+                doCommand("Play",args);
+            }
+        }
+    }
+
 
     public void incAndPlay(int inc)
-    // does nothing if no playlist
+        // does nothing if nothing to play
     {
         Utils.log(dbg_mr,0,"incAndPlay(" + inc + ")");
+        boolean do_inc = false;
+        boolean do_remote = false;
+        int pref = Prefs.getInt(Prefs.id.PREFER_REMOTE_RENDERER_TRACKS);
+        int local_count = artisan.getCurrentPlaylist().getNumTracks();
 
-        EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
-        Track track = current_playlist.incGetTrack(inc);
-
-        if (track == null)
+        if (remote_num_tracks > 0 &&
+            pref == Prefs.USE_RENDERER_TRACKS_FIRST)
         {
-            if (!current_playlist.getName().equals(""))
-                Utils.noSongsMsg(current_playlist.getName());
-            Utils.log(dbg_mr,1,"incAndPlay(" + inc + ") calling stop()");
-            transport_stop();
+            do_inc = true;
+            do_remote = true;
         }
-        else
+
+        if (!do_inc && local_count > 0)
+            do_inc = true;
+
+        if (!do_inc &&
+            remote_num_tracks > 0 &&
+            pref != Prefs.USE_RENDERER_TRACKS_NEVER)
         {
-            // stop();
-            Utils.log(dbg_mr,1,"incAndPlay(" + inc + ") calling play(" + track.getPosition() + ":" + track.getTitle() +")");
-            song_position = 0;
-            current_track = track;
+            do_inc = true;
+            do_remote = true;
+        }
 
-            // for better local behavior with Next/Prev buttons
-            // we send the new track event right away for the UI
-            // so they will get two events
+        if (do_remote)
+            transport_IncAndPlay(inc);
+        else if (do_inc)
+        {
+            Utils.log(dbg_mr,1,"local_incAndPlay(" + inc + ")");
 
-            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_TRACK_CHANGED,track);
+            EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
+            Track track = current_playlist.incGetTrack(inc);
 
+            if (track == null)
+            {
+                if (!current_playlist.getName().equals(""))
+                    Utils.noSongsMsg(current_playlist.getName());
+                Utils.log(dbg_mr,1,"incAndPlay(" + inc + ") calling stop()");
+                transport_stop();
+            }
+            else
+            {
+                Utils.log(dbg_mr,1,"incAndPlay(" + inc + ") calling play(" + track.getPosition() + ":" + track.getTitle() + ")");
+                song_position = 0;
+                current_track = track;
+            }
+
+            // for better local behavior, if we can, we event the track right away
             // but defer the actual doAction(Play) network call till two more
             // calls to getUpdateState() by setting do_play_on_next_update=2
 
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_TRACK_CHANGED,track);
             do_play_on_next_update = 2;
-                // play();
         }
     }
 
@@ -441,39 +526,55 @@ public class MediaRenderer extends Device implements
 
         stringHash args = new stringHash();
         args.put("InstanceID","0");
-        Document doc = doAction(Service.serviceType.AVTransport,"GetTransportInfo",args);
-        if (doc == null)
+        Document transport_doc = doAction(Service.serviceType.AVTransport,"GetTransportInfo",args);
+        if (transport_doc == null)
         {
             Utils.warning(0,0,"Could not get AVTransport::GetTransportState for " + getFriendlyName());
             deviceFailure();
             return false;
         }
 
-        Element doc_ele = doc.getDocumentElement();
-        renderer_status = Utils.getTagValue(doc_ele,"CurrentTransportStatus");
+        Element transport_ele = transport_doc.getDocumentElement();
+        renderer_status = Utils.getTagValue(transport_ele,"CurrentTransportStatus");
         if (!renderer_status.equals("OK"))
         {
             Utils.warning(0,0,"Got non-ok status=" + renderer_status);
             // return false;
         }
-        String new_state = Utils.getTagValue(doc_ele,"CurrentTransportState");
+        String new_state = Utils.getTagValue(transport_ele,"CurrentTransportState");
 
         // get the position and track_uri
 
-        doc = doAction(Service.serviceType.AVTransport,"GetPositionInfo",args);
-        if (doc == null)
+        Document position_doc = doAction(Service.serviceType.AVTransport,"GetPositionInfo",args);
+        if (position_doc == null)
         {
             Utils.warning(0,0,"Could not get AVTransport::GetPositionInfo for " + getFriendlyName());
             deviceFailure();
             return false;
         }
 
+
+        remote_num_tracks = 0;
+        if (GET_REMOTE_MEDIA_INFO)
+        {
+            Document media_doc = doAction(Service.serviceType.AVTransport,"GetMediaInfo",args);
+            if (media_doc == null)
+                Utils.warning(0,0,"Could not get AVTransport::GetPositionInfo for " + getFriendlyName());
+            else
+            {
+                Element media_ele = media_doc.getDocumentElement();
+                remote_num_tracks = Utils.parseInt(Utils.getTagValue(media_ele,"NrTracks"));
+            }
+        }
+
         deviceSuccess();
 
-        doc_ele = doc.getDocumentElement();
-        String pos_str = Utils.getTagValue(doc_ele,"RelTime");
+
+        Element position_ele = position_doc.getDocumentElement();
+        String new_track_uri = Utils.getTagValue(position_ele,"TrackURI");
+        String pos_str = Utils.getTagValue(position_ele,"RelTime");
         song_position = Utils.stringToDuration(pos_str);
-        String new_track_uri = Utils.getTagValue(doc_ele,"TrackURI");
+        remote_track_num = Utils.parseInt(Utils.getTagValue(position_ele,"TrackNum"));
 
         //----------------------------------------------------
         // Detect Stops and/or Advance Playlist
@@ -557,7 +658,7 @@ public class MediaRenderer extends Device implements
             last_track_uri = new_track_uri;
             if (!new_track_uri.isEmpty())
             {
-                String didl = Utils.getTagValue(doc_ele,"TrackMetaData");
+                String didl = Utils.getTagValue(position_ele,"TrackMetaData");
                 didl = didl.replace("127.0.0.1",Utils.ipFromUrl(getDeviceUrl()));
                 track = new Track(new_track_uri,didl);
             }

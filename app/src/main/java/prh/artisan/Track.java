@@ -111,7 +111,7 @@ public class Track extends Record
     {
         boolean isLocal = false;
         this.put("dirty",1);
-        didl = httpUtils.decode_xml(didl);
+        didl = httpUtils.decode_lite(didl);
         String id = extract_value("\\sid=\"(.+?)\"",didl);
 
         // convert to local
@@ -187,7 +187,7 @@ public class Track extends Record
     private static String extract_value(String re, String didl)
     {
         String rslt = Utils.extract_re(re,didl);
-        rslt = httpUtils.decode_value(rslt);
+        rslt = httpUtils.decode_xml(rslt);
         return rslt;
     }
 
@@ -367,10 +367,10 @@ public class Track extends Record
     public String getDidl()
         // return the metadata, wrapped in Didl tags, and xml_encoded
     {
-        return httpUtils.encode_xml(
+        return httpUtils.encode_lite(
             httpUtils.start_didl() +
-            getMetadata() +
-            httpUtils.end_didl());
+                getMetadata() +
+                httpUtils.end_didl());
     }
 
 
@@ -379,15 +379,15 @@ public class Track extends Record
         // returns the metadata without <didl> wrapper or xml_encoding
     {
         return "<item id=\"" + getId() + "\" parentID=\"" + getParentId() + "\" restricted=\"1\">" +
-            "<dc:title>" +  httpUtils.encode_value(getTitle()) + "</dc:title>" +
+            "<dc:title>" +  httpUtils.encode_xml(getTitle()) + "</dc:title>" +
             "<upnp:class>object.item.audioItem</upnp:class>" +
-            "<upnp:genre>" +  httpUtils.encode_value(getGenre()) + "</upnp:genre>" +
-            "<upnp:artist>" +  httpUtils.encode_value(getArtist()) + "</upnp:artist>" +
-            "<upnp:album>" +  httpUtils.encode_value(getAlbumTitle()) + "</upnp:album>" +
-            "<upnp:originalTrackNumber>" +  httpUtils.encode_value(getTrackNum()) + "</upnp:originalTrackNumber>" +
-            "<dc:date>" +  httpUtils.encode_value(getYearString()) + "</dc:date>" +
-            "<upnp:albumArtURI>" +  httpUtils.encode_value(getPublicArtUri()) + "</upnp:albumArtURI>" +
-            "<upnp:albumArtist>" +  httpUtils.encode_value(getAlbumArtist()) + "</upnp:albumArtist>" +
+            "<upnp:genre>" +  httpUtils.encode_xml(getGenre()) + "</upnp:genre>" +
+            "<upnp:artist>" +  httpUtils.encode_xml(getArtist()) + "</upnp:artist>" +
+            "<upnp:album>" +  httpUtils.encode_xml(getAlbumTitle()) + "</upnp:album>" +
+            "<upnp:originalTrackNumber>" +  httpUtils.encode_xml(getTrackNum()) + "</upnp:originalTrackNumber>" +
+            "<dc:date>" +  httpUtils.encode_xml(getYearString()) + "</dc:date>" +
+            "<upnp:albumArtURI>" +  httpUtils.encode_xml(getPublicArtUri()) + "</upnp:albumArtURI>" +
+            "<upnp:albumArtist>" +  httpUtils.encode_xml(getAlbumArtist()) + "</upnp:albumArtist>" +
             "<res " +
             "size=\"" + getSize() + "\" " +
             "duration=\"" + getDurationString(Utils.how_precise.FOR_DIDL) + "\" " +

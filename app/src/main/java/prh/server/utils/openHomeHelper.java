@@ -3,7 +3,6 @@ package prh.server.utils;
 import prh.artisan.Track;
 import prh.base.HelpablePlaylist;
 import prh.base.ServablePlaylistHelper;
-import prh.server.utils.playlistExposer;
 import prh.types.intTrackHash;
 import prh.types.trackList;
 import prh.utils.Base64;
@@ -208,7 +207,7 @@ public class openHomeHelper implements
             if (track == null)
             {
                 Utils.error("id_array_to_tracklist: index(" + i + ")  id(" + id + ") not found");
-                return httpUtils.encode_xml("<TrackList></TrackList>");
+                return httpUtils.encode_lite("<TrackList></TrackList>");
             }
 
             rslt += "<Entry>" + // \n" +
@@ -225,7 +224,7 @@ public class openHomeHelper implements
         // in the ReadList result.
 
         rslt = "<TrackList>" + rslt + "</TrackList>";
-        rslt = httpUtils.encode_xml(rslt);
+        rslt = httpUtils.encode_lite(rslt);
         return rslt;
     }
 

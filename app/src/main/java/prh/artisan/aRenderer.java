@@ -167,21 +167,22 @@ public class aRenderer extends Fragment implements
     private String getTitleBarText()
     {
         String msg = renderer == null ?
-            "Now Playing " :
+            "Now Playing: " :
             renderer.getRendererName() + " ";
 
         EditablePlaylist cur = artisan.getCurrentPlaylist();
-        msg += ":: " +
-            cur.getName();
+        msg += cur.getName();
         if (cur.isDirty())
             msg += "*";
-        if (cur.getCurrentIndex()>0)
-            msg += "(" +
-                cur.getCurrentIndex() + "/" +
-                cur.getNumTracks() + ") ";
+
+        int index = renderer == null ? 0 : renderer.getRendererTrackNum();
+        int count = renderer == null ? 0 : renderer.getRendererNumTracks();
+
+        if (count>0)
+            msg += "(" + index + "/" + count + ")";
 
         // clean up PAUSED_PLAYBACK for display
-        msg += current_state.replace("_PLAYBACK","");
+        msg += " " + current_state.replace("_PLAYBACK","");
         return msg;
     }
 
@@ -507,6 +508,13 @@ public class aRenderer extends Fragment implements
             }
 
             enable(R.id.button_play_pause,enable_play);
+            enable(R.id.button_play_pause,current_track != null);
+
+            int num_tracks = renderer == null ? 0 :
+                renderer.getRendererNumTracks();
+            enable(R.id.button_next,num_tracks>0);
+            enable(R.id.button_prev,num_tracks>0);
+
 
             if (tracknum != "")
                 tracknum = "Track " + tracknum;
@@ -546,19 +554,20 @@ public class aRenderer extends Fragment implements
 
     private void update_playlist()
     {
-        if (my_view != null)
-        {
-            EditablePlaylist cur = artisan.getCurrentPlaylist();
-            //setPlayListButtonSelected(cur.getName(),true);
-
-            boolean enable_next =
-                current_track != null &&
-                cur.getNumTracks() > 0;
-
-            enable(R.id.button_next,enable_next);
-            enable(R.id.button_prev,enable_next);
-            enable(R.id.button_play_pause,current_track != null);
-        }
+        // if (my_view != null)
+        // {
+        //     // EditablePlaylist cur = artisan.getCurrentPlaylist();
+        //     // setPlayListButtonSelected(cur.getName(),true);
+        //     // boolean enable_next =
+        //     //     current_track != null &&
+        //     //     cur.getNumTracks() > 0;
+        //
+        //     int num_tracks = renderer == null ? 0 :
+        //         renderer.getRendererNumTracks();
+        //     enable(R.id.button_next,num_tracks>0);
+        //     enable(R.id.button_prev,num_tracks>0);
+        //     enable(R.id.button_play_pause,current_track != null);
+        // }
     }
 
 

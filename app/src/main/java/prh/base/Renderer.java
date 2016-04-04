@@ -24,42 +24,46 @@ public interface Renderer
     // any http calls to OpenPlaylist.
 
 {
-    public String RENDERER_STATE_NONE            = "";
-    public String RENDERER_STATE_STOPPED         = "STOPPED";
-    public String RENDERER_STATE_PLAYING         = "PLAYING";
-    public String RENDERER_STATE_TRANSITIONING   = "TRANSITIONING";
-    public String RENDERER_STATE_PAUSED          = "PAUSED_PLAYBACK";
+    String RENDERER_STATE_NONE            = "";
+    String RENDERER_STATE_STOPPED         = "STOPPED";
+    String RENDERER_STATE_PLAYING         = "PLAYING";
+    String RENDERER_STATE_TRANSITIONING   = "TRANSITIONING";
+    String RENDERER_STATE_PAUSED          = "PAUSED_PLAYBACK";
 
-    public boolean startRenderer();
-    public void stopRenderer(boolean wait_for_stop);
+    boolean startRenderer();
+    void stopRenderer(boolean wait_for_stop);
 
-    public Volume getVolume();
+    Volume getVolume();
 
-    public String getRendererName();
-    public String getRendererState();
-    public String getRendererStatus();
-    public int getTotalTracksPlayed();
+    String getRendererName();
+    String getRendererState();
+    String getRendererStatus();
+    int getTotalTracksPlayed();
 
-    public boolean getShuffle();
-    public boolean getRepeat();
-    public void setRepeat(boolean value);
-    public void setShuffle(boolean value);
+    boolean getShuffle();
+    boolean getRepeat();
+    void setRepeat(boolean value);
+    void setShuffle(boolean value);
 
-    public void transport_pause();
-    public void transport_play();
-    public void transport_stop();
-    public void incAndPlay(int offset);
+    void transport_pause();
+    void transport_play();
+    void transport_stop();
+    void incAndPlay(int offset);
 
-    public int getPosition();
-    public void seekTo(int progress);
+    int getPosition();
+    void seekTo(int progress);
 
-    public Track getRendererTrack();
-    public void setRendererTrack(Track track, boolean interrupt_playlist);
+    // A Renderer May have Track, TrackNumber, and NumberTracks
+    // separate from any Playlist. See Prefs.PreferRemoteRendererNumTracks
+    // for more info
 
-    public void notifyPlaylistChanged();
-        // called by Artisan when it gives a new LocalPlaylist
-        // to the tempEditablePlaylist so that the renderer may be
-        // aware that num_tracks, track_index, etc, changed.
+    int getRendererTrackNum();
+    int getRendererNumTracks();
+
+    Track getRendererTrack();
+    void setRendererTrack(Track track, boolean interrupt_playlist);
+
+
 }   // base class Renderer
 
 

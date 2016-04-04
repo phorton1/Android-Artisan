@@ -26,9 +26,40 @@ import prh.utils.Utils;
 // (UseHardwareTransportControlButtons)
 // PauseResumeOnPhoneCall
 //      Otherwise Mutes
+// CacheRemotePlaylists
+// CacheRemoteLibraries
+// CacheImages
+// ImageCacheSize
 
 public class Prefs
 {
+    public static int USE_RENDERER_TRACKS_NEVER = 0;
+    public static int USE_RENDERER_TRACKS_WHEN_AVAILABLE = 1;
+    public static int USE_RENDERER_TRACKS_FIRST = 2;
+        // default = WHEN_AVAILABLE
+        //
+        //  A Renderer may have a number of tracks, and a current track index
+        //  that is separate from any playlist ... though the LocalRenderer
+        //  always presents the current_playlist
+        //
+        //  aRenderer should enable the buttons based on whether the Renderer
+        //  says there are tracks, and should show the Renderers version of the
+        //  track_number and number of tracks.
+        //
+        //  Renderer.incAndPlay() normally uses the current_playlist to get
+        //  the number of tracks and current track index.  In fact that's all
+        //  the LocalRenderer CAN do.
+        //
+        //  But a remote renderer may decide that if the current playlist is
+        //  empty, and it has been given a number of tracks, and an index
+        //  to pass the Next/Previous action to the remote renderer.
+        //  This is the default WHEN_AVAILALBE.
+        //
+        //  It can be disabled by setting it to NEVER
+        //
+        //  Or the Remote Renderers can be made to preferentially use
+        //  the number of tracks on the remote by setting it to FIRST
+
     public enum id
     {
         SELECTED_RENDERER,
@@ -56,8 +87,9 @@ public class Prefs
 
         START_AS_REMOTE,
 
-        START_VOLUME_FIXER
+        START_VOLUME_FIXER,
 
+        PREFER_REMOTE_RENDERER_TRACKS
     };
 
     public static String LAST_SELECTED = "Last Selected";
@@ -276,6 +308,11 @@ public class Prefs
         if (id.equals(id.START_AS_REMOTE))
             return "";
 
+        // See notes about prefering renderer tracks
+
+        if (id.equals(id.PREFER_REMOTE_RENDERER_TRACKS))
+            return Integer.toString(USE_RENDERER_TRACKS_FIRST);
+            // return Integer.toString(USE_RENDERER_TRACKS_WHEN_AVAILABLE);
 
         return "";
     }

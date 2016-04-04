@@ -57,36 +57,35 @@ public class httpUtils
     // encoding
     //-------------------------
 
-    public static String encode_xml(String in)
-        // encodes a full piece of didl for inclusion in xml
+    public static String encode_lite(String in)
+        // didl-lite encoding
     {
         if (in==null) in = "";
         String out = in;
-        out = out.replaceAll("&","&amp;amp;");
-        out = out.replaceAll("\"","&quot;");
+        // old: out = out.replaceAll("&","&amp;amp;");
+        // new:
+        out = out.replaceAll("&","&amp;");
+        // new does not encode quotes
+        // out = out.replaceAll("\"","&quot;");
         out = out.replaceAll("<","&lt;");
         out = out.replaceAll(">","&gt;");
         return out;
     }
 
-    public static String decode_xml(String in)
-        // encodes a full piece of didl for inclusion in xml
-        // should be called encode_didl
-    {
-        if (in==null) in = "";
-        String out = in;
-        out = out.replaceAll("&quot;","\"");
-        out = out.replaceAll("&lt;","<");
-        out = out.replaceAll("&gt;",">");
-        out = out.replaceAll("&amp;amp;","&");
-        return out;
-    }
 
-
-    public static String encode_value(String value)
-        // url encodes a single value in the didl
+    public static String encode_xml(String value)
+        // regular xml encoding
     {
-        //value = value.replaceAll("&","&amp;amp;");
+        // old: value = value.replaceAll("&","&amp;amp;");
+        // new, could be done by single re below
+
+        value = value.replaceAll("&","&amp;");
+        value = value.replaceAll("\"","&#34;");
+        value = value.replaceAll("<","&#60;");
+        value = value.replaceAll(">","&#62;");
+
+        // same old code
+
         Pattern pattern = Pattern.compile("[^\\x20-\\x7f]");
         StringBuffer output = new StringBuffer();
         Matcher matcher = pattern.matcher(value);
@@ -101,9 +100,14 @@ public class httpUtils
     }
 
 
-    public static String decode_value(String value)
+    public static String decode_xml(String value)
         // url decode a single value in the didl
     {
+        value = value.replaceAll("&amp;","&");
+        value = value.replaceAll("&quote;","\"");
+        value = value.replaceAll("&lt;","<");
+        value = value.replaceAll("&gt;",">");
+
         Pattern pattern = Pattern.compile("&#(\\d+);");
         StringBuffer output = new StringBuffer();
         Matcher matcher = pattern.matcher(value);
@@ -118,6 +122,13 @@ public class httpUtils
         value = output.toString();
         // value = value.replaceAll("&amp;amp;","&");
         return value;
+    }
+
+
+    public static String decode_lite(String value)
+        // there is only one decoder
+    {
+        return decode_xml(value);
     }
 
 
@@ -256,7 +267,7 @@ public class httpUtils
     //     xml = xml + hashToXMLString(hash,false);
     //     xml = xml + "<TrackMetaData>";
     //     xml = xml + start_didl();
-    //     xml = xml + encode_xml(renderer.getgetDLNAMetadata());
+    //     xml = xml + encode_lite(renderer.getgetDLNAMetadata());
     //     xml = xml + end_didl();
     //     xml = xml + "</TrackMetaData>";
     //     xml = xml + action_response_footer(urn,action,"");
@@ -297,14 +308,14 @@ public class httpUtils
     public static String subEventText(String name, String value, stringHash other_values)
     // common LastChange subEvent code
     {
-        String text = "<" + name + " ";
-        text += "val=\"" + value + "\" ";
+        String text = "<" + name;
+        text += " val=\"" + value + "\"";
         if (other_values != null)
         {
             for (String key:other_values.keySet())
             {
                 String val = other_values.get(key);
-                text += key + "=\"" + val + "\" ";
+                text += " " + key + "=\"" + val + "\"";
             }
         }
         text += ">";

@@ -31,6 +31,7 @@ import prh.utils.Utils;
 // It is entirely Event Driven, notifying the UI via explicit Artisan
 // Events whenever anything changes.
 
+// TODO: Implement to use Pref to NOT use remote OpenHomeRenderer events
 
 public class OpenHomeRenderer extends Device implements
     Renderer
@@ -224,6 +225,12 @@ public class OpenHomeRenderer extends Device implements
     @Override
     public Track getRendererTrack() { return getOpenInfo().getTrack(); }
 
+    @Override
+    public int getRendererTrackNum() { return getOpenPlaylist().getCurrentIndex(); }
+
+    @Override
+    public int getRendererNumTracks() { return getOpenPlaylist().getNumTracks(); }
+
 
     // actions
 
@@ -265,15 +272,6 @@ public class OpenHomeRenderer extends Device implements
     }
 
 
-
-    // questions
-
-    @Override
-    public void notifyPlaylistChanged()
-    {
-        if (artisan.getCurrentPlaylist().getNumTracks()>0)
-            incAndPlay(0);
-    }
 
 
     @Override

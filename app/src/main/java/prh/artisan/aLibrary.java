@@ -139,8 +139,11 @@ public class aLibrary extends Fragment implements
         {
             view_stack.get(i).inflate();
         }
-        viewStackElement stack_element = view_stack.get(view_stack.size() - 1);
-        showView(stack_element,true,true);
+        if (view_stack.size() > 0)
+        {
+            viewStackElement stack_element = view_stack.get(view_stack.size() - 1);
+            showView(stack_element,true,true);
+        }
     }
 
 
@@ -308,7 +311,7 @@ public class aLibrary extends Fragment implements
                 aLibrary.this,
                 list_view,
                 folder,
-                fetcher.getRecordsRef(),
+                fetcher.getRecords(),   // getRecordsRef(),
                 false,
                 false);
             list_view.setAdapter(adapter);
@@ -335,11 +338,12 @@ public class aLibrary extends Fragment implements
         //------------------------------------------
 
         @Override public void notifyFetchRecords(Fetcher fetcher,Fetcher.fetchResult fetch_result)
-            // The library adapter uses the underlying array of records
-            // from the fetcher directly by reference.
+            // The library adapter cannot use the underlying array of records
+            // from the fetcher directly by reference, so it calls getRecords()
+            // which returns a copy
         {
             Utils.log(dbg_alib,0,"viewStack.notifyFetchRecords(" + fetch_result + "," + fetcher.getTitle() + ")");
-            recordList records = fetcher.getRecordsRef();
+            recordList records = fetcher.getRecords();
             getAdapter().setItems(records);
         }
 

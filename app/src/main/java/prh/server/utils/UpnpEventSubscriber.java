@@ -57,6 +57,7 @@ public class UpnpEventSubscriber
     public void refresh()                   { expires = Utils.now_seconds() + EXPIRE_DURATION; }
     public boolean expired()                { return Utils.now_seconds() > expires; }
 
+    public int getEventNum()                { return event_count; }
     public int incEventNum()                { return event_count++; }
     public int getUpdateCount()             { return update_count; }
     public void setUpdateCount(int count)   { update_count = count; }

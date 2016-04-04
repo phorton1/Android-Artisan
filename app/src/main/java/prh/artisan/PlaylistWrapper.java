@@ -233,6 +233,18 @@ public class PlaylistWrapper implements
     {
         is_dirty = true;
         content_change_id++;
+
+        if (position == 0)  // inserting into a new
+            position = 1;   // empty playlist
+
+        if (position > tracks_by_position.size() + 1)
+        {
+            Utils.error("Cannot add past the end of the list .. list may not be ready");
+            return null;
+        }
+
+        // not just adding?
+
         if (position < tracks_by_position.size())
             recs_changed_count_id++;
 

@@ -147,7 +147,7 @@ public class OpenProduct implements HttpRequestHandler,UpnpEventHandler
 
     String sourceXML()
     {
-        // OK, so this encode_xml is absolutely necessary
+        // OK, so this encode_lite is absolutely necessary
         // don't even think about removing it. Without it
         // Bup does not make it to the first control request.
         //
@@ -157,7 +157,7 @@ public class OpenProduct implements HttpRequestHandler,UpnpEventHandler
         // selected during startup.  The problem seems to go away once
         // Bup has subscribed successfully.
 
-        return httpUtils.encode_xml(
+        return httpUtils.encode_lite(
             "<SourceList>\n" +
                 "<Source>\n" +
                 "<Name>Playlist</Name>\n" +

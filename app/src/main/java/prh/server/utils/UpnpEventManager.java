@@ -253,15 +253,13 @@ public class UpnpEventManager
             else if (subscriber.getUpdateCount() != handler.getUpdateCount())
             {
                 Utils.log(dbg_event+1,2,"event needs sending ... ");
-                Utils.log(dbg_event+1,3,"subscriber=" + subscriber.getUpdateCount() + "     handler=" + handler.getUpdateCount());
-                subscriber.setUpdateCount(handler.getUpdateCount());
-
-                String content;
+                Utils.log(dbg_event + 1,3,"subscriber=" + subscriber.getUpdateCount() + "     handler=" + handler.getUpdateCount());
 
                 // EVENT DATA REQUEST
                 // The upnEventHandlers are synchronized with their
                 // httpEventHandlers so that actions and events are atomic
 
+                String content;
                 synchronized (handler)
                 {
                     content = handler.getEventContent(subscriber);
@@ -269,6 +267,7 @@ public class UpnpEventManager
 
                 // SEND THE EVENT
 
+                subscriber.setUpdateCount(handler.getUpdateCount());
                 asyncNOTIFY send = new asyncNOTIFY(subscriber,content);
                 send.start();
             }

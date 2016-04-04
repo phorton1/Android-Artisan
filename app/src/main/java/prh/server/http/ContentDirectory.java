@@ -18,12 +18,8 @@ import prh.base.HttpRequestHandler;
 import prh.base.Library;
 import prh.artisan.Record;
 import prh.artisan.Track;
-import prh.base.Renderer;
 import prh.base.UpnpEventHandler;
-import prh.base.Volume;
 import prh.device.LocalLibrary;
-import prh.device.LocalRenderer;
-import prh.device.Service;
 import prh.server.HTTPServer;
 import prh.server.utils.UpnpEventSubscriber;
 import prh.server.utils.updateCounter;
@@ -384,7 +380,7 @@ public class ContentDirectory implements
             didl += part;
         }
         didl += httpUtils.end_didl();
-        response_text += httpUtils.encode_xml(didl);
+        response_text += httpUtils.encode_lite(didl);
 
         response_text += content_response_footer(
             folder,
@@ -450,19 +446,18 @@ public class ContentDirectory implements
     private int getFolderChangeCount(String id)
     {
         Integer cur_val = folder_change_count.get(id);
-        if (cur_val == null) cur_val = 0;
+        if (cur_val == null) cur_val = getUpdateCount();
         return cur_val;
     }
     private void incFolderChangeCount(String id)
     {
-        Integer cur_val = getFolderChangeCount(id);
-        folder_change_count.put(id,++cur_val);
         incUpdateCount();
+        folder_change_count.put(id,getUpdateCount());
     }
 
 
 
-    @Override public String getEventContent(UpnpEventSubscriber unused_subscriber)
+    @Override public String getEventContent(UpnpEventSubscriber subscriber)
     {
         LocalLibrary local_library = artisan.getLocalLibrary();
         if (local_library == null)
@@ -477,15 +472,26 @@ public class ContentDirectory implements
         }
 
         // build changed container ids string
+        // that has changed since subcriber got last event
+
+        int client_event_count = subscriber.getEventNum();
+        int client_update_count = subscriber.getUpdateCount();
 
         String container_ids = "";
         for (String id : folder_change_count.keySet())
         {
-            if (!container_ids.isEmpty())
-                container_ids += ",";
-            container_ids += id + folder_change_count.get(id);
+            Integer count = folder_change_count.get(id);
+            if (count != null)
+            {
+                if (client_event_count == 0 ||
+                    count > client_update_count)
+                {
+                    if (!container_ids.isEmpty())
+                        container_ids += ",";
+                    container_ids += id + folder_change_count.get(id);
+                }
+            }
         }
-        folder_change_count.clear();
 
         // build subEvent text
 
@@ -499,8 +505,8 @@ public class ContentDirectory implements
         // build hash of values returned by event
 
         HashMap<String,String> hash = new HashMap<String,String>();
-        hash.put("InstanceID","0");
-        hash.put("LastChange",httpUtils.encode_xml(text));
+        // hash.put("InstanceID","0");
+        hash.put("LastChange",httpUtils.encode_lite(text));
         return httpUtils.hashToXMLString(hash,true);
     }
 

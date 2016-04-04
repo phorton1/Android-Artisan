@@ -386,7 +386,7 @@ public class ListItem extends RelativeLayout implements
                     Track track = list_item.getTrack();
                     EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
                     Utils.log(0,0,"Inserting Track(" + track.getTitle() + " into playlist");
-                    current_playlist.insertTrack(0,track);
+                    current_playlist.insertTrack(current_playlist.getNumTracks(),track);
                 }
                 break;
         }

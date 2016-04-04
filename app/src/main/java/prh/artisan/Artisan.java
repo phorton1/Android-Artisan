@@ -1,5 +1,6 @@
 package prh.artisan;
-
+// TODO the phone goes dark and locked after a timeout
+// TODO library, probably playlist crash
 // TODO
 //    SSDPServer devices
 //    Basic Prefs
@@ -388,7 +389,8 @@ public class Artisan extends FragmentActivity implements
 
         Utils.log(dbg_main,0,"creating DeviceManager ...");
         device_manager = new DeviceManager(this);
-        device_manager.addDevice(local_library);
+        if (local_library != null)
+            device_manager.addDevice(local_library);
         device_manager.addDevice(local_renderer);
         device_manager.addDevice(local_playlist_source);
         Utils.log(dbg_main,0,"DeviceManager created");
@@ -797,6 +799,7 @@ public class Artisan extends FragmentActivity implements
         return setPlaylist(new PlaylistWrapper(this,new_playlist));
     }
 
+
     public boolean setPlaylist(EditablePlaylist new_playlist)
     // called from station button, we select the new
     // playlist and event it to any interested clients
@@ -896,31 +899,28 @@ public class Artisan extends FragmentActivity implements
         String event_name = "";
         String prefs_name = name;
 
-        if (library != null &&
-            group == Device.deviceGroup.DEVICE_GROUP_LIBRARY)
+        if (group == Device.deviceGroup.DEVICE_GROUP_LIBRARY)
         {
             thing = "Library";
-            cur_name = library.getLibraryName();
+            cur_name = library == null ? "" : library.getLibraryName();
             prefs_id = Prefs.id.SELECTED_LIBRARY;
             event_name = ArtisanEventHandler.EVENT_LIBRARY_CHANGED;
             if (prefs_name.equals(Device.deviceType.LocalLibrary))
                 prefs_name = "";
         }
-        else if (renderer != null &&
-            group == Device.deviceGroup.DEVICE_GROUP_RENDERER)
+        else if (group == Device.deviceGroup.DEVICE_GROUP_RENDERER)
         {
             thing = "Renderer";
-            cur_name = renderer.getRendererName();
+            cur_name = renderer == null ? "" : renderer.getRendererName();
             prefs_id = Prefs.id.SELECTED_RENDERER;
             event_name = ArtisanEventHandler.EVENT_RENDERER_CHANGED;
             if (prefs_name.equals(Device.deviceType.LocalRenderer))
                 prefs_name = "";
         }
-        else if (playlist_source != null &&
-            group == Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE )
+        else if (group == Device.deviceGroup.DEVICE_GROUP_PLAYLIST_SOURCE )
         {
             thing = "PlaylistSource";
-            cur_name = playlist_source.getPlaylistSourceName();
+            cur_name = playlist_source == null ? "" : playlist_source.getPlaylistSourceName();
             prefs_id = Prefs.id.SELECTED_PLAYLIST_SOURCE;
             event_name = ArtisanEventHandler.EVENT_PLAYLIST_SOURCE_CHANGED;
             if (prefs_name.equals(Device.deviceType.LocalPlaylistSource))

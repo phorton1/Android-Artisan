@@ -777,11 +777,7 @@ public class aPlaylist extends Fragment implements
 
     public void do_setPlaylist(String name)
     {
-        if (artisan.setPlaylist(name))
-        {
-            Renderer renderer = artisan.getRenderer();
-            renderer.notifyPlaylistChanged();
-        }
+        artisan.setPlaylist(name);
     }
 
 
