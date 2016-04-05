@@ -704,7 +704,6 @@ public class Artisan extends Activity implements
         // or going out of view (!setit). Remove or
         // set the onBodyClicked() listener.
     {
-        /*
         if (current_page >= 0)
         {
             myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
@@ -714,7 +713,6 @@ public class Artisan extends Activity implements
                 fragment.getView().setOnClickListener( !setit ? null :
                     createBodyClickListener());
         }
-        */
     }
 
 

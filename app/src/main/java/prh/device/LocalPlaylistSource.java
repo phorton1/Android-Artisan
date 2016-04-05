@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 
 import prh.artisan.Artisan;
+import prh.artisan.Database;
 import prh.base.ArtisanEventHandler;
 import prh.base.Playlist;
 import prh.base.PlaylistSource;
@@ -24,7 +25,6 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
     private static int dbg_pls = 1;
 
     private HashMap<String,LocalPlaylist> playlists = null;
-    private SQLiteDatabase playlist_db = null;
 
 
     //------------------------------------
@@ -73,7 +73,7 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
     @Override
     public Playlist createEmptyPlaylist()
     {
-        return new LocalPlaylist(artisan,this,playlist_db);
+        return new LocalPlaylist(artisan,this);
     }
 
 
@@ -83,7 +83,7 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
     // new LocalPlaylist() is called
     {
         if (name.isEmpty())
-            return new LocalPlaylist(artisan,this,playlist_db);
+            return new LocalPlaylist(artisan,this);
         return playlists.get(name);
     }
 
@@ -115,12 +115,38 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
     {
         Utils.log(0,0,"LocalPlaylistSource.stop()");
 
-        if (playlist_db != null)
-            playlist_db.close();
-        playlist_db = null;
 
         playlists = null;
     }
+
+
+
+    public SQLiteDatabase openPlaylistDb()
+    {
+        String db_name = Prefs.getString(Prefs.id.DATA_DIR) + "/playlists.db";
+
+        File check = new File(db_name);
+        SQLiteDatabase playlist_db = null;
+        if (check.exists()) // open existing database
+        {
+            try
+            {
+                Utils.log(dbg_pls,0,"Open existing playlist_db file: " + db_name);
+                playlist_db = SQLiteDatabase.openDatabase(db_name,null,SQLiteDatabase.OPEN_READWRITE);
+                if (playlist_db == null)
+                    Utils.warning(0,0,"Null database: " + db_name + ")");
+            }
+            catch (Exception e)
+            {
+                Utils.warning(0,0,"Could not open database " + db_name + ")");
+                playlist_db = null;
+            }
+        }
+        else
+            Utils.warning(0,0,"Database does not exist: " + db_name + ")");
+        return playlist_db;
+    }
+
 
 
     @Override
@@ -134,18 +160,10 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
         if (playlists == null)
         {
             playlists = new HashMap<String,LocalPlaylist>();
-
-            // open the database file
-
-            String db_name = Prefs.getString(Prefs.id.DATA_DIR) + "/playlists.db";
-
-            try
+            SQLiteDatabase playlist_db = openPlaylistDb();
+            if (playlist_db == null)
             {
-                playlist_db = SQLiteDatabase.openDatabase(db_name,null,0);  // SQLiteDatabase.OPEN_READONLY);
-            }
-            catch (Exception e)
-            {
-                Utils.error("Could not open database " + db_name);
+                Utils.error("Could not startPlaylistSource: null_db");
                 return true; // false;
             }
 
@@ -174,15 +192,17 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
                 while (cursor.moveToNext())
                     addLocalPlayList(cursor);
             }
-        }
 
+            playlist_db.close();
+
+        }
         return true;
     }
 
 
     private void addLocalPlayList(Cursor cursor)
     {
-        LocalPlaylist playlist = new LocalPlaylist(artisan,playlist_db,cursor);
+        LocalPlaylist playlist = new LocalPlaylist(artisan,this,cursor);
         playlists.put(playlist.getName(),playlist);
     }
 
@@ -205,7 +225,7 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
         {
             Utils.log(dbg_pls,1,"saveAs(" + name + ") is a new playlist");
         }
-        LocalPlaylist new_pl = new LocalPlaylist(artisan,this,playlist_db,name,playlist);
+        LocalPlaylist new_pl = new LocalPlaylist(artisan,this,name,playlist);
         if (new_pl == null)
         {
             Utils.error("Could not create new playlist " + name);
@@ -238,6 +258,14 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
             Utils.log(dbg_pls,0,"deletePlaylist(" + name + " deleting playlist");
             exists.stopPlaylist(false);
             playlists.remove(name);
+
+            SQLiteDatabase playlist_db = openPlaylistDb();
+            if (playlist_db == null)
+            {
+                Utils.error("Could not deletePlaylist() from database: null_db");
+                return true; // false;
+            }
+
             try
             {
                 playlist_db.execSQL("DELETE FROM playlists WHERE name='" + name + "'");
@@ -247,6 +275,8 @@ public class LocalPlaylistSource extends Device implements PlaylistSource
                 Utils.error("Could not delete playlist " + name + ":" + e);
                 return false;
             }
+            playlist_db.close();
+
 
             String db_name = Prefs.getString(Prefs.id.DATA_DIR) + "/playlists/" + name + ".db";
             File check = new File(db_name);

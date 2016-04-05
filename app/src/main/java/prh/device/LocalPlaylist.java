@@ -54,7 +54,6 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
     private String pl_query;
     private int track_index;      // one based
 
-    private SQLiteDatabase playlist_db;
     private trackList tracks_by_position;
 
     // accessors
@@ -165,14 +164,12 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
 
 
     public LocalPlaylist(Artisan ma,
-                         LocalPlaylistSource src,
-                         SQLiteDatabase list_db)
+                         LocalPlaylistSource src)
         // default constructor creates an un-named playlist ""
         // that is already started
     {
         artisan = ma;
         source = src;
-        playlist_db = list_db;
         clean_init();
         is_started = true;
     }
@@ -180,7 +177,6 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
 
     public LocalPlaylist(Artisan ma,
                          LocalPlaylistSource src,
-                         SQLiteDatabase list_db,
                          String name,
                          Playlist playlist)
         // copy constructor that changes name on the fly
@@ -189,7 +185,6 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
     {
         artisan = ma;
         source = src;
-        playlist_db = list_db;
         clean_init();
         is_started = true;
 
@@ -210,14 +205,14 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
     }
 
 
-    public LocalPlaylist(Artisan ma, SQLiteDatabase list_db, Cursor cursor)
+    public LocalPlaylist(Artisan ma, LocalPlaylistSource src, Cursor cursor)
         // create from the database file
         // does not call clean_init
         // clears is_new, is not started
     {
         artisan = ma;
-        playlist_db = list_db;
         clean_init();
+        source = src;
 
         HashMap<String,Integer> fields = Database.get_fields("playlists",cursor);
         name = cursor.getString(fields.get("name"));
@@ -236,12 +231,16 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
     @Override public void saveIndex(int index)
     {
         track_index = index;
+
+        SQLiteDatabase playlist_db = source.openPlaylistDb();
+
         if (playlist_db != null)
         {
             try
             {
-                playlist_db.rawQuery("UPDATE playlists SET track_index=" +
-                    track_index + " WHERE name ='" + name + "'",null);
+                playlist_db.execSQL("UPDATE playlists SET track_index=" +
+                    track_index + " WHERE name ='" + name + "'");
+                playlist_db.close();
             }
             catch (Exception e)
             {
@@ -255,7 +254,6 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
     // startPlaylist() and stopPlaylist()
     //-----------------------------------------------------------
 
-
     private SQLiteDatabase openTrackDb(boolean create_if_not_found)
     {
         String db_name = Prefs.getString(Prefs.id.DATA_DIR) + "/playlists/" + name + ".db";
@@ -267,7 +265,7 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
             try
             {
                 Utils.log(dbg_lp,0,"Open existing track_db file " + db_name);
-                track_db = SQLiteDatabase.openDatabase(db_name,null,0);
+                track_db = SQLiteDatabase.openDatabase(db_name,null,SQLiteDatabase.OPEN_READWRITE);
             }
             catch (Exception e)
             {
@@ -397,7 +395,9 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
         //-----------------------------------
         // start transaction
 
-        playlist_db.beginTransaction();
+        SQLiteDatabase playlist_db = source.openPlaylistDb();
+        if (playlist_db == null)
+            return false;
 
         ContentValues header_values = new ContentValues();
         header_values.put("name",name);
@@ -418,6 +418,7 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
             {
                 Utils.error("Could not insert playlist '" + name + "' :" + e);
                 playlist_db.endTransaction();
+                playlist_db.close();
                 return false;
             }
         }
@@ -429,6 +430,7 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
             {
                 Utils.error("Could not update playlist '" + name + "'");
                 playlist_db.endTransaction();
+                playlist_db.close();
                 return false;
             }
         }
@@ -444,6 +446,7 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
         if (track_db == null)
         {
             playlist_db.endTransaction();
+            playlist_db.close();
             return false;
         }
 
@@ -459,6 +462,7 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
             {
                 Utils.error("Could not clear playlist(" + name + "): " + e.toString());
                 playlist_db.endTransaction();
+                playlist_db.close();
                 return false;
             }
         }
@@ -479,12 +483,15 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
             {
                 Utils.error("Could not insert track " + track.getTitle() + " into playlist " + name + ":" + e);
                 playlist_db.endTransaction();
+                playlist_db.close();
                 return false;
             }
         }
 
         playlist_db.setTransactionSuccessful();
         playlist_db.endTransaction();
+        playlist_db.close();
+
         Utils.log(dbg_lp,0,"localPlaylist.saveTracks(" + name + ") finished");
         return true;
 
