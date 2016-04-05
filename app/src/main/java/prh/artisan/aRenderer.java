@@ -38,6 +38,7 @@ public class aRenderer extends Fragment implements
 {
 
     private static int dbg_anp = 1;
+    private static int SELECTED_COLOR = 0xFFff9900;
 
     // only good while attached
 
@@ -85,14 +86,16 @@ public class aRenderer extends Fragment implements
         my_view.findViewById(R.id.button_stop).setOnClickListener(this);
         my_view.findViewById(R.id.button_next).setOnClickListener(this);
         my_view.findViewById(R.id.button_prev).setOnClickListener(this);
+        my_view.findViewById(R.id.button_external_playlist).setOnClickListener(this);
         ((SeekBar) my_view.findViewById(R.id.track_position_slider)).
             setOnSeekBarChangeListener(new trackSeekBarListener());
 
         enable(R.id.button_vol,true);
         enable(R.id.button_prev,false);
-        enable(R.id.button_next,false);
         enable(R.id.button_play_pause,false);
         enable(R.id.button_stop,false);
+        enable(R.id.button_next,false);
+        enable(R.id.button_external_playlist,false);
         enable(R.id.track_position_slider,false);
 
         setPlayListNames();
@@ -153,6 +156,27 @@ public class aRenderer extends Fragment implements
         btn.setEnabled(enable);
     }
 
+    void selectButton(int id, boolean selected)
+    // enable/disable a Button or ImageButton
+    // jesus christ, image buttons don't change their
+    // appearance when disabled, and there was no easy
+    // or apparent way to do it, so instead using the
+    // alpha channel, and UNDOCUMENTED range of 0..255
+    {
+        View btn = my_view.findViewById(id);
+        if (btn instanceof ImageButton)
+        {
+            ImageButton ibtn = (ImageButton) btn;
+            if (selected)
+                ibtn.setColorFilter(0x770000ff);
+            else
+                ibtn.clearColorFilter();
+            ibtn.invalidate();
+        }
+        btn.setSelected(selected);
+
+    }
+
     @Override public void onSetPageCurrent(boolean current)
     {
         page_title = null;
@@ -168,23 +192,43 @@ public class aRenderer extends Fragment implements
     {
         String msg = renderer == null ?
             "Now Playing: " :
-            renderer.getRendererName() + " ";
+            renderer.getRendererName();
 
-        EditablePlaylist cur = artisan.getCurrentPlaylist();
-        msg += cur.getName();
-        if (cur.isDirty())
-            msg += "*";
+        Renderer.how_playing how_playing =
+            renderer == null ? Renderer.how_playing.INTERNAL :
+            renderer.getHowPlaying();
 
-        int index = renderer == null ? 0 : renderer.getRendererTrackNum();
-        int count = renderer == null ? 0 : renderer.getRendererNumTracks();
+        if (how_playing == Renderer.how_playing.IMMEDIATE)
+        {
+            msg += " !";
+        }
+        else if (how_playing == Renderer.how_playing.EXTERNAL)
+        {
+            msg += "=";
+        }
+        else
+        {
+            EditablePlaylist cur = artisan.getCurrentPlaylist();
+            msg += " " + cur.getName();
+            if (cur.isDirty())
+                msg += "*";
+        }
 
-        if (count>0)
-            msg += "(" + index + "/" + count + ")";
+        if (how_playing != Renderer.how_playing.IMMEDIATE)
+        {
+            int index = renderer == null ? 0 : renderer.getRendererTrackNum();
+            int count = renderer == null ? 0 : renderer.getRendererNumTracks();
+
+            if (count > 0)
+                msg += "(" + index + "/" + count + ")";
+        }
 
         // clean up PAUSED_PLAYBACK for display
         msg += " " + current_state.replace("_PLAYBACK","");
         return msg;
     }
+
+
 
     // event handlers in order of minor to major changes
 
@@ -235,9 +279,21 @@ public class aRenderer extends Fragment implements
                 break;
             case R.id.button_vol:
                 artisan.doVolumeControl();
-                    // would like to disable the control
-                    // in certain cases
                 break;
+            case R.id.button_external_playlist:
+                if (renderer != null)
+                {
+                    boolean b = renderer.usingExternalPlaylist();
+                    b = !b;
+                    renderer.setUseExternalPlaylist(b);
+                    selectButton(R.id.button_external_playlist,b);
+                    int num_tracks = renderer == null ? 0 :
+                        renderer.getRendererNumTracks();
+                    enable(R.id.button_next,num_tracks > 0);
+                    enable(R.id.button_prev,num_tracks > 0);
+                    updateTitleBar();
+                }
+
         }
     }
 
@@ -411,7 +467,7 @@ public class aRenderer extends Fragment implements
                 name = "default";
 
             EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
-            btn.setTextColor(name.equals(current_playlist.getName())? 0xFFff9900:Color.WHITE);
+            btn.setTextColor(name.equals(current_playlist.getName())? SELECTED_COLOR:Color.WHITE);
             btn.setText(name);
             btn.setId(ID_BASE + position);
             return btn;
@@ -514,6 +570,16 @@ public class aRenderer extends Fragment implements
                 renderer.getRendererNumTracks();
             enable(R.id.button_next,num_tracks>0);
             enable(R.id.button_prev,num_tracks>0);
+
+            boolean using_external = renderer == null ? false :
+                renderer.usingExternalPlaylist();
+            boolean enable_external = renderer == null ? false :
+                renderer.hasExternalPlaylist();
+            enable(R.id.button_external_playlist,
+                enable_external);
+            selectButton(R.id.button_external_playlist,
+                enable_external && using_external);
+
 
 
             if (tracknum != "")

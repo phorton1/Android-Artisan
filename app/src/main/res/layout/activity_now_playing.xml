@@ -142,12 +142,11 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center">
 
-            <Button
+            <ImageButton
                 android:id="@+id/button_vol"
-                android:layout_width="70dp"
-                android:layout_height="wrap_content"
-                android:layout_marginLeft="14dp"
-                android:text="Vol" />
+                android:layout_width="wrap_content"
+                android:layout_height="48dip"
+                android:src="@drawable/ic_volume" />
 
             <ImageButton
                 android:id="@+id/button_prev"
@@ -177,6 +176,13 @@
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="14dp"
                 android:src="@drawable/my_ic_media_ff" />
+
+            <ImageButton
+                android:id="@+id/button_external_playlist"
+                android:layout_width="48dip"
+                android:layout_height="48dip"
+                android:layout_marginLeft="14dp"
+                android:src="@drawable/ic_external_playlist" />
 
         </LinearLayout>
 

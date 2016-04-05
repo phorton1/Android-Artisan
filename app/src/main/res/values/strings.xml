@@ -2,6 +2,10 @@
 
     <string name="app_name">Artisan</string>
 
+    <!-- Playlist File commands -->
+
+    <string name="context_menu_reload">Reload</string>
+
     <!-- Playlist File level commands
 
     The context menu commands are primarily for the Playlist,

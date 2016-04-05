@@ -192,45 +192,25 @@ public class OpenHomeRenderer extends Device implements
     // Renderer Interface
     //-------------------------------------------
 
-    @Override
-    public String getRendererName() { return getFriendlyName(); }
+    @Override public String getRendererName()       { return getFriendlyName(); }
+    @Override public Volume getVolume()             { return (Volume) getOpenVolume(); }
 
-    @Override
-    public Volume getVolume() { return (Volume) getOpenVolume(); }
+    @Override public int getTotalTracksPlayed()     { return getOpenTime().getTotalTracksPlayed(); }
+    @Override public int getPosition()              { return 1000 * getOpenTime().getElapsed(); }
+    @Override public String getRendererState()      { return getOpenPlaylist().getTransportState(); }
+    @Override public String getRendererStatus()     { return "OK"; }
+    @Override public boolean getShuffle()           { return getOpenPlaylist().getShuffle(); }
+    @Override public boolean getRepeat()            { return getOpenPlaylist().getRepeat(); }
+    @Override public void setRepeat(boolean value)  { getOpenPlaylist().setRepeat(value); }
+    @Override public void setShuffle(boolean value) { getOpenPlaylist().setShuffle(value); }
 
-    @Override
-    public int getTotalTracksPlayed() { return getOpenTime().getTotalTracksPlayed(); }
+    @Override public Track getRendererTrack()       { return getOpenInfo().getTrack(); }
+    @Override public int getRendererTrackNum()      { return getOpenPlaylist().getCurrentIndex(); }
+    @Override public int getRendererNumTracks()     { return getOpenPlaylist().getNumTracks(); }
 
-    @Override
-    public int getPosition() { return 1000 * getOpenTime().getElapsed(); }
-
-    @Override
-    public String getRendererState() { return getOpenPlaylist().getTransportState(); }
-
-    @Override
-    public String getRendererStatus() { return "OK"; }
-
-    @Override
-    public boolean getShuffle() { return getOpenPlaylist().getShuffle(); }
-
-    @Override
-    public boolean getRepeat() { return getOpenPlaylist().getRepeat(); }
-
-    @Override
-    public void setRepeat(boolean value) { getOpenPlaylist().setRepeat(value); }
-
-    @Override
-    public void setShuffle(boolean value) { getOpenPlaylist().setShuffle(value); }
-
-    @Override
-    public Track getRendererTrack() { return getOpenInfo().getTrack(); }
-
-    @Override
-    public int getRendererTrackNum() { return getOpenPlaylist().getCurrentIndex(); }
-
-    @Override
-    public int getRendererNumTracks() { return getOpenPlaylist().getNumTracks(); }
-
+    @Override public boolean hasExternalPlaylist()  { return false; };
+    @Override public boolean usingExternalPlaylist() { return false; };
+    @Override public void setUseExternalPlaylist(boolean b) {}
 
     // actions
 
@@ -275,9 +255,15 @@ public class OpenHomeRenderer extends Device implements
 
 
     @Override
-    public void setRendererTrack(Track track,boolean interrupt_playlist)
+    public void setRendererTrack(Track track, boolean from_remote)
         // not sure this CAN be implemented
     {
+    }
+
+    @Override
+    public how_playing getHowPlaying()
+    {
+        return how_playing.INTERNAL;
     }
 
 

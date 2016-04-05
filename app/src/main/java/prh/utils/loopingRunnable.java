@@ -46,6 +46,7 @@ public class loopingRunnable
         owner = parent;
         runnable = to_run;
 
+        ONE_TIME = false;
         STOP_RETRIES = stop_retries;
         REFRESH_INTERVAL = refresh_interval;
         USE_POST_DELAYED = use_post_delayed;
@@ -66,6 +67,7 @@ public class loopingRunnable
         // Start can be called multiple times
     {
         init(title,null,to_run,0,delay,true,null);
+        ONE_TIME = true;
     }
 
 

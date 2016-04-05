@@ -221,6 +221,8 @@ public class Track extends Record
 
     public int getOpenId()                  { return getInt("open_id"); }
     public void setOpenId(Integer value)    { putInt("open_id",value); }
+    public int getPositionRef()             { return getInt("position_ref");}
+    public void setPositionRef(int value)   { putInt("position_ref",value);}
 
     // rest in database
 

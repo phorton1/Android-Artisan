@@ -28,6 +28,7 @@ import android.net.Uri;
 import android.widget.Toast;
 
 import prh.artisan.Artisan;
+import prh.artisan.Prefs;
 import prh.base.ArtisanEventHandler;
 import prh.base.EditablePlaylist;
 import prh.base.Renderer;
@@ -88,31 +89,32 @@ public class LocalRenderer extends Device implements
     private LocalVolume local_volume;
     private loopingRunnable my_looper;
 
+    // state
+
     private int mp_state = MP_STATE_NONE;
     private String renderer_state = RENDERER_STATE_NONE;
+    private how_playing how_playing_track = how_playing.INTERNAL;
+
     private int song_position = 0;
-        // the current position within the song
-        // as returned by the media player, reset
-        // on transitions, and updated in updateState()
     private Track current_track = null;
-        // Renderers are always playling the tempEditablePlaylist,
-        // but a Track can be pushed on top of it.
     private boolean repeat = true;
     private boolean shuffle = false;
-        // the openHome spec only calls for OFF and ON i
-        // for shuffle and repeat, though I have a tri-state
-        // shuffle in my playlist definition.
     private int total_tracks_played = 0;
-        // count of total tracks played
-    int last_position = 0;
+
+    // schemes
+
+    private int last_position = 0;
         // last position for change detection
+    private boolean immediate_from_remote = false;
+        // boolean indicating if we are going to try
+        // the restart playlist scheme
+    loopingRunnable restart_playlist_delayer = null;
+        // scheme to restart internal playlist after
+        // immediate_from_remote stops after a delay
 
+    // Device accessor
 
-    @Override public boolean isLocal()
-    {
-        return true;
-    }
-
+    @Override public boolean isLocal()  { return true;  }
 
     //--------------------------------------------
     // construct and start()
@@ -133,7 +135,6 @@ public class LocalRenderer extends Device implements
 
         Utils.log(dbg_ren+1,1,"new LocalRenderer()");
     }
-
 
 
     @Override public boolean startRenderer()
@@ -169,11 +170,14 @@ public class LocalRenderer extends Device implements
     // stopRenderer()
     //-----------------------------------
 
-
     @Override public void stopRenderer(boolean wait_for_stop)
         // parent is responsible for sending out RENDERER_CHANGED event
     {
         Utils.log(dbg_ren,1,"LocalRenderer.stopRenderer()");
+
+        if (restart_playlist_delayer != null)
+            restart_playlist_delayer.stop(false);
+        restart_playlist_delayer = null;
 
         // stop the looper
 
@@ -220,15 +224,22 @@ public class LocalRenderer extends Device implements
     @Override public int getPosition()                  { return song_position; }
     @Override public void setRepeat(boolean value)      { repeat = value; }
     @Override public void setShuffle(boolean value)     { shuffle = value; };
+    @Override public boolean hasExternalPlaylist()      { return false; };
+    @Override public boolean usingExternalPlaylist()    { return false; };
+    @Override public void setUseExternalPlaylist(boolean b) {}
+    @Override public how_playing getHowPlaying()        { return how_playing_track; }
+
 
     @Override public int getRendererTrackNum()
     {
         return artisan.getCurrentPlaylist().getCurrentIndex();
     }
+
     @Override public int getRendererNumTracks()
     {
         return artisan.getCurrentPlaylist().getNumTracks();
     }
+
 
     @Override public Track getRendererTrack()
         // all DLNA stuff and accessors to the
@@ -241,19 +252,23 @@ public class LocalRenderer extends Device implements
     }
 
 
-    @Override public void setRendererTrack(Track track, boolean interrupt_playlist)
+    @Override public void setRendererTrack(Track track, boolean from_remote)
         // start playing the given track, possibly
         // interrupting the current playlist if from DLNA
         // call with null does nothing
     {
         if (track != null)
         {
-            Utils.log(dbg_ren,0,"setRendererTrack(" + track.getTitle() + ") interrupt=" + interrupt_playlist);
-            // setRendererState(RENDERER_STATE_TRANSITIONING);
-            // stop();
-            if (interrupt_playlist)
-                artisan.setPlaylist("");
+            Utils.log(dbg_ren,0,"setRendererTrack(" + track.getTitle() + ") from_remote=" + from_remote);
+
+            if (restart_playlist_delayer != null)
+                restart_playlist_delayer.stop(false);
+            restart_playlist_delayer = null;
+
             current_track = track;
+            immediate_from_remote = from_remote;
+            how_playing_track = how_playing.IMMEDIATE;
+
             artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_TRACK_CHANGED,track);
             transport_play();
         }
@@ -265,12 +280,20 @@ public class LocalRenderer extends Device implements
     {
         Utils.log(dbg_ren,0,"incAndPlay(" + inc + ")");
 
+        // clear the position, how_playing, and
+        // if inc == 0 the immediate_from_remote states
+
         song_position = 0;
+        how_playing_track = how_playing.INTERNAL;
+        if (inc == 0)
+            immediate_from_remote = false;
+
+        // Normal stuff
 
         EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
         current_playlist.incGetTrack(inc);
-
         current_track = current_playlist.getCurrentTrack();
+
         if (current_track == null)
         {
             if (!current_playlist.getName().equals(""))
@@ -309,7 +332,7 @@ public class LocalRenderer extends Device implements
         mp_state = MP_STATE_IDLE;
         setRendererState(RENDERER_STATE_STOPPED);
         song_position = 0;
-
+        immediate_from_remote = false;
     }
 
 
@@ -434,10 +457,38 @@ public class LocalRenderer extends Device implements
     {
         Utils.log(dbg_ren,0,"onCompletion()");
         mp_state = MP_STATE_COMPLETED;
-        song_position = 0;
-        current_track = null;
-        incAndPlay(1);
+
+        if (immediate_from_remote)
+        {
+            int seconds = Prefs.getInt(Prefs.id.RESUME_PLAYLIST_AFTER_REMOTE_TRACK_SECONDS);
+            if (seconds > 0)
+            {
+                Utils.log(dbg_ren,0,"onCompletion() starting delayed playlist advancer");
+                transport_stop();
+
+                if (restart_playlist_delayer != null)
+                    restart_playlist_delayer.stop(false);
+
+                Runnable run_it = new Runnable() { public void run()
+                {
+                    current_track = null;
+                    incAndPlay(1);
+                }};
+
+                restart_playlist_delayer = new loopingRunnable(
+                    "restart_playlist_delayer",run_it,seconds*1000);
+                restart_playlist_delayer.start();
+            }
+        }
+        else
+        {
+            song_position = 0;
+            current_track = null;
+            incAndPlay(1);
+        }
     }
+
+
 
     @Override
     public boolean onError(MediaPlayer mp,int what,int extra)

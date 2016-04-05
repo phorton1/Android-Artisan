@@ -65,6 +65,7 @@ public class aLibrary extends Fragment implements
 
     private Artisan artisan = null;
     private Library library = null;
+    private boolean is_current = false;
     private ViewStack view_stack = null;
     selectedHash selected = new selectedHash();
 
@@ -367,28 +368,58 @@ public class aLibrary extends Fragment implements
     @Override public void onSetPageCurrent(boolean current)
     {
         page_title = null;
+        is_current = current;
         if (current)
         {
             page_title = new TextView(artisan);
-            page_title.setText(getTitleBarText());
             artisan.setArtisanPageTitle(page_title);
-
-            // set the main toolbar buttons for this ativity
-
-            MainMenuToolbar toolbar = artisan.getToolbar();
-            toolbar.showButtons(new int[]{
-                R.id.command_back});
-            toolbar.enableButton(R.id.command_back,
-                view_stack != null &&
-                view_stack.size() > 1);
+            updateTitleBar();
         }
     }
 
     private void updateTitleBar()
     {
-        if (page_title != null)
+        if (is_current && page_title != null)
+        {
             page_title.setText(getTitleBarText());
+
+            MainMenuToolbar toolbar = artisan.getToolbar();
+            toolbar.showButtons(new int[]{
+                R.id.command_back,});
+            toolbar.enableButton(R.id.command_back,
+                view_stack != null &&
+                view_stack.size() > 1);
+
+            if (getContextMenuIds().size()>0)
+            {
+                toolbar.showButton(R.id.command_context,true);
+            }
+        }
     }
+
+
+    @Override public intList getContextMenuIds()
+    {
+        intList res_ids = new intList();
+        if (library != null)
+        {
+            if (selected.size() > 0)   // Selected Context
+            {
+                res_ids.add(R.string.context_menu_add);
+                res_ids.add(R.string.context_menu_insert_next);
+                res_ids.add(R.string.context_menu_insert_top);
+                res_ids.add(R.string.context_menu_insert_sel);
+            }
+            else    // Selected Items Context
+            {
+                res_ids.add(R.string.context_menu_reload);
+            }
+        }
+
+        return res_ids;
+    }
+
+
 
 
     private String getTitleBarText()
@@ -517,6 +548,17 @@ public class aLibrary extends Fragment implements
     // includes ListItemListener interface
 
 
+    @Override public void setSelected(Record record, boolean selected)
+    {
+        this.selected.setSelected(record,selected);
+    }
+
+    @Override public boolean getSelected(Record record)
+    {
+        return this.selected.getSelected(record);
+    }
+
+
     @Override public void onClick(View v)
         // Navigate to Folder, or Play Track
         // Contezt menu handled by item itself.
@@ -554,26 +596,29 @@ public class aLibrary extends Fragment implements
     }
 
 
-    @Override public void setSelected(Record record, boolean selected)
-    {
-        this.selected.setSelected(record,selected);
-    }
-
-    @Override public boolean getSelected(Record record)
-    {
-        return this.selected.getSelected(record);
-    }
-
-
     @Override public boolean onMenuItemClick(MenuItem item)
     {
+        int id = item.getItemId();
+        switch (id)
+        {
+            case R.string.context_menu_reload:
+            {
+                selected.clear();
+                int stack_size = view_stack.size();
+                viewStackElement tos = stack_size > 0 ?
+                    view_stack.get( stack_size - 1) :
+                    null;
+                if (tos != null)
+                {
+                    Fetcher fetcher = tos.getFetcher();
+                    if (fetcher.restart())
+                        tos.getAdapter().setItems(fetcher.getRecords());
+                }
+            }
+        }
         return true;
     }
 
-    @Override public intList getContextMenuIds()
-    {
-        return new intList();
-    }
 
 
     //--------------------------------------------------------------

@@ -65,8 +65,20 @@ public class PlaylistWrapper implements
         return tracks_by_position.size();
     }
     @Override public void saveIndex(int position)
+        // shall only be called with a valid number
+        // 0, or 1..num_tracks. Works with ref_position
+        // to update the position in the underlying songlist
+        // IF the song came from it (has a ref_position)
     {
         track_index = position;
+        if (track_index > 0 &&
+            track_index <= tracks_by_position.size())
+        {
+            Track track = tracks_by_position.get(track_index-1);
+            int ref_position = track.getPositionRef();
+            if (ref_position > 0)
+                other.saveIndex(ref_position);
+        }
     }
 
     // EditablePlaylist Interface
@@ -142,10 +154,14 @@ public class PlaylistWrapper implements
                 return false;
             }
 
+            // copy the tracks, setting position_ref
+            // to the position in the underlying playlist
+
             for (int i = 0; i < num_tracks; i++)
             {
                 Track track = other.getTrack(i + 1);
-                track.setPosition(i + 1);   // in case it was mucked up
+                track.setPositionRef(track.getPosition());
+                // track.setPosition(i + 1);   // in case it was mucked up
                 tracks_by_position.add(track);
             }
         }
@@ -179,7 +195,6 @@ public class PlaylistWrapper implements
     // FetcherSource Interface
     //------------------------------
 
-
     @Override public int getRecChangedCountId()
     {
         return recs_changed_count_id;
@@ -189,7 +204,6 @@ public class PlaylistWrapper implements
     {
         return tracks_by_position;
     }
-
 
     @Override public Fetcher.fetchResult getFetcherPlaylistRecords(int start, int num)
     {

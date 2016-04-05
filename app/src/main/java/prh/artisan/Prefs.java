@@ -31,6 +31,7 @@ import prh.utils.Utils;
 // CacheImages
 // ImageCacheSize
 
+
 public class Prefs
 {
     public static int USE_RENDERER_TRACKS_NEVER = 0;
@@ -89,7 +90,10 @@ public class Prefs
 
         START_VOLUME_FIXER,
 
-        PREFER_REMOTE_RENDERER_TRACKS
+        PREFER_REMOTE_RENDERER_TRACKS,
+
+        RESUME_PLAYLIST_AFTER_REMOTE_TRACK_SECONDS
+
     };
 
     public static String LAST_SELECTED = "Last Selected";
@@ -308,11 +312,17 @@ public class Prefs
         if (id.equals(id.START_AS_REMOTE))
             return "";
 
-        // See notes about prefering renderer tracks
 
         if (id.equals(id.PREFER_REMOTE_RENDERER_TRACKS))
             return Integer.toString(USE_RENDERER_TRACKS_FIRST);
             // return Integer.toString(USE_RENDERER_TRACKS_WHEN_AVAILABLE);
+
+        // If we had a playlist, and were interrupted by an external track
+        // and that track ends, if we don't receive anything from a remote,
+        // restart our playlist.
+
+        if (id.equals(id.RESUME_PLAYLIST_AFTER_REMOTE_TRACK_SECONDS))
+            return "6";
 
         return "";
     }

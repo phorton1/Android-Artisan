@@ -14,15 +14,6 @@ public interface Renderer
     //
     // The LocalRenderer is also the provider for our own http
     // dlna MediaRenderer and OpenHome services.
-    //
-    // All Renderers present the same API to the rest of the
-    // system. The API includes capabilities (i.e. playlists)
-    // that not every implementation may provide.
-    //
-    // A renderer is ALWAYS SUPPOSED TO HAVE A PLAYLIST
-    // and THEY GET ASSOCIATED TO THE OpenHomeServer() on
-    // any http calls to OpenPlaylist.
-
 {
     String RENDERER_STATE_NONE            = "";
     String RENDERER_STATE_STOPPED         = "STOPPED";
@@ -53,15 +44,72 @@ public interface Renderer
     int getPosition();
     void seekTo(int progress);
 
-    // A Renderer May have Track, TrackNumber, and NumberTracks
-    // separate from any Playlist. See Prefs.PreferRemoteRendererNumTracks
-    // for more info
+    // A renderer may play a track in upto one
+    // of three modes.  By default, renderers
+    // play the INTERNAL current_playlist.
+    //
+    // They can locally be told to play an
+    // IMMEDIATE track on on top of any existing
+    // playlist.
+    //
+    // Furthermore, a remote renderer may be
+    // playing an EXTERNAL track, that came
+    // from the remote.
+
+
+    enum how_playing
+    {
+        INTERNAL,
+        IMMEDIATE,
+        EXTERNAL
+    }
+
+    Track getRendererTrack();
+    how_playing getHowPlaying();
+
+    // A remote Renderer may discover that there
+    // is an external playlist on the remote, based
+    // on the NumberOfTracks>1 it returns.
+    //
+    // If so, there is a USE_EXTERNAL_PLAYLIST mode
+    // available, which if set, causes the remote
+    // Renderer to act differently, NOT auto-advancing
+    // on STOP, and issuing Next, Previous, and Play
+    // commands directly to the remote.
+    //
+    // There is a Pref for how to set the mode
+    // immediately on detection of NumberOfTracks>1
+
+    boolean hasExternalPlaylist();
+    boolean usingExternalPlaylist();
+    void setUseExternalPlaylist(boolean b);
+
+    // These methods return the TrackNumber, and
+    // Number of Tracks, based on the getHowPlaying()
+    // and usingExternal() playlist values.
+    //
+    // In IMMEDIATE mode both return 0
+    // In INTERNAL mode these return the values from the
+    //     internal current_playlist
+    // In EXTERNAL_MODE these return the
+    //     number of tracks and track number from
+    //     the remote.
 
     int getRendererTrackNum();
     int getRendererNumTracks();
 
-    Track getRendererTrack();
-    void setRendererTrack(Track track, boolean interrupt_playlist);
+    // Play a Track in IMMEDIATE MODE
+    //
+    // from_remote is set if the track is requested
+    // via the http.AVTransport server. Otherwise it
+    // was locally initiated.
+    //
+    // The local renderer makes decisions on whether
+    // or not to resume an internal playlist after
+    // the IMMEDIATE track based on this value.
+    // It is otherwise, never true.
+
+    void setRendererTrack(Track track, boolean from_remote);
 
 
 }   // base class Renderer

@@ -498,9 +498,9 @@ public class Fetcher implements Runnable
 
 
     public boolean restart()
-    // different than start() on an IDLE or PAUSED fetcher,
-    // this clears the records, resets to STATE_INIT,
-    // and starts over ..
+        // different than start() on an IDLE or PAUSED fetcher,
+        // this clears the records, resets to STATE_INIT,
+        // and starts over ..
     {
         Utils.log(dbg_fetcher,1,"Fetcher(" + dbg_title + ").restart() called");
         if (state != fetcherState.FETCHER_INIT)

@@ -83,12 +83,6 @@ public class ContentDirectory implements
             Utils.error("No LocalLibrary found in ContentDirectory.response()");
             return response;
         }
-        if (local_library != artisan.getLibrary())
-        {
-            Utils.error("Only LocalLibrary allowed in ContentDirectory.response()");
-            return response;
-        }
-
 
         //------------------------------------
         // URI Handlers
@@ -462,12 +456,7 @@ public class ContentDirectory implements
         LocalLibrary local_library = artisan.getLocalLibrary();
         if (local_library == null)
         {
-            Utils.warning(0,0,"No local_renderer in Event");
-            return "";
-        }
-        if (local_library != artisan.getLibrary())
-        {
-            Utils.warning(0,0,"Cannot return Events for non-local Renderers");
+            Utils.warning(0,0,"No local_library in Event");
             return "";
         }
 

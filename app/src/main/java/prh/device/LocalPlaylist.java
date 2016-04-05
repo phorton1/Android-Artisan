@@ -69,7 +69,6 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
     @Override public int getMyShuffle()       { return my_shuffle; }
     @Override public String getQuery()        { return pl_query; }
 
-    @Override public void saveIndex(int index) {}
     @Override public boolean isDirty() { return is_dirty; }
     @Override public void setDirty(boolean b) { is_dirty = b; }
 
@@ -231,6 +230,25 @@ public class LocalPlaylist implements Playlist // EditablePlaylist
 
     }   // ctor
 
+
+    // saveIndex
+
+    @Override public void saveIndex(int index)
+    {
+        track_index = index;
+        if (playlist_db != null)
+        {
+            try
+            {
+                playlist_db.rawQuery("UPDATE playlists SET track_index=" +
+                    track_index + " WHERE name ='" + name + "'",null);
+            }
+            catch (Exception e)
+            {
+                Utils.error("Could not saveIndex(" + name + "," + track_index + ")");
+            }
+        }
+    }
 
 
     //-----------------------------------------------------------
