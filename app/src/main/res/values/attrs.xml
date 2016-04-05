@@ -10,4 +10,18 @@
     </declare-styleable>
 
 
+    <declare-styleable name="pref">
+        <attr name="item_title"       format="string" />
+        <attr name="item_description" format="string" />
+        <attr name="enum_str"         format="string" />
+
+        <attr name="bool_value"       format="boolean" />
+        <attr name="int_value"        format="integer" />
+        <attr name="string_value"     format="string" />
+
+        <attr name="goto_page"        format="reference"/>
+
+    </declare-styleable>
+
+
 </resources>

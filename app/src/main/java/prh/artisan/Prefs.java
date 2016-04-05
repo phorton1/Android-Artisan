@@ -34,32 +34,6 @@ import prh.utils.Utils;
 
 public class Prefs
 {
-    public static int USE_RENDERER_TRACKS_NEVER = 0;
-    public static int USE_RENDERER_TRACKS_WHEN_AVAILABLE = 1;
-    public static int USE_RENDERER_TRACKS_FIRST = 2;
-        // default = WHEN_AVAILABLE
-        //
-        //  A Renderer may have a number of tracks, and a current track index
-        //  that is separate from any playlist ... though the LocalRenderer
-        //  always presents the current_playlist
-        //
-        //  aRenderer should enable the buttons based on whether the Renderer
-        //  says there are tracks, and should show the Renderers version of the
-        //  track_number and number of tracks.
-        //
-        //  Renderer.incAndPlay() normally uses the current_playlist to get
-        //  the number of tracks and current track index.  In fact that's all
-        //  the LocalRenderer CAN do.
-        //
-        //  But a remote renderer may decide that if the current playlist is
-        //  empty, and it has been given a number of tracks, and an index
-        //  to pass the Next/Previous action to the remote renderer.
-        //  This is the default WHEN_AVAILALBE.
-        //
-        //  It can be disabled by setting it to NEVER
-        //
-        //  Or the Remote Renderers can be made to preferentially use
-        //  the number of tracks on the remote by setting it to FIRST
 
     public enum id
     {
@@ -86,24 +60,59 @@ public class Prefs
         START_HTTP_OPEN_HOME_SERVER,
         START_HTTP_REMOTE_SERVER,
 
-        START_AS_REMOTE,
-
         START_VOLUME_FIXER,
-
         PREFER_REMOTE_RENDERER_TRACKS,
-
         RESUME_PLAYLIST_AFTER_REMOTE_TRACK_SECONDS
 
     };
 
+
     public static String LAST_SELECTED = "Last Selected";
         // special value for DEFAULT_RENDERER and LIBRARY
         // which means "use the last one selected"
+    public static String LOCAL = "Local";
 
 
+    // HOW_EXTERNAL_PLAYLIST
+    // default = WHEN_AVAILABLE
+    //
+    //  A Renderer may have a number of tracks, and a current track index
+    //  that is separate from any playlist ... though the LocalRenderer
+    //  always presents the current_playlist
+    //
+    //  aRenderer should enable the buttons based on whether the Renderer
+    //  says there are tracks, and should show the Renderers version of the
+    //  track_number and number of tracks.
+    //
+    //  Renderer.incAndPlay() normally uses the current_playlist to get
+    //  the number of tracks and current track index.  In fact that's all
+    //  the LocalRenderer CAN do.
+    //
+    //  But a remote renderer may decide that if the current playlist is
+    //  empty, and it has been given a number of tracks, and an index
+    //  to pass the Next/Previous action to the remote renderer.
+    //  This is the default WHEN_AVAILALBE.
+    //
+    //  It can be disabled by setting it to NEVER
+    //
+    //  Or the Remote Renderers can be made to preferentially use
+    //  the number of tracks on the remote by setting it to FIRST
+
+    public enum how_external_playlist
+    {
+        Never,
+        WhenAvailable,
+        First,
+    };
+
+
+    //-----------------------------------------------------
+    // Variables and Convenience Methods
+    //-----------------------------------------------------
 
     private static Artisan artisan = null;
     private static SharedPreferences prefs = null;
+
 
     public static void static_init(Artisan a)
     {
@@ -182,14 +191,27 @@ public class Prefs
     }
 
 
+    public static how_external_playlist getHowExternalPlaylist()
+    {
+        String string = getString(Prefs.id.PREFER_REMOTE_RENDERER_TRACKS);
+        return how_external_playlist.valueOf(string);
+    }
+
+    public static void setHowExternalPlaylist(how_external_playlist how)
+    {
+        putString(Prefs.id.PREFER_REMOTE_RENDERER_TRACKS,how.toString());
+    }
+
+
+
     //--------------------------------------------
     // default values
     //--------------------------------------------
 
-    private static String defaultValue(id id)
+    public static String defaultValue(id id)
     {
         // The Last_Selected library or renderer is set whenever artisan
-        // setLibrary() or setRenderer() is called. aPlaylistSource has special
+        // setLibrary() or setRenderer() is called. aPrefs has special
         // UI that presents lists of available items for the user to select.
         // The pref itself just keeps track of it for next boot in case
         // they use "Last Selected" as the Startup Default.
@@ -224,7 +246,7 @@ public class Prefs
         //               failure to start?  TELL THE USER
         //
         //    default_name != "" and not in the cache
-        //        Device Manager (aPlaylistSource?) patiently waiting for SSDP to find the device
+        //        Device Manager (aPrefs?) patiently waiting for SSDP to find the device
         //        *** NEED TO KNOW WHEN SSDP SEARCH HAS COMPLETED
         //        Still not found?  TELL THE USER
         //        Found!! Try to start it
@@ -241,11 +263,11 @@ public class Prefs
 
 
         if (id.equals(id.DEFAULT_LIBRARY))
-            return "Last Selected";
+            return LAST_SELECTED;
         if (id.equals(id.DEFAULT_RENDERER))
-            return "Last Selected";
+            return LOCAL;
         if (id.equals(id.DEFAULT_PLAYLIST_SOURCE))
-            return "Last Selected";
+            return LAST_SELECTED;
 
 
         if (id.equals(id.START_ON_BOOT))
@@ -304,25 +326,12 @@ public class Prefs
         if (id.equals(id.START_VOLUME_FIXER))
             return "1";
 
-        // START_AS_REMOTE is tri-state
-        // "" = default (start remote if no local library)
-        // "0" = dont start it
-        // "1" = do start it
-
-        if (id.equals(id.START_AS_REMOTE))
-            return "";
-
 
         if (id.equals(id.PREFER_REMOTE_RENDERER_TRACKS))
-            return Integer.toString(USE_RENDERER_TRACKS_FIRST);
-            // return Integer.toString(USE_RENDERER_TRACKS_WHEN_AVAILABLE);
-
-        // If we had a playlist, and were interrupted by an external track
-        // and that track ends, if we don't receive anything from a remote,
-        // restart our playlist.
+            return how_external_playlist.First.toString();
 
         if (id.equals(id.RESUME_PLAYLIST_AFTER_REMOTE_TRACK_SECONDS))
-            return "6";
+            return "7";
 
         return "";
     }

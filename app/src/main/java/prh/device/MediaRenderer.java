@@ -297,8 +297,7 @@ public class MediaRenderer extends Device implements
             return;
         }
         boolean use_b = b;
-        if (Prefs.getInt(Prefs.id.PREFER_REMOTE_RENDERER_TRACKS) ==
-            Prefs.USE_RENDERER_TRACKS_NEVER)
+        if (Prefs.getHowExternalPlaylist() == Prefs.how_external_playlist.Never)
             use_b = false;
 
         if (use_external_playlist != b)
@@ -671,11 +670,15 @@ public class MediaRenderer extends Device implements
             }
             else if (last_remote_num_tracks != remote_num_tracks)
             {
-                int pref = Prefs.getInt(Prefs.id.PREFER_REMOTE_RENDERER_TRACKS);
                 int num_local = current_playlist.getNumTracks();
+
+                Prefs.how_external_playlist pref = Prefs.getHowExternalPlaylist();
+
                 boolean new_use_external =
-                    pref == Prefs.USE_RENDERER_TRACKS_FIRST ||
-                        (num_local == 0 && pref != Prefs.USE_RENDERER_TRACKS_NEVER);
+                    pref == Prefs.how_external_playlist.First ||
+                        (num_local == 0 &&
+                            pref != Prefs.how_external_playlist.Never);
+
                 if (use_external_playlist != new_use_external)
                 {
                     Utils.log(0,0,"setting use_external_playlist=" + new_use_external + " remote_num_tracks=" + remote_num_tracks + " num_local=" + num_local);

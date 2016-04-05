@@ -35,17 +35,17 @@ package prh.artisan;
 
 
 
+import android.app.Activity;
+import android.app.Fragment;
+import android.app.FragmentManager;
 import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentActivity;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentPagerAdapter;
-import android.support.v4.view.ViewPager;
 
+import android.support.v13.app.FragmentPagerAdapter;
+import android.support.v4.view.ViewPager;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.View;
@@ -80,7 +80,15 @@ import prh.utils.loopingRunnable;
 
 
 
-public class Artisan extends FragmentActivity implements
+/*
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentActivity;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.app.FragmentPagerAdapter;
+import android.support.v4.view.ViewPager;
+*/
+
+public class Artisan extends Activity implements
     View.OnClickListener,
     ArtisanEventHandler
 {
@@ -102,28 +110,13 @@ public class Artisan extends FragmentActivity implements
     private boolean is_full_screen = false;
     private boolean artisan_created = false;
 
-    private MainMenu main_menu = null;
-    private MainMenuToolbar main_toolbar = null;
-    public MainMenuToolbar getToolbar() { return main_toolbar; }
+    // Main Fragments
 
-    private ViewPager view_pager = null;
-    private pageChangeListener page_change_listener = null;
-    private WifiManager.WifiLock wifi_lock = null;
-    public ViewPager getViewPager() { return view_pager; };
-
-    // child (fragment) activities
-
-    private aPlaylistSource aPrefs    = new aPlaylistSource();
+    private prh.artisan.aPrefs aPrefs    = new aPrefs();
     private aRenderer aRenderer = new aRenderer();
     private aPlaylist aPlaylist = new aPlaylist();
     private aLibrary  aLibrary  = new aLibrary();
     private aExplorer aExplorer = new aExplorer();
-
-    // The volume control dialog (fragment activity)
-    // The volume control itself is owned by the renderer
-
-    private VolumeControl volume_control = null;
-    public VolumeControl getVolumeControl() { return volume_control; }
 
     // Lifetime Local Objects
 
@@ -169,9 +162,24 @@ public class Artisan extends FragmentActivity implements
         // if these are non-blank, we have to keep trying until the
         // SSDPSearch finishes to set the correct renderer ...
 
-    // private working variables
+    // Public Views
+
+    private MainMenu main_menu = null;
+    private MainMenuToolbar main_toolbar = null;
+    public MainMenuToolbar getToolbar() { return main_toolbar; }
+
+    private VolumeControl volume_control = null;
+    public VolumeControl getVolumeControl() { return volume_control; }
+
+    // Private Variables
 
     private int num_progress = 0;
+
+    private ViewPager view_pager = null;
+    private pageChangeListener page_change_listener = null;
+    // public ViewPager getViewPager() { return view_pager; };
+
+    private WifiManager.WifiLock wifi_lock = null;
 
 
     //--------------------------------------------------------
@@ -188,8 +196,8 @@ public class Artisan extends FragmentActivity implements
         Utils.static_init(this);
         Prefs.static_init(this);
 
-        // default_renderer_name = getDefaultDeviceName(
-        //     "RENDERER",Prefs.id.DEFAULT_RENDERER,Prefs.id.SELECTED_RENDERER);
+        default_renderer_name = getDefaultDeviceName(
+            "RENDERER",Prefs.id.DEFAULT_RENDERER,Prefs.id.SELECTED_RENDERER);
         default_library_name = getDefaultDeviceName(
             "LIBRARY",Prefs.id.DEFAULT_LIBRARY,Prefs.id.SELECTED_LIBRARY);
         default_playlist_source_name = getDefaultDeviceName(
@@ -232,7 +240,7 @@ public class Artisan extends FragmentActivity implements
         // create the main "activity" fragments
         // and the pager, listener, and adapter
 
-        aPrefs    = new aPlaylistSource();
+        aPrefs    = new aPrefs();
         aRenderer = new aRenderer();
         aPlaylist = new aPlaylist();
         aLibrary  = new aLibrary();
@@ -244,8 +252,8 @@ public class Artisan extends FragmentActivity implements
         aLibrary.setArtisan(this);
         aExplorer.setArtisan(this);
 
+        myPagerAdapter my_pager_adapter = new myPagerAdapter(getFragmentManager());
         page_change_listener = new pageChangeListener(this);
-        myPagerAdapter my_pager_adapter = new myPagerAdapter(getSupportFragmentManager());
         view_pager = (ViewPager) findViewById(R.id.artisan_content);
         view_pager.setAdapter(my_pager_adapter);
         view_pager.addOnPageChangeListener(page_change_listener);
@@ -330,9 +338,7 @@ public class Artisan extends FragmentActivity implements
         // view_pager.setCurrentItem() does not trigger
         // the onPageChange listener ...
 
-        view_pager.setCurrentItem(START_PAGE);
-        setPageSelected(START_PAGE);
-
+        setCurrentPage(START_PAGE);
 
         //-------------------------------------------
         // 4 = start servers
@@ -518,10 +524,12 @@ public class Artisan extends FragmentActivity implements
             volume_control.dismiss();
         volume_control = null;
 
+        /*
         if (view_pager != null)
             view_pager.removeOnPageChangeListener(page_change_listener);
         page_change_listener = null;
         view_pager = null;
+        */
 
         aPrefs     = null;
         aRenderer = null;
@@ -552,6 +560,14 @@ public class Artisan extends FragmentActivity implements
     // Paging
     //-------------------------------------------------------
 
+    public void setCurrentPage(int index)
+    {
+        view_pager.setCurrentItem(index);
+        //if (current_page == -1)
+         //   onPageSelected(index);
+    }
+
+
     public void setArtisanPageTitle(View page_title)
         // shall only be called by pages while they
         // are the current page
@@ -581,7 +597,6 @@ public class Artisan extends FragmentActivity implements
         }
     }
 
-
     public class pageChangeListener extends ViewPager.SimpleOnPageChangeListener
     {
         private Artisan artisan;
@@ -590,12 +605,12 @@ public class Artisan extends FragmentActivity implements
         @Override
         public void onPageSelected(int index)
         {
-            setPageSelected(index);
+            artisan.onPageSelected(index);
         }
     }
 
 
-    private void setPageSelected(int index)
+    private void onPageSelected(int index)
     {
         myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
         main_toolbar.initButtons();
@@ -689,6 +704,7 @@ public class Artisan extends FragmentActivity implements
         // or going out of view (!setit). Remove or
         // set the onBodyClicked() listener.
     {
+        /*
         if (current_page >= 0)
         {
             myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
@@ -698,6 +714,7 @@ public class Artisan extends FragmentActivity implements
                 fragment.getView().setOnClickListener( !setit ? null :
                     createBodyClickListener());
         }
+        */
     }
 
 
@@ -839,7 +856,7 @@ public class Artisan extends FragmentActivity implements
         String default_name = Prefs.getString(pref_id);
         if (default_name.equals(Prefs.LAST_SELECTED))
             default_name = Prefs.getString(selected_id);
-        if (default_name.startsWith("Local"))
+        if (default_name.equals(Prefs.LOCAL))
             default_name = "";
         if (!default_name.isEmpty())
             Utils.log(dbg_main,0,"DEFAULT_" + what + "(" + default_name +")");
@@ -1061,6 +1078,7 @@ public class Artisan extends FragmentActivity implements
                 break;
 
             case R.id.command_context :
+                /*
                 myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
                 ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
 
@@ -1072,6 +1090,7 @@ public class Artisan extends FragmentActivity implements
                 for (int res_id:res_ids)
                     menu.add(0,res_id,0,res_id);
                 context_menu.show();
+                */
                 break;
 
             case R.id.command_playlist_albums :

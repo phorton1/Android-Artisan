@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:title = "Main Preferences">
+
+    <PreferenceCategory
+        android:title="Default Devices">
+
+        <prh.utils.prefListWithValue
+            android:key="DEFAULT_RENDERER"
+            android:entries="@array/pref_default_device"
+            android:entryValues="@array/pref_default_device_values"
+            android:title="Default Renderer" />
+        <prh.utils.prefListWithValue
+            android:key="DEFAULT_LIBRARY"
+            android:entries="@array/pref_default_device"
+            android:entryValues="@array/pref_default_device_values"
+            android:title="Default Library" />
+        <prh.utils.prefListWithValue
+            android:key="DEFAULT_PLAYLIST_SOURCE"
+            android:entries="@array/pref_default_device"
+            android:entryValues="@array/pref_default_device_values"
+            android:title="Default Playlist Source" />
+
+    </PreferenceCategory>
+
+
+    <PreferenceCategory
+        android:title="Local Devices">
+
+        <prh.utils.prefCheckBox
+            android:key="START_LOCAL_LIBRARY"
+            android:title="Local Library" />
+        <prh.utils.prefCheckBox
+            android:key="START_LOCAL_RENDERER"
+            android:title="Local Renderer" />
+        <prh.utils.prefCheckBox
+            android:key="START_VOLUME_FIXER"
+            android:title="Car Stereo Volume Fixer"
+            android:summary="On the Car Stereo this option synchronizes the MTC Volume with the Android Volume" />
+
+    </PreferenceCategory>
+
+
+    <PreferenceCategory
+        android:title="Visibility">
+
+        <prh.utils.prefCheckBox
+            android:key="START_HTTP_MEDIA_SERVER"
+            android:title="Advertise Local Library" />
+        <prh.utils.prefCheckBox
+            android:key="START_HTTP_MEDIA_RENDERER"
+            android:title="Advertise Local Renderer" />
+        <prh.utils.prefCheckBox
+            android:key="START_HTTP_OPEN_HOME_SERVER"
+            android:title="Advertise Open Home Renderer" />
+
+    </PreferenceCategory>
+
+
+    <PreferenceCategory
+        android:title="Configuration">
+
+        <prh.utils.prefTextWithValue
+            android:key="DEVICE_NAME"
+            android:title="Device Name"
+            android:summary="The name of this device that we will show on the network."
+            android:dialogTitle="Set the Device Name" />
+        <prh.utils.prefTextWithValue
+            android:key="DEVICE_ROOM"
+            android:title="Device Room"
+            android:summary="Only used for Open Home Server"
+            android:dialogTitle="Set the Device Room" />
+        <prh.utils.prefTextWithValue
+            android:key="MP3S_DIR"
+            android:title="Local Database Path"
+            android:summary="MP3S_DIR"
+            android:dialogTitle="mp3s_dir" />
+        <prh.utils.prefTextWithValue
+            android:key="DATA_DIR"
+            android:title="Local Data Path"
+            android:summary="DATA_DIR"
+            android:dialogTitle="data_dir" />
+
+    </PreferenceCategory>
+
+
+    <PreferenceCategory
+        android:title="Miscellaneous">
+
+        <prh.utils.prefCheckBox
+            android:key="START_ON_BOOT"
+            android:title="Start on Boot"/>
+
+        <prh.utils.prefCheckBox
+            android:key="KEEP_WIFI_ALIVE"
+            android:title="Keep Wifi Alive while running" />
+
+        <prh.utils.prefListWithValue
+            android:key="PREFER_REMOTE_RENDERER_TRACKS"
+            android:title="Prefer Remote Renderer Tracks"
+            android:summary="Allows you to control the implicit external playlist when a remote renderer reports a NumberOfTracks greater than one"
+            android:entries="@array/pref_how_external_playlist"
+            android:entryValues="@array/pref_how_external_playlist_values"
+            android:dialogTitle="Prefer Remote Renderer Tracks" />
+
+        <prh.utils.prefTextWithValue
+            android:key="RESUME_PLAYLIST_AFTER_REMOTE_TRACK_SECONDS"
+            android:title="Resume Local Playlist"
+            android:summary="When a remote device asks us to play a track, we stop playing our internal local playlist. This setting allows you to restart any playlist that was in progress if there are no further requests, after a given number of seconds, from the remote device, after the current track stops."
+            android:dialogTitle="Resume Playlist Seconds" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

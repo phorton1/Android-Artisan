@@ -2,59 +2,88 @@
 
     <string name="app_name">Artisan</string>
 
-    <!-- Playlist File commands -->
+    <!-- CONTEXT MENU STRINGS -->
 
-    <string name="context_menu_reload">Reload</string>
+        <!-- Playlist File commands -->
 
-    <!-- Playlist File level commands
+        <string name="context_menu_reload">Reload</string>
 
-    The context menu commands are primarily for the Playlist,
-    or for moving things to the playlist from the Library.
+        <!-- Playlist File level commands
 
-    However, some of these *could* be available on the Library,
-    in the future.  At that time, more explicit names will be
-    needed for the destination when in the Library i.e. there
-    might need to be a context_menu_add_playlist command.
+        The context menu commands are primarily for the Playlist,
+        or for moving things to the playlist from the Library.
 
-    -->
+        However, some of these *could* be available on the Library,
+        in the future.  At that time, more explicit names will be
+        needed for the destination when in the Library i.e. there
+        might need to be a context_menu_add_playlist command.
 
-    <string name="context_menu_new"         >New</string>
-    <string name="context_menu_save"        >Save</string>
-    <string name="context_menu_saveas"      >SaveAs</string>
-    <string name="context_menu_rename"      >Rename</string>
-    <string name="context_menu_delete"      >Delete</string>
+        -->
 
-    <!-- Generic File level commands -->
-    <!-- these commands could have sense in the Library -->
+        <string name="context_menu_new"         >New</string>
+        <string name="context_menu_save"        >Save</string>
+        <string name="context_menu_saveas"      >SaveAs</string>
+        <string name="context_menu_rename"      >Rename</string>
+        <string name="context_menu_delete"      >Delete</string>
 
-    <string name="context_menu_sort"        >Sort</string>
+        <!-- Generic File level commands -->
+        <!-- these commands could have sense in the Library -->
 
-    <!-- Selected Item Commmands -->
-    <!-- these commands could have sense in the Library -->
-    <!-- paste implies delete before insert which is dangerous -->
+        <string name="context_menu_sort"        >Sort</string>
 
-    <string name="context_menu_cut"         >Cut</string>
-    <string name="context_menu_copy"        >Copy</string>
-    <string name="context_menu_unused_paste">Paste</string>
-    <string name="context_menu_add"         >Add</string>
-    <string name="context_menu_insert_top"  >InsertTop</string>
-    <string name="context_menu_insert_next" >Insert</string>
-    <string name="context_menu_insert_sel"  >InsertSel</string>
-    <string name="context_menu_undo1"       >Undo</string>
-    <string name="context_menu_redo1"       >Redo</string>
+        <!-- Selected Item Commmands -->
+        <!-- these commands could have sense in the Library -->
+        <!-- paste implies delete before insert which is dangerous -->
 
-    <string name="context_edit_metadata"    >Paste</string>
+        <string name="context_menu_cut"         >Cut</string>
+        <string name="context_menu_copy"        >Copy</string>
+        <string name="context_menu_unused_paste">Paste</string>
+        <string name="context_menu_add"         >Add</string>
+        <string name="context_menu_insert_top"  >InsertTop</string>
+        <string name="context_menu_insert_next" >Insert</string>
+        <string name="context_menu_insert_sel"  >InsertSel</string>
+        <string name="context_menu_undo1"       >Undo</string>
+        <string name="context_menu_redo1"       >Redo</string>
 
-    <!-- these would seem to have no sense in the Library -->
+        <string name="context_edit_metadata"    >Paste</string>
 
-    <string name="context_menu_move"        >Move</string>
-    <string name="context_menu_shuffle"     >Shuffle</string>
-    <string name="context_menu_edit_header" >Edit ...</string>
+        <!-- these would seem to have no sense in the Library -->
 
-    <!-- possibles -->
+        <string name="context_menu_move"        >Move</string>
+        <string name="context_menu_shuffle"     >Shuffle</string>
+        <string name="context_menu_edit_header" >Edit ...</string>
 
-    <string name="context_menu_download" >Download</string>
-    <string name="context_menu_add_to_saved_playlist">AddToSavedPlaylist</string>
-        <!-- along with insert_top_saved_playlist, insert_next_saved_playlist -->
+        <!-- possibles -->
+
+        <string name="context_menu_download" >Download</string>
+        <string name="context_menu_add_to_saved_playlist">AddToSavedPlaylist</string>
+            <!-- along with insert_top_saved_playlist, insert_next_saved_playlist -->
+
+
+    <!-- PREFERENCES STRINGS -->
+
+    <string-array name="pref_default_device">
+        <item>Local</item>
+        <item>Last Selected</item>
+        <item>Current Device</item>
+    </string-array>
+
+    <string-array name="pref_default_device_values">
+        <item>Local</item>
+        <item>Last Selected</item>
+        <item id="@+id/pref_default_device_current">Current</item>
+    </string-array>
+
+
+    <string-array name="pref_how_external_playlist">
+        <item>Never</item>
+        <item>When Available</item>
+        <item>First</item>
+    </string-array>
+    <string-array name="pref_how_external_playlist_values">
+        <item>USE_RENDERER_TRACKS_NEVER</item>
+        <item>USE_RENDERER_TRACKS_WHEN_AVAILABLE</item>
+        <item>USE_RENDERER_TRACKS_FIRST</item>
+    </string-array>
 
 </resources>
