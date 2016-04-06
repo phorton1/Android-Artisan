@@ -81,9 +81,9 @@
         <item>First</item>
     </string-array>
     <string-array name="pref_how_external_playlist_values">
-        <item>USE_RENDERER_TRACKS_NEVER</item>
-        <item>USE_RENDERER_TRACKS_WHEN_AVAILABLE</item>
-        <item>USE_RENDERER_TRACKS_FIRST</item>
+        <item>Never</item>
+        <item>WhenAvailable</item>
+        <item>First</item>
     </string-array>
 
 </resources>

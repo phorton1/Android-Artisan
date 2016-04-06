@@ -11,10 +11,9 @@
         the title_bar and a content area
     -->
 
-    <LinearLayout
+    <RelativeLayout
         android:id="@+id/artisan_main_layout"
         xmlns:android="http://schemas.android.com/apk/res/android"
-        android:orientation="vertical"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent">
 
@@ -109,7 +108,7 @@
 
             </prh.artisan.MainMenuToolbar>
 
-            <!-- Buttons that are alway visible -->
+            <!-- Buttons that are always visible -->
 
             <LinearLayout
                 android:id="@+id/artisan_main_buttons"
@@ -125,6 +124,7 @@
                     android:layout_height="wrap_content"/>
 
             </LinearLayout>
+
 
             <!-- Finally, the Title Bar MIDDLE "Text Area" -->
 
@@ -142,9 +142,11 @@
         </RelativeLayout>   <!-- end the menu bar -->
 
 
+
         <!-- THE CONTENT -->
 
         <RelativeLayout
+            android:layout_below="@id/artisan_title_bar"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
@@ -157,18 +159,58 @@
 
             <!-- The drop-down Main Menu -->
 
-            <prh.artisan.MainMenu
-                xmlns:android="http://schemas.android.com/apk/res/android"
-                xmlns:prh="http://schemas.android.com/apk/res-auto"
-                android:visibility="gone"
-                android:id="@+id/artisan_main_menu"
-                android:background="@color/MainMenuColor"
-                android:divider="@color/MainMenuDividerColor"
-                android:dividerHeight="2dip"
-                android:padding="@dimen/MainMenuPadding"
-                android:layout_width="380dip"
-                android:layout_height="wrap_content"/>
-
         </RelativeLayout>
-    </LinearLayout>
+
+
+        <!-- MAIN MENU AND OVERLAY -->
+        <!-- the overlay has a title bar too, which has to have a height less than it will be set to (38) -->
+
+        <View
+            android:id="@+id/menu_overlay_title_bar"
+            android:alpha="0"
+            android:visibility="gone"
+            android:background="#000000"
+            android:layout_width="fill_parent"
+            android:layout_height="9dip">
+        </View>
+
+        <View
+            android:id="@+id/menu_overlay"
+            android:layout_below="@id/artisan_title_bar"
+            android:visibility="gone"
+            android:alpha="0.6"
+            android:background="#000000"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent">
+        </View>
+
+        <!-- i like the full screeen mode to look like its there -->
+
+        <View
+            android:id="@+id/full_screen_overlay"
+            android:layout_below="@id/artisan_title_bar"
+            android:visibility="gone"
+            android:alpha="0.0"
+            android:background="#000000"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent">
+        </View>
+
+        <!-- the main menu -->
+
+        <prh.artisan.MainMenu
+            android:layout_below="@id/artisan_title_bar"
+            xmlns:android="http://schemas.android.com/apk/res/android"
+            xmlns:prh="http://schemas.android.com/apk/res-auto"
+            android:visibility="gone"
+            android:id="@+id/artisan_main_menu"
+            android:background="@color/MainMenuColor"
+            android:divider="@color/MainMenuDividerColor"
+            android:dividerHeight="2dip"
+            android:padding="@dimen/MainMenuPadding"
+            android:layout_width="380dip"
+            android:layout_height="wrap_content"/>
+
+
+    </RelativeLayout>
 </FrameLayout>

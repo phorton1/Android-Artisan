@@ -359,8 +359,8 @@ public class ListItem extends RelativeLayout implements
         // All highest click handlers should call back to Artisan
         // onBodyClicked() and eat the click if it returns true.
 
-        if (artisan.onBodyClicked())
-            return;
+        // if (artisan.onBodyClicked())
+        //     return;
 
         // Popup the list_item context menu
 
@@ -400,8 +400,8 @@ public class ListItem extends RelativeLayout implements
     @Override public boolean onLongClick(View v)
         // Handles multiple selection
     {
-        if (artisan.onBodyClicked())
-            return true;
+        //if (artisan.onBodyClicked())
+        //    return true;
 
         if (v.getId() == R.id.list_item_layout)
         {

@@ -60,8 +60,8 @@ public class MainMenuButton extends ImageView implements
     @Override public boolean onTouch(View v, MotionEvent event)
         // highlight the button when pressed
     {
-        if (artisan.onBodyClicked())
-            return true;
+        //if (artisan.onBodyClicked())
+        //    return true;
 
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN: {

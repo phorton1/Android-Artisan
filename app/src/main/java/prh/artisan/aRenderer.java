@@ -250,8 +250,8 @@ public class aRenderer extends Fragment implements
         // Control click handlers call back to Artisan
         // onBodyClicked() and eat the click if it returns true.
 
-        if (artisan.onBodyClicked())
-            return;
+        //if (artisan.onBodyClicked())
+        //    return;
 
         // Can't do anything if there's no renderer
 

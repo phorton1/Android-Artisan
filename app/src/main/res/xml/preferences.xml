@@ -73,13 +73,13 @@
             android:dialogTitle="Set the Device Room" />
         <prh.utils.prefTextWithValue
             android:key="MP3S_DIR"
-            android:title="Local Database Path"
-            android:summary="MP3S_DIR"
+            android:title="Local Library Path"
+            android:summary="MP3S_DIR root directory of the served tree of MP3 files"
             android:dialogTitle="mp3s_dir" />
         <prh.utils.prefTextWithValue
             android:key="DATA_DIR"
             android:title="Local Data Path"
-            android:summary="DATA_DIR"
+            android:summary="DATA_DIR location of database, playlists, etc"
             android:dialogTitle="data_dir" />
 
     </PreferenceCategory>

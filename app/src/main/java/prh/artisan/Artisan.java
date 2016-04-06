@@ -48,10 +48,12 @@ import android.support.v13.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.view.KeyEvent;
 import android.view.Menu;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.AbsoluteLayout;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
@@ -524,12 +526,10 @@ public class Artisan extends Activity implements
             volume_control.dismiss();
         volume_control = null;
 
-        /*
         if (view_pager != null)
             view_pager.removeOnPageChangeListener(page_change_listener);
         page_change_listener = null;
         view_pager = null;
-        */
 
         aPrefs     = null;
         aRenderer = null;
@@ -617,7 +617,6 @@ public class Artisan extends Activity implements
 
         // unselect the old page
 
-        setBodyClickListener(false);
         if (current_page >= 0)
         {
             ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
@@ -627,7 +626,6 @@ public class Artisan extends Activity implements
         // select the new page
 
         current_page = index;
-        setBodyClickListener(true);
         ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
         page.onSetPageCurrent(true);
     }
@@ -637,45 +635,26 @@ public class Artisan extends Activity implements
     //-------------------------------------------------------
     // FullScreen Behavior
     //-------------------------------------------------------
-    // Our title bar gets a regular onClick() handler.
-    //
-    // All page fragments get a generic onBodyClicked() handler.
-    // The click handlers have to be set on the paged activities
-    // each time the come into view, and removed when they go out
-    // of view, presumably because the View Pager removes
-    // onClickHandlers when changing pages.
-    //
-    // Additionally, most fragment and other onClick() handlers
-    // should call back to onBodyClicked().
-    //
-    // To begin with, we are full screen, our title bar shows at 0,0;
-    //
-    // When our title bar is clicked we stop being full screen,
-    // disappear the title bar, and let the Android status bar show.
-    //
-    // When they click on the body of a fragment, or a properly
-    // implemented control, it calls back to onBodyClicked(), which
-    // changes us back to full screen, and shows our title bar.
-    //
-    // The onBodyClicked() handler also hides the main menu,
-    // and returns TRUE if it did either, so that the event
-    // can be eaten by the particular onClick() handler
 
 
     private void initTitleBarHeight()
         // The whole scheme hinges on having our title bar
         // exactly replace the status bar.  This code sets
         // our title bar's height to that of the Android
-        // system StatusBar
+        // system StatusBar (38 on emulator)
     {
+        int use_height = 60;
         View title_bar = findViewById(R.id.artisan_title_bar);
         ViewGroup.LayoutParams params = title_bar.getLayoutParams();
         int id = getResources().getIdentifier("status_bar_height","dimen","android");
         if (id > 0)
-            params.height = getResources().getDimensionPixelSize(id);
-        else
-            params.height = 60; // bogus fallback
+            use_height = getResources().getDimensionPixelSize(id);
+        params.height = use_height;
         title_bar.setLayoutParams(params);
+
+        View v = findViewById(R.id.menu_overlay_title_bar);
+        v.getLayoutParams().height = use_height;
+        v.setLayoutParams(v.getLayoutParams());
     }
 
 
@@ -696,56 +675,19 @@ public class Artisan extends Activity implements
         View title_bar = findViewById(R.id.artisan_title_bar);
         title_bar.setVisibility(full ? View.VISIBLE : View.GONE );
         is_full_screen = full;
-    }
 
-
-    private void setBodyClickListener(boolean setit)
-        // The current_page is coming into view (setit),
-        // or going out of view (!setit). Remove or
-        // set the onBodyClicked() listener.
-    {
-        if (current_page >= 0)
-        {
-            myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
-            Fragment fragment = adapter.getItem(current_page);
-            View view = fragment.getView();
-            if (view != null)
-                fragment.getView().setOnClickListener( !setit ? null :
-                    createBodyClickListener());
-        }
-    }
-
-
-    private View.OnClickListener createBodyClickListener()
-        // Return a new instance of a fullPageClickListener,
-    {
-        View.OnClickListener show_listener = new View.OnClickListener()
-        {
-            public void onClick(View view)
-            {
-                onBodyClicked();
-            }
-        };
-        return show_listener;
-    }
-
-
-    public boolean onBodyClicked()
-        // Hide the main menu if it's showing, and/or
-        // switch back to full screen mode if we're not.
-        // Return true in either case so clients can skip
-        // the event.
-        //
-        // called liberally throughout the code by controls
-        // within pages (that don't call have a onBodyClickListener()
-    {
-        boolean retval = hideMainMenu();
         if (!is_full_screen)
         {
-            retval = true;
-            showFullScreen(true);
+            View overlay = findViewById(R.id.full_screen_overlay);
+            overlay.setVisibility(View.VISIBLE);
+            overlay.setOnClickListener(this);
         }
-        return retval;
+        else
+        {
+            View overlay = findViewById(R.id.full_screen_overlay);
+            overlay.setVisibility(View.GONE);
+            overlay.setOnClickListener(null);
+        }
     }
 
 
@@ -1012,19 +954,26 @@ public class Artisan extends Activity implements
 
 
     //----------------------------------------------------
-    // onClick
+    // Main Menu
     //----------------------------------------------------
-    // Handles MainMenu and MainToolBars
 
-    private boolean hideMainMenu()
+    public boolean hideMainMenu()
     {
         boolean retval = false;
+        View overlay1 = findViewById(R.id.menu_overlay_title_bar);
+        overlay1.setVisibility(View.GONE);
+        overlay1.setOnClickListener(null);
+
+        View overlay2 = findViewById(R.id.menu_overlay);
+        overlay2.setVisibility(View.GONE);
+        overlay2.setOnClickListener(null);
+
         if (main_menu.getAlpha() != 0F)
         {
             main_menu.animate()
                 .translationX(-main_menu.getWidth())
                 .alpha(0.0f);
-            findViewById(R.id.artisan_content).setAlpha(1.0F);
+            //findViewById(R.id.artisan_content).setAlpha(1.0F);
             retval = true;
         }
         return retval;
@@ -1032,11 +981,19 @@ public class Artisan extends Activity implements
 
     private void showMainMenu()
     {
+        View overlay1 = findViewById(R.id.menu_overlay_title_bar);
+        overlay1.setVisibility(View.VISIBLE);
+        overlay1.setOnClickListener(this);
+
+        View overlay2 = findViewById(R.id.menu_overlay);
+        overlay2.setVisibility(View.VISIBLE);
+        overlay2.setOnClickListener(this);
+
         // first time
         if (main_menu.getVisibility() == View.GONE)
             main_menu.setVisibility(View.VISIBLE);
 
-        findViewById(R.id.artisan_content).setAlpha(0.4F);
+        // findViewById(R.id.artisan_content).setAlpha(0.4F);
         main_menu.init();
         main_menu.animate()
             .translationX(0)
@@ -1044,19 +1001,31 @@ public class Artisan extends Activity implements
     }
 
 
+    //----------------------------------------------------
+    // onClick
+    //----------------------------------------------------
+    // Handles MainMenu and MainToolBars
+
     public void onClick(View v)
     {
         int id = v.getId();
         switch (id)
         {
+            case R.id.full_screen_overlay:
+                showFullScreen(true);
+                break;
+
+            case R.id.menu_overlay:
+            case R.id.menu_overlay_title_bar:
+                hideMainMenu();
+                break;
+
             case R.id.artisan_title_bar:
-                if (!onBodyClicked())
-                    showFullScreen(false);
+                showFullScreen(false);
                 break;
 
             case R.id.artisan_title_bar_icon:
-                if (!onBodyClicked())
-                    showMainMenu();
+                showMainMenu();
                 break;
 
 
@@ -1076,10 +1045,9 @@ public class Artisan extends Activity implements
                 break;
 
             case R.id.command_context :
-                /*
+
                 myPagerAdapter adapter = (myPagerAdapter) view_pager.getAdapter();
                 ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
-
                 PopupMenu context_menu = new PopupMenu(this,v);
                 context_menu.setOnMenuItemClickListener(page);
 
@@ -1088,7 +1056,6 @@ public class Artisan extends Activity implements
                 for (int res_id:res_ids)
                     menu.add(0,res_id,0,res_id);
                 context_menu.show();
-                */
                 break;
 
             case R.id.command_playlist_albums :

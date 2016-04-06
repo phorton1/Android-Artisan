@@ -212,7 +212,7 @@ public class SelectDevice extends RelativeLayout implements
 
             if (b && goto_page != -1)
             {
-                artisan.onBodyClicked();
+                artisan.hideMainMenu();
                 artisan.setCurrentPage(goto_page);
             }
         }
