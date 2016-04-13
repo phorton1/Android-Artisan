@@ -34,11 +34,13 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 
 import prh.base.ArtisanEventHandler;
 import prh.base.ArtisanPage;
+import prh.base.EditablePlaylist;
 import prh.base.Library;
 import prh.types.intList;
 import prh.types.recordList;
@@ -570,6 +572,7 @@ public class aLibrary extends Fragment implements
         switch (id)
         {
             case R.id.list_item_layout:
+            {
                 ListItem list_item = (ListItem) v;
 
                 // one or the other ...
@@ -583,8 +586,47 @@ public class aLibrary extends Fragment implements
                     artisan.handleArtisanEvent(COMMAND_EVENT_PLAY_TRACK,track);
 
                 break;
+            }
+            case R.id.list_item_right:
+            case R.id.list_item_right_text:
+            {
+                String msg = "ListItem ContextMenu ";
+                View item = (View) v.getParent();
+                if (id == R.id.list_item_right_text)
+                    item = (View) item.getParent();
+                ListItem list_item = (ListItem) item;
+
+                // if there is no current selection, the current item
+                //    is implicitly selected for the command.
+                // if the item is outside of a current selection, the
+                //    context button goes directly to "Info", the only
+                //    thing allowed for a non-selected item
+                // if the item is inside of the current selection, the
+                //    context menu is basically the same as the system
+                //    context menu (i.e. it acts on the group of selected
+                //    items), with an additional "Info" command that pertains
+                //    only to the current item.
+
+                // For testing purposes, if the item is a track, and is
+                // selected, it will get add
+                if (list_item.getFolder() != null)
+                {
+                    msg += "Folder:" + list_item.getFolder().getTitle();
+                    Toast.makeText(artisan,msg,Toast.LENGTH_LONG).show();
+                }
+                else
+                {
+                    Track track = list_item.getTrack();
+                    EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
+                    Utils.log(0,0,"Inserting Track(" + track.getTitle() + " into playlist");
+                    current_playlist.insertTrack(current_playlist.getNumTracks() + 1,track);
+                }
+                break;
         }
+        }
+
     }
+
 
 
     @Override public boolean onLongClick(View v)

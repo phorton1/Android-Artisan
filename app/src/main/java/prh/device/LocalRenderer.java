@@ -23,9 +23,14 @@ package prh.device;
 
 
 import android.media.AudioManager;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
+import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.widget.Toast;
+
+import java.nio.ByteBuffer;
 
 import prh.artisan.Artisan;
 import prh.artisan.Prefs;
@@ -406,7 +411,6 @@ public class LocalRenderer extends Device implements
             Utils.error("Renderer::play() " + e);
         }
     }
-
 
 
     //-----------------------------------------------

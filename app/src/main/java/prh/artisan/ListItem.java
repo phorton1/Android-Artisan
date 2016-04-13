@@ -19,8 +19,16 @@ package prh.artisan;
 // in the playlist.
 //
 // Usage: inflate, setFolder or Track, maybe setLargeView(),
-// and then call doLayout() before handing off to adapter
-
+// and then call doLayout() before handing off to adapter.
+//
+// This class intercepts onLongClicks to handle the basics of
+// selected item highlighting, and calling back to the the
+// listener's onSetSelected() method, before also calling the
+// listener's onLongClick method.
+//
+// Otherwise, all onClicks
+// Caller (aLibrary or aPlaylist) must handle context menu
+// onClick ids R.id.list_item_right, and R.id.list_item_right_text
 
 import android.content.Context;
 import android.graphics.Color;
@@ -38,7 +46,7 @@ import prh.utils.imageLoader;
 
 
 public class ListItem extends RelativeLayout implements
-    View.OnClickListener,
+    //View.OnClickListener,
     View.OnLongClickListener
 {
     // types
@@ -150,7 +158,7 @@ public class ListItem extends RelativeLayout implements
         // set the main item click listener
 
         this.listener = listener;
-        setOnClickListener(this);
+        setOnClickListener(listener);
         setOnLongClickListener(this);
 
         // get sub views
@@ -229,8 +237,8 @@ public class ListItem extends RelativeLayout implements
                 n > 0 ? "(" + n + ")" : "";
 
             item_right.setVisibility(View.VISIBLE);
-            item_right.setOnClickListener(this);
-            item_right_text.setOnClickListener(this);
+            item_right.setOnClickListener(listener);
+            item_right_text.setOnClickListener(listener);
             Utils.setViewSize(artisan,item_right,container_height,null);
             item_right_text.setText(num);
         }
@@ -350,17 +358,12 @@ public class ListItem extends RelativeLayout implements
     // onClick()
     //--------------------------------------------------------------
 
+    /*
     @Override public void onClick(View v)
         // Handles context menu and artisan general behavior.
         // Passes unhandled events to underlying page.
     {
         int id = v.getId();
-
-        // All highest click handlers should call back to Artisan
-        // onBodyClicked() and eat the click if it returns true.
-
-        // if (artisan.onBodyClicked())
-        //     return;
 
         // Popup the list_item context menu
 
@@ -376,6 +379,19 @@ public class ListItem extends RelativeLayout implements
                     item = (View) item.getParent();
                 list_item = (ListItem) item;
 
+                // if there is no current selection, the current item
+                //    is implicitly selected for the command.
+                // if the item is outside of a current selection, the
+                //    context button goes directly to "Info", the only
+                //    thing allowed for a non-selected item
+                // if the item is inside of the current selection, the
+                //    context menu is basically the same as the system
+                //    context menu (i.e. it acts on the group of selected
+                //    items), with an additional "Info" command that pertains
+                //    only to the current item.
+
+                // For testing purposes, if the item is a track, and is
+                // selected, it will get add
                 if (list_item.getFolder() != null)
                 {
                     msg += "Folder:" + list_item.getFolder().getTitle();
@@ -395,6 +411,7 @@ public class ListItem extends RelativeLayout implements
 
         listener.onClick(v);
     }
+    */
 
 
     @Override public boolean onLongClick(View v)
