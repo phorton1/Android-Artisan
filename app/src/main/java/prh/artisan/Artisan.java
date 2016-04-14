@@ -443,12 +443,14 @@ public class Artisan extends Activity implements
         }
 
         // Test MediaInfo
+        /*
+            String test_filename = "file://" + Prefs.mp3s_dir() + "/albums/Blues/New/Blues By Nature - Blue To The Bone/01 - Cadillac Blues.mp3";
+            MediaInfo info = new MediaInfo(this);
+            info.testMetaData(test_filename);
+            info.testStreamSum(test_filename);
+        */
 
-        String test_filename = "file://" + Prefs.mp3s_dir() + "/albums/Blues/New/Blues By Nature - Blue To The Bone/01 - Cadillac Blues.mp3";
-        MediaInfo info = new MediaInfo(this);
-        info.testMetaData(test_filename);
-        info.testStreamSum(test_filename);
-
+        MediaInfo.showCodecs();
 
         Utils.log(dbg_main-1,0,"------ Artisan.onCreate() finished ------");
         artisan_created = true;

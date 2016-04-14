@@ -360,8 +360,8 @@ public class Track extends Record
         String mime_type = "";
         if (type.equalsIgnoreCase("mp3")) mime_type = "audio/mpeg";
         if (type.equalsIgnoreCase("wma")) mime_type = "audio/x-ms-wma";
-        if (type.equalsIgnoreCase("wav")) mime_type = "audio/x-wav)";
-        if (type.equalsIgnoreCase("m4a")) mime_type = "audio/x-m4a)";
+        if (type.equalsIgnoreCase("wav")) mime_type = "audio/x-wav";
+        if (type.equalsIgnoreCase("m4a")) mime_type = "audio/x-m4a";
         return mime_type;
     }
 

@@ -279,7 +279,9 @@ public class Prefs
         if (id.equals(id.DEVICE_NAME))
         {
             String device_name = Build.DEVICE;
-            if (device_name.equals("vbox86tp")) device_name = "emulator";
+            if (device_name.equals("vbox86tp") ||
+                device_name.equals("vbox86p"))
+                device_name = "emulator";
             if (device_name.equals("polaris-p1")) device_name = "tablet1";
             if (device_name.equals("rk30sdk")) device_name = "car stereo";
             if (device_name.equals("android_4x_wet_kk")) device_name = "phone";

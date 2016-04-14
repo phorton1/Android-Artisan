@@ -241,7 +241,7 @@ public class Utils {
     {
         if (type.equalsIgnoreCase("MP3")) return true;
         if (type.equalsIgnoreCase("M4A")) return true;
-        if (type.equalsIgnoreCase("WMA") && ID_CAR_STEREO.equals(Build.ID)) return true;
+        if (type.equalsIgnoreCase("WMA")) return true;  // && ID_CAR_STEREO.equals(Build.ID)) return true;
         return false;
     }
 

@@ -587,6 +587,7 @@ public class aLibrary extends Fragment implements
 
                 break;
             }
+            /*
             case R.id.list_item_right:
             case R.id.list_item_right_text:
             {
@@ -622,9 +623,9 @@ public class aLibrary extends Fragment implements
                     current_playlist.insertTrack(current_playlist.getNumTracks() + 1,track);
                 }
                 break;
+            }
+        */
         }
-        }
-
     }
 
 

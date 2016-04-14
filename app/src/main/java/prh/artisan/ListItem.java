@@ -46,7 +46,7 @@ import prh.utils.imageLoader;
 
 
 public class ListItem extends RelativeLayout implements
-    //View.OnClickListener,
+    View.OnClickListener,
     View.OnLongClickListener
 {
     // types
@@ -158,7 +158,7 @@ public class ListItem extends RelativeLayout implements
         // set the main item click listener
 
         this.listener = listener;
-        setOnClickListener(listener);
+        setOnClickListener(this);
         setOnLongClickListener(this);
 
         // get sub views
@@ -237,8 +237,8 @@ public class ListItem extends RelativeLayout implements
                 n > 0 ? "(" + n + ")" : "";
 
             item_right.setVisibility(View.VISIBLE);
-            item_right.setOnClickListener(listener);
-            item_right_text.setOnClickListener(listener);
+            item_right.setOnClickListener(this);
+            item_right_text.setOnClickListener(this);
             Utils.setViewSize(artisan,item_right,container_height,null);
             item_right_text.setText(num);
         }
@@ -358,7 +358,7 @@ public class ListItem extends RelativeLayout implements
     // onClick()
     //--------------------------------------------------------------
 
-    /*
+
     @Override public void onClick(View v)
         // Handles context menu and artisan general behavior.
         // Passes unhandled events to underlying page.
@@ -379,6 +379,10 @@ public class ListItem extends RelativeLayout implements
                     item = (View) item.getParent();
                 list_item = (ListItem) item;
 
+                // show the Folder/Track metaData (info) in a dialogWindow
+
+
+
                 // if there is no current selection, the current item
                 //    is implicitly selected for the command.
                 // if the item is outside of a current selection, the
@@ -394,15 +398,23 @@ public class ListItem extends RelativeLayout implements
                 // selected, it will get add
                 if (list_item.getFolder() != null)
                 {
-                    msg += "Folder:" + list_item.getFolder().getTitle();
-                    Toast.makeText(artisan,msg,Toast.LENGTH_LONG).show();
+                    if (false)
+                    {
+                        msg += "Folder:" + list_item.getFolder().getTitle();
+                        Toast.makeText(artisan,msg,Toast.LENGTH_LONG).show();
+                    }
+                    MetaDialog.showFolder(artisan,list_item.getFolder());
                 }
                 else
                 {
-                    Track track = list_item.getTrack();
-                    EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
-                    Utils.log(0,0,"Inserting Track(" + track.getTitle() + " into playlist");
-                    current_playlist.insertTrack(current_playlist.getNumTracks()+1,track);
+                    if (false)
+                    {
+                        Track track = list_item.getTrack();
+                        EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
+                        Utils.log(0,0,"Inserting Track(" + track.getTitle() + " into playlist");
+                        current_playlist.insertTrack(current_playlist.getNumTracks() + 1,track);
+                    }
+                    MetaDialog.showTrack(artisan,list_item.getTrack());
                 }
                 break;
         }
@@ -411,7 +423,7 @@ public class ListItem extends RelativeLayout implements
 
         listener.onClick(v);
     }
-    */
+
 
 
     @Override public boolean onLongClick(View v)
