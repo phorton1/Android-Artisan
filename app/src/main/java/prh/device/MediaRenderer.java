@@ -215,9 +215,6 @@ public class MediaRenderer extends Device implements
         public void run()
         {
             getUpdateRendererState();
-            if (my_looper != null && my_looper.continue_loop())
-                artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_IDLE,null);
-                    // TODO this goes away in new EVENT_IDLE architecture
         }
     }
 
@@ -746,11 +743,6 @@ public class MediaRenderer extends Device implements
         VolumeControl volume_control = artisan.getVolumeControl();
         if (volume_control != null)
             volume_control.checkVolumeChangesForRenderer();
-
-        // dispatch an IDLE event on our timer, for Artisan
-
-        artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_IDLE,null);
-
 
         //--------------------------------------
         // finished

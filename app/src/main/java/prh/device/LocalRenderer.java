@@ -23,14 +23,9 @@ package prh.device;
 
 
 import android.media.AudioManager;
-import android.media.MediaExtractor;
-import android.media.MediaFormat;
-import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.widget.Toast;
-
-import java.nio.ByteBuffer;
 
 import prh.artisan.Artisan;
 import prh.artisan.Prefs;
@@ -592,10 +587,6 @@ public class LocalRenderer extends Device implements
             VolumeControl volume_control = artisan.getVolumeControl();
             if (volume_control != null)
                 volume_control.checkVolumeChangesForRenderer();
-
-            // Currently acts as the main idle loop for Artisan
-
-            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_IDLE,null);
 
         }   // updateState.run()
     }   // class updateState

@@ -48,12 +48,10 @@ import android.support.v13.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.view.KeyEvent;
 import android.view.Menu;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.AbsoluteLayout;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
@@ -96,12 +94,14 @@ public class Artisan extends Activity implements
 {
     private static int dbg_main = 0;
 
-    private static int NUM_PAGER_ACTIVITIES = 5;
+    private static int NUM_PAGER_ACTIVITIES = 7;
     public final static int PAGE_PREFS = 0;
-    public final static int PAGE_PLAYING = 2;
-    public final static int PAGE_PLAYLIST = 1;
-    public final static int PAGE_LIBRARY = 3;
-    public final static int PAGE_EXPLORER = 4;
+    public final static int PAGE_SYSTEM_MANAGER = 1;
+    public final static int PAGE_PLAYLIST_MANAGER = 2;
+    public final static int PAGE_PLAYING = 3;
+    public final static int PAGE_PLAYLIST = 4;
+    public final static int PAGE_LIBRARY = 5;
+    public final static int PAGE_EXPLORER = 6;
 
     public final static int START_PAGE = Build.ID.equals(Utils.ID_CAR_STEREO) ?
         PAGE_PLAYING : PAGE_PLAYING;
@@ -114,11 +114,13 @@ public class Artisan extends Activity implements
 
     // Main Fragments
 
-    private prh.artisan.aPrefs aPrefs    = new aPrefs();
-    private aRenderer aRenderer = new aRenderer();
-    private aPlaylist aPlaylist = new aPlaylist();
-    private aLibrary  aLibrary  = new aLibrary();
-    private aExplorer aExplorer = new aExplorer();
+    private prh.artisan.aPrefs aPrefs = null;
+    private aSystemManager aSystemManager = null;
+    private aPlaylistManager aPlaylistManager = null;
+    private aRenderer aRenderer = null;
+    private aPlaylist aPlaylist = null;
+    private aLibrary  aLibrary  = null;
+    private aExplorer aExplorer = null;
 
     // Lifetime Local Objects
 
@@ -247,12 +249,16 @@ public class Artisan extends Activity implements
         aPlaylist = new aPlaylist();
         aLibrary  = new aLibrary();
         aExplorer = new aExplorer();
+        aSystemManager = new aSystemManager();
+        aPlaylistManager = new aPlaylistManager();
 
         aPrefs.setArtisan(this);
         aRenderer.setArtisan(this);
         aPlaylist.setArtisan(this);
         aLibrary.setArtisan(this);
         aExplorer.setArtisan(this);
+        aSystemManager.setArtisan(this);
+        aPlaylistManager.setArtisan(this);
 
         myPagerAdapter my_pager_adapter = new myPagerAdapter(getFragmentManager());
         page_change_listener = new pageChangeListener(this);
@@ -602,6 +608,8 @@ public class Artisan extends Activity implements
                 case PAGE_PLAYLIST : return aPlaylist;
                 case PAGE_LIBRARY : return aLibrary;
                 case PAGE_EXPLORER : return aExplorer;
+                case PAGE_PLAYLIST_MANAGER : return aPlaylistManager;
+                case PAGE_SYSTEM_MANAGER : return aSystemManager;
             }
             return null;
         }
@@ -1016,6 +1024,17 @@ public class Artisan extends Activity implements
     //----------------------------------------------------
     // Handles MainMenu and MainToolBars
 
+    int pref_return_to_page = -1;
+    public void showPrefsPageModal()
+    {
+        if (current_page != PAGE_PREFS)
+        {
+            pref_return_to_page = current_page;
+            setCurrentPage(PAGE_PREFS);
+        }
+    }
+
+
     public void onClick(View v)
     {
         int id = v.getId();
@@ -1035,7 +1054,13 @@ public class Artisan extends Activity implements
                 break;
 
             case R.id.artisan_title_bar_icon:
-                showMainMenu();
+                if (pref_return_to_page != -1)
+                {
+                    setCurrentPage(pref_return_to_page);
+                    pref_return_to_page = -1;
+                }
+                else
+                    showMainMenu();
                 break;
 
 
@@ -1088,6 +1113,7 @@ public class Artisan extends Activity implements
         // do whatever is needed here
         if (current_page == 3)
             aLibrary.doBack();
+            aLibrary.doBack();
     }
 
 
@@ -1119,6 +1145,7 @@ public class Artisan extends Activity implements
         public void run()
         {
             defer_openhome_events = false;
+            handleArtisanEvent(ArtisanEventHandler.DISPATCH_UPNP,null);
         }
     }
 
@@ -1213,7 +1240,7 @@ public class Artisan extends Activity implements
     // THE MAIN EVENT HANDLER
     //---------------------------------------------------------------------
     // TODO Need to change whole architecture .. don't like loopers in devices
-    // Could use EVENT_IDLE (outside of UI thread) to get rid of other Timer Loops,
+    // Could use DISPATCH_UPNP (outside of UI thread) to get rid of other Timer Loops,
     // Call Renderer, LocalVolumeFixer, Volume etc to let them dispatch Artisan Events
     //
     // TODO Fix Volume Event Dispatching
@@ -1231,9 +1258,10 @@ public class Artisan extends Activity implements
         final String dbg_data = dbg_data2;
 
         int use_dbg = dbg_main+1;
-        if (event_id.equals(EVENT_IDLE) ||
+        if (// event_id.equals(DISPATCH_UPNP) ||
             event_id.equals(EVENT_POSITION_CHANGED))
             use_dbg++;
+
 
         Utils.log(use_dbg,0,"artisan.handleRendererEvent(" + event_id + ") " + dbg_data);
 
@@ -1260,7 +1288,7 @@ public class Artisan extends Activity implements
             public void run()
             {
                 int use_dbg = dbg_main;
-                if (event_id.equals(EVENT_IDLE) ||
+                if (// event_id.equals(DISPATCH_UPNP) ||
                     event_id.equals(EVENT_POSITION_CHANGED))
                     use_dbg++;
                 Utils.log(use_dbg,0,"----> " + event_id + "(" + dbg_data + ")");
@@ -1329,7 +1357,7 @@ public class Artisan extends Activity implements
                 // Note the selective dispatch to the volumeControl only
                 // if it's showing
 
-                if (!event_id.equals(EVENT_IDLE))
+                if (!event_id.equals(DISPATCH_UPNP))
                 {
                     if (main_menu != null &&
                         main_menu.getAlpha() != 0F &&
@@ -1358,7 +1386,7 @@ public class Artisan extends Activity implements
                         volume_control.handleArtisanEvent(event_id,data);
                     }
 
-                }   // Non-IDLE events
+                }   // Non-DISPATCH_UPNP events
 
 
                 //-----------------------------------------------------
@@ -1366,7 +1394,7 @@ public class Artisan extends Activity implements
                 //------------------------------------------------
                 // if there's an http_server it means there are UPnP
                 // Services ... we bump the use counts on the underlying
-                // objects, and dispatch the UPnP events on EVENT_IDLE ..
+                // objects, and dispatch the UPnP events on DISPATCH_UPNP ..
                 //
                 // This should NOT be done except if the LocalRenderer is active
 
@@ -1404,8 +1432,9 @@ public class Artisan extends Activity implements
                         event_manager.incUpdateCount("ContentDirectory");
                     }
 
-                    else if (!defer_openhome_events &&
-                        event_id.equals(EVENT_IDLE))
+                    // send the events
+
+                    if (!defer_openhome_events)
                         event_manager.send_events();
                 }
 

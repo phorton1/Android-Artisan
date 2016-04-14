@@ -166,6 +166,10 @@ public class MainMenu extends ListView implements
                     artisan.getDeviceManager().doDeviceSearch(
                         id == R.id.clear_devices ? true : false);
                 break;
+            case R.id.menu_settings:
+                artisan.showPrefsPageModal();
+                artisan.hideMainMenu();
+                break;
         }
     }   // onItemClick()
 

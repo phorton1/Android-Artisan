@@ -26,7 +26,7 @@ import prh.utils.Utils;
 // and the tempEditablePlaylist as seen by the rest of the system.
 
 // Unlike the other Renderers, the OpenHome device does not have
-// a looper, and does not call Artisan.handleArtisanEvent(EVENT_IDLE).
+// a looper, and does not call Artisan.handleArtisanEvent(DISPATCH_UPNP).
 // (which should really only be called by the LocalRenderer anyways).
 // It is entirely Event Driven, notifying the UI via explicit Artisan
 // Events whenever anything changes.
