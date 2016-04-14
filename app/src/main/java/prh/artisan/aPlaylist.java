@@ -311,12 +311,19 @@ public class aPlaylist extends Fragment implements
     // Scrolling and Selection
     //------------------------------------------------
 
+    @Override public ListItemAdapter getListItemAdapter()
+    {
+        return (ListItemAdapter) the_list.getAdapter();
+    }
+
+
+
     @Override public void setSelected(Record record, boolean selected)
     {
         this.selected.setSelected(record,selected);
     }
 
-    @Override public boolean getSelected(Record record)
+    @Override public boolean getSelected(boolean for_displa, Record record)
     {
         return selected.getSelected(record);
     }

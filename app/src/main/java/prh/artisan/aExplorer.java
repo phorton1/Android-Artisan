@@ -7,9 +7,12 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import prh.base.ArtisanPage;
+import prh.base.Library;
 import prh.types.intList;
 import prh.utils.Utils;
 
@@ -36,7 +39,18 @@ public class aExplorer extends Fragment implements ArtisanPage
     public View onCreateView(LayoutInflater inflater,ViewGroup container,Bundle savedInstanceState)
     {
         Utils.log(dbg_exp,0,"aExplorer.onCreateView() called");
-        return inflater.inflate(R.layout.activity_explorer, container, false);
+        ScrollView my_view = (ScrollView) inflater.inflate(R.layout.activity_explorer,container,false);
+        LinearLayout the_list = (LinearLayout) my_view.findViewById(R.id.explorer_list);
+
+        Library library = artisan.getLibrary();
+        if (library != null)
+        {
+            Folder root_folder = library.getRootFolder();
+            FolderTreeItem root_item = (FolderTreeItem) inflater.inflate(R.layout.folder_tree_item,null);
+            root_item.setRootFolder(root_folder);
+            the_list.addView(root_item);
+        }
+        return my_view;
     }
 
 

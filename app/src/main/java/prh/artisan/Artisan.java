@@ -98,8 +98,8 @@ public class Artisan extends Activity implements
     public final static int PAGE_PREFS = 0;
     public final static int PAGE_SYSTEM_MANAGER = 1;
     public final static int PAGE_PLAYLIST_MANAGER = 2;
-    public final static int PAGE_PLAYING = 3;
-    public final static int PAGE_PLAYLIST = 4;
+    public final static int PAGE_PLAYING = 4;
+    public final static int PAGE_PLAYLIST = 3;
     public final static int PAGE_LIBRARY = 5;
     public final static int PAGE_EXPLORER = 6;
 

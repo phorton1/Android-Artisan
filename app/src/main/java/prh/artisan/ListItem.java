@@ -55,8 +55,11 @@ public class ListItem extends RelativeLayout implements
         View.OnClickListener,
         View.OnLongClickListener
     {
+        public ListItemAdapter getListItemAdapter();
         public void setSelected(Record record, boolean selected);
-        public boolean getSelected(Record record);
+        public boolean getSelected(boolean for_display, Record record);
+            // albums may be totally selected for onLongClick,
+            // but not for onDisplay
     }
 
     // member variables
@@ -96,6 +99,11 @@ public class ListItem extends RelativeLayout implements
         // called AFTER setTrack/setFolder
     {
         large = true;
+    }
+
+    private boolean isLargeView()
+    {
+        return large;
     }
 
     public boolean setTrack(Track the_track)
@@ -156,7 +164,7 @@ public class ListItem extends RelativeLayout implements
         // cannot assume that the layout is fresh from the xml
     {
         // set the main item click listener
-
+        Utils.log(0,0,"doLayout(" + listener + ")" +  (track==null?"Folder("+folder.getTitle()+")":"Track(" + track.getTitle() + ")") );
         this.listener = listener;
         setOnClickListener(this);
         setOnLongClickListener(this);
@@ -176,7 +184,7 @@ public class ListItem extends RelativeLayout implements
         // set background color
 
         int color =
-            listener.getSelected(getRecord()) ? SELECTED_COLOR :
+            listener.getSelected(true,getRecord()) ? SELECTED_COLOR :
             large && !is_track ? 0xFF002222 : 0;
         setBackgroundColor(color);
 
@@ -381,28 +389,8 @@ public class ListItem extends RelativeLayout implements
 
                 // show the Folder/Track metaData (info) in a dialogWindow
 
-
-
-                // if there is no current selection, the current item
-                //    is implicitly selected for the command.
-                // if the item is outside of a current selection, the
-                //    context button goes directly to "Info", the only
-                //    thing allowed for a non-selected item
-                // if the item is inside of the current selection, the
-                //    context menu is basically the same as the system
-                //    context menu (i.e. it acts on the group of selected
-                //    items), with an additional "Info" command that pertains
-                //    only to the current item.
-
-                // For testing purposes, if the item is a track, and is
-                // selected, it will get add
                 if (list_item.getFolder() != null)
                 {
-                    if (false)
-                    {
-                        msg += "Folder:" + list_item.getFolder().getTitle();
-                        Toast.makeText(artisan,msg,Toast.LENGTH_LONG).show();
-                    }
                     MetaDialog.showFolder(artisan,list_item.getFolder());
                 }
                 else
@@ -428,20 +416,23 @@ public class ListItem extends RelativeLayout implements
 
     @Override public boolean onLongClick(View v)
         // Handles multiple selection
+        //
+        // Knows that clicking on a Large Folder view (album header)
+        // means that we are selecting the children tracks.
     {
-        //if (artisan.onBodyClicked())
-        //    return true;
-
         if (v.getId() == R.id.list_item_layout)
         {
             ListItem list_item = (ListItem) v;
             Record record = list_item.getRecord();
-            boolean selected = !listener.getSelected(record);
+            boolean selected = !listener.getSelected(false,record);
             listener.setSelected(record,selected);
+            /*
             if (selected)
                 list_item.setBackgroundColor(SELECTED_COLOR);
             else
                 list_item.setBackgroundColor(Color.BLACK);
+                */
+            listener.getListItemAdapter().notifyDataSetChanged();
             return true;
         }
 

@@ -545,21 +545,97 @@ public class aLibrary extends Fragment implements
 
 
     //--------------------------------------------------------------
-    // onClick()
+    // Selection (listItemListener interface)
     //--------------------------------------------------------------
-    // includes ListItemListener interface
 
-
-    @Override public void setSelected(Record record, boolean selected)
+    private recordList getAllRecords(Record record)
+        // if the record is a folder
+        // and it matches the tos folder
+        // return a ref to the tos.fetcher records
+        // otherwise, return null
     {
-        this.selected.setSelected(record,selected);
+        if (record instanceof Folder)
+        {
+            viewStackElement tos = view_stack.get(view_stack.size() - 1);
+            if (record == tos.getFolder())
+            {
+                Fetcher fetcher = tos.getFetcher();
+                while (fetcher.getState() == Fetcher.fetcherState.FETCHER_RUNNING)
+                {
+                    Utils.log(0,0,"waiting for fetcher");
+                    Utils.sleep(400);
+                }
+                return fetcher.getRecordsRef();
+            }
+        }
+        return null;
     }
 
-    @Override public boolean getSelected(Record record)
+
+
+
+
+    @Override public void setSelected(Record record, boolean sel)
+        // The selection is always working on the TOS,
+        // so we can interpret a click on the tos folder
+        // as meaning to select/deselect all the tracks.
     {
+        recordList tracks = getAllRecords(record);
+        if (tracks != null)
+        {
+            for (Record track:tracks)
+                selected.setSelected(track,sel);
+
+            viewStackElement tos = view_stack.get(view_stack.size() - 1);
+            tos.getAdapter().notifyDataSetChanged();
+        }
+
+        // otherwise, it's a child folder or track
+        // in the context of a parent folder
+
+        else
+        {
+            selected.setSelected(record,sel);
+        }
+    }
+
+
+    @Override public ListItemAdapter getListItemAdapter()
+    {
+        viewStackElement tos = view_stack.get(view_stack.size() - 1);
+        return tos == null ? null : tos.getAdapter();
+    }
+
+
+    @Override public boolean getSelected(boolean for_display, Record record)
+        // if talking about a folder header,
+        // it is "selected" !for_display if all the children are selected
+    {
+        recordList tracks = getAllRecords(record);
+        if (tracks != null)
+        {
+            if (for_display)
+                return false;
+
+            boolean b = true;
+            for (Record track : tracks)
+            {
+                if (!selected.getSelected(track))
+                {
+                    b = false;
+                    break;
+                }
+            }
+            return b;
+        }
+
         return this.selected.getSelected(record);
     }
 
+
+    //--------------------------------------------------------------
+    // onClick()
+    //--------------------------------------------------------------
 
     @Override public void onClick(View v)
         // Navigate to Folder, or Play Track
@@ -576,10 +652,18 @@ public class aLibrary extends Fragment implements
                 ListItem list_item = (ListItem) v;
 
                 // one or the other ...
+                // check for click on album header (folder==tos.getFolder)
+                // and ignore it it
 
                 Folder folder = list_item.getFolder();
                 if (folder != null)
-                    pushViewStack(folder.getId());
+                {
+                    viewStackElement tos = view_stack.get(view_stack.size() - 1);
+                    if (tos != null && tos.getFolder() != folder)
+                    {
+                        pushViewStack(folder.getId());
+                    }
+                }
 
                 Track track = list_item.getTrack();
                 if (track != null)
