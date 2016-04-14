@@ -12,7 +12,7 @@ import java.util.HashMap;
 import prh.artisan.Artisan;
 
 
-public class imageLoader extends Thread
+public class ImageLoader extends Thread
     // Currently
     //    All images are cached in memory.
     //    REMOTE IMAGES ARE WRITTEN THRU TO A DISK BASED CACHE.
@@ -100,7 +100,7 @@ public class imageLoader extends Thread
         else if (url.startsWith("http://"))
         {
             last_image_url.put(image,url);
-            imageLoader loader = new imageLoader(ma,image,url);
+            ImageLoader loader = new ImageLoader(ma,image,url);
             Thread image_thread = new Thread(loader);
             image_thread.start();
         }
@@ -126,7 +126,7 @@ public class imageLoader extends Thread
 
     // PRIVATE THREAD UI
 
-    private imageLoader(Artisan ma,ImageView item,String url)
+    private ImageLoader(Artisan ma,ImageView item,String url)
     {
         artisan = ma;
         image_view = item;
@@ -189,4 +189,4 @@ public class imageLoader extends Thread
     }
 
 
-}   // imageLoader
+}   // ImageLoader
