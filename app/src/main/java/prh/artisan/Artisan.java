@@ -742,14 +742,14 @@ public class Artisan extends Activity implements
 
     public void showArtisanProgressIndicator(final boolean show_it)
     {
-        runOnUiThread(new Runnable() { public void run() {
-            num_progress += show_it ? 1 : -1;
-            if (num_progress == 0 || num_progress == 1)
-            {
-                ProgressBar progress = (ProgressBar) findViewById(R.id.artisan_progress);
-                progress.setVisibility(show_it ? View.VISIBLE : View.INVISIBLE);
-            }
-        }});
+        num_progress += show_it ? 1 : -1;
+        if (num_progress == 0 || num_progress == 1)
+        {
+            runOnUiThread(new Runnable() { public void run() {
+                    ProgressBar progress = (ProgressBar) findViewById(R.id.artisan_progress);
+                    progress.setVisibility(show_it ? View.VISIBLE : View.INVISIBLE);
+            }});
+        }
     }
 
 

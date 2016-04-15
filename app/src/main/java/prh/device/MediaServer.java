@@ -388,8 +388,8 @@ public class MediaServer extends Device
 
             // start pre-fetching the image
 
-            if (!art_uri.isEmpty())
-                ImageLoader.loadImage(artisan,null,art_uri);
+            //if (!art_uri.isEmpty())
+            //    ImageLoader.loadImage(artisan,null,art_uri);
 
             // next record
 

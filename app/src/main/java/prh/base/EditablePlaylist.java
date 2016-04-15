@@ -37,4 +37,10 @@ public interface EditablePlaylist extends
 
     public Track incGetTrack(int inc);
 
+    // called by aLibrary when inserting records
+
+    boolean suspendingEvents();
+    void suspendEvents(boolean b);
+
+
 }

@@ -66,7 +66,7 @@ public class Fetcher implements Runnable
     // likewise the ListItemAdapter) OWN lists of records, and users
     // of those objects MAY NOT CHANGE the record lists returned by them.
 {
-    private static int dbg_fetcher = 0;
+    private static int dbg_fetcher = 1;
     private static int SLEEP_FETCH_INTERNAL_MILLIS = 0;
 
     //-------------------------------------

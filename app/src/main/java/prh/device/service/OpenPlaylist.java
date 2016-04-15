@@ -89,6 +89,10 @@ public class OpenPlaylist extends Service implements
         return tracks_by_position.size();
     }
 
+    boolean suspend_events = false;
+    @Override public boolean suspendingEvents() { return suspend_events; }
+    @Override public void suspendEvents(boolean b) {suspend_events = b; }
+
     //----------------------------------
     // Sevice ctors
     //----------------------------------

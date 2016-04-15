@@ -240,6 +240,16 @@ public class PlaylistWrapper implements
     }
 
 
+    private boolean suspend_events = false;
+    @Override public boolean suspendingEvents() { return suspend_events; }
+    @Override public void suspendEvents(boolean b)
+    {
+        suspend_events = b;
+        if (!b)
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_PLAYLIST_CONTENT_CHANGED,this);
+    }
+
+
     @Override public Track insertTrack(int position, Track track)
     // ONE-BASED POSITION SIGNATURE
     // This IS the lowest level insertTrack method
@@ -286,7 +296,8 @@ public class PlaylistWrapper implements
         // if (open_playlist != null)
         //     open_playlist.exposeTrack(track,true);
 
-        artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_PLAYLIST_CONTENT_CHANGED,this);
+        if (!suspend_events)
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_PLAYLIST_CONTENT_CHANGED,this);
         return track;
     }
 
@@ -316,7 +327,8 @@ public class PlaylistWrapper implements
         if (old_track_index != track_index)
             saveIndex(track_index);
 
-        artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_PLAYLIST_CONTENT_CHANGED,this);
+        if (!suspend_events)
+            artisan.handleArtisanEvent(ArtisanEventHandler.EVENT_PLAYLIST_CONTENT_CHANGED,this);
         return true;
     }
 

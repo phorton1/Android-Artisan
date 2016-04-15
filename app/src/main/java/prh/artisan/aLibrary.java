@@ -35,11 +35,13 @@ import android.widget.AdapterView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 
 import prh.base.ArtisanEventHandler;
 import prh.base.ArtisanPage;
+import prh.base.EditablePlaylist;
 import prh.base.Library;
 import prh.types.intList;
 import prh.types.recordList;
@@ -70,7 +72,7 @@ public class aLibrary extends Fragment implements
     private Library library = null;
     private boolean is_current = false;
     private ViewStack view_stack = null;
-    Selection selected = new Selection();
+    Selection selected = null;
 
     Folder root_folder;
 
@@ -92,6 +94,7 @@ public class aLibrary extends Fragment implements
         // called immediately after construction
     {
         artisan = ma;
+        selected = new Selection(artisan);
     }
 
 
@@ -748,6 +751,43 @@ public class aLibrary extends Fragment implements
                         tos.getAdapter().setItems(fetcher.getRecords());
                 }
             }
+            case R.string.context_menu_add:
+                if (selected.size() > 0)
+                {
+                    Toast.makeText(artisan,"Adding " + selected.size() + " " + selected.getType(),Toast.LENGTH_SHORT).show();
+                    Thread thread = new Thread(new Runnable() {
+                        public void run()
+                        {
+                            artisan.showArtisanProgressIndicator(true);
+                            artisan.showArtisanProgressIndicator(true);
+                            artisan.showArtisanProgressIndicator(true);
+                            recordList tracks = selected.getSelectedTracks();
+                            if (tracks.size() > 0)
+                            {
+                                Utils.log(0,0,"Adding " + tracks.size() + " tracks");
+                                EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
+                                int position = current_playlist.getNumTracks();
+                                current_playlist.suspendEvents(true);
+                                for (Record rec : tracks)
+                                {
+                                    current_playlist.insertTrack(1 + position++,(Track) rec);
+                                }
+                                current_playlist.suspendEvents(false);
+                            }
+                            selected.clear();
+                            artisan.showArtisanProgressIndicator(false);
+                            artisan.showArtisanProgressIndicator(false);
+                            artisan.showArtisanProgressIndicator(false);
+
+                            artisan.runOnUiThread( new Runnable() {
+                                 public void run()
+                                 {
+                                     view_stack.get(view_stack.size() - 1).getAdapter().notifyDataSetChanged();
+                                 }});
+                            }});
+                    thread.start();
+                }
+
         }
         return true;
     }

@@ -86,7 +86,7 @@ public class FolderTreeItem extends LinearLayout implements
                         null,
                         NUM_INITIAL_FETCH,
                         NUM_PER_FETCH,
-                        "viewStack(" + folder.getTitle() + ")");
+                        "FolderTreeItem(" + folder.getTitle() + ")");
             }
 
             fetcher.start();

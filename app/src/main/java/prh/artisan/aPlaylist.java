@@ -35,7 +35,7 @@ public class aPlaylist extends Fragment implements
     View.OnClickListener,
     Fetcher.FetcherClient
 {
-    private static int dbg_aplay = 0;
+    private static int dbg_aplay = 1;
     private static int FETCH_INITIAL = 20;
     private static int NUM_PER_FETCH = 60;
 
@@ -104,7 +104,7 @@ public class aPlaylist extends Fragment implements
         if (selected == null)
         {
             Utils.log(dbg_aplay,1,"aPlaylist.onCreateView() COLD_INIT");
-            selected = new Selection();
+            selected = new Selection(artisan);
             cold_init = true;
         }
 
