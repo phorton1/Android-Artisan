@@ -34,7 +34,6 @@ package prh.artisan;
 //      Android Media Scan & Self Sufficiency
 
 
-
 import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentManager;
@@ -79,15 +78,6 @@ import prh.utils.Utils;
 import prh.utils.loopingRunnable;
 
 
-
-/*
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentActivity;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentPagerAdapter;
-import android.support.v4.view.ViewPager;
-*/
-
 public class Artisan extends Activity implements
     View.OnClickListener,
     ArtisanEventHandler
@@ -98,8 +88,8 @@ public class Artisan extends Activity implements
     public final static int PAGE_PREFS = 0;
     public final static int PAGE_SYSTEM_MANAGER = 1;
     public final static int PAGE_PLAYLIST_MANAGER = 2;
-    public final static int PAGE_PLAYING = 4;
-    public final static int PAGE_PLAYLIST = 3;
+    public final static int PAGE_PLAYING = 3;
+    public final static int PAGE_PLAYLIST = 4;
     public final static int PAGE_LIBRARY = 5;
     public final static int PAGE_EXPLORER = 6;
 
@@ -178,7 +168,7 @@ public class Artisan extends Activity implements
     // Private Variables
 
     private int num_progress = 0;
-
+    private int pref_return_to_page = -1;
     private ViewPager view_pager = null;
     private pageChangeListener page_change_listener = null;
     // public ViewPager getViewPager() { return view_pager; };
@@ -579,8 +569,6 @@ public class Artisan extends Activity implements
     public void setCurrentPage(int index)
     {
         view_pager.setCurrentItem(index);
-        //if (current_page == -1)
-         //   onPageSelected(index);
     }
 
 
@@ -642,8 +630,18 @@ public class Artisan extends Activity implements
         }
 
         // select the new page
+        // if they swiped out of preferences ...
+        // go back to the old page ...
 
         current_page = index;
+        if (current_page != PAGE_PREFS && pref_return_to_page != -1)
+        {
+            current_page = pref_return_to_page;
+            pref_return_to_page = -1;
+            setCurrentPage(current_page);
+            return;
+        }
+
         ArtisanPage page = (ArtisanPage) adapter.getItem(current_page);
         page.onSetPageCurrent(true);
     }
@@ -1024,7 +1022,6 @@ public class Artisan extends Activity implements
     //----------------------------------------------------
     // Handles MainMenu and MainToolBars
 
-    int pref_return_to_page = -1;
     public void showPrefsPageModal()
     {
         if (current_page != PAGE_PREFS)

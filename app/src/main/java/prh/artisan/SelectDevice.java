@@ -20,7 +20,7 @@ import prh.device.Device;
 import prh.device.DeviceManager;
 import prh.base.ArtisanEventHandler;
 import prh.utils.Utils;
-import prh.utils.imageLoader;
+import prh.utils.ImageLoader;
 
 
 public class SelectDevice extends RelativeLayout implements
@@ -169,7 +169,7 @@ public class SelectDevice extends RelativeLayout implements
         {
             ImageView image_view = (ImageView) list_item.findViewById(
                 R.id.select_device_item_icon);
-            imageLoader.loadImage(artisan,image_view,icon_url);
+            ImageLoader.loadImage(artisan,image_view,icon_url);
         }
 
         list_item.setOnTouchListener(this);

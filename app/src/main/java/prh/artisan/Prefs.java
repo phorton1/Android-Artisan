@@ -147,12 +147,13 @@ public class Prefs
             value = prefs.getString(id.toString(),value);
         return value;
     }
-    public static int getInt(id id)
+    public static int getInteger(id id)
+        // integers stored as strings
     {
-        int value = Utils.parseInt(defaultValue(id));
+        String value = defaultValue(id);
         if (prefs != null)
-            value = prefs.getInt(id.toString(),value);
-        return value;
+            value = prefs.getString(id.toString(),value);
+        return Utils.parseInt(value);
     }
     public static boolean getBoolean(id id)
     {
@@ -176,7 +177,7 @@ public class Prefs
         if (prefs != null)
         {
             SharedPreferences.Editor ed = prefs.edit();
-            ed.putInt(id.toString(),value);
+            ed.putString(id.toString(),Integer.toString(value));
             ed.commit();
         }
     }

@@ -1,37 +1,27 @@
 package prh.artisan;
 
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.app.Dialog;
-import android.app.DialogFragment;
 import android.app.Fragment;
 import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.view.LayoutInflater;
-import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.EditText;
+import android.widget.AdapterView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.PopupMenu;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import prh.base.ArtisanEventHandler;
 import prh.base.ArtisanPage;
 import prh.base.EditablePlaylist;
-import prh.base.Playlist;
-import prh.base.PlaylistSource;
 import prh.base.Renderer;
 import prh.types.intList;
 import prh.types.recordList;
-import prh.types.selectedHash;
-import prh.types.stringList;
+import prh.types.recordSelector;
+import prh.base.Selection;
 import prh.utils.Utils;
+import prh.utils.playlistFileDialog;
 
 
 // implements Playlist UI
@@ -39,7 +29,10 @@ import prh.utils.Utils;
 public class aPlaylist extends Fragment implements
     ArtisanPage,
     ArtisanEventHandler,
-    ListItem.ListItemListener,
+    recordSelector,
+    ListView.OnItemClickListener,
+    ListView.OnItemLongClickListener,
+    View.OnClickListener,
     Fetcher.FetcherClient
 {
     private static int dbg_aplay = 0;
@@ -52,10 +45,11 @@ public class aPlaylist extends Fragment implements
     private ListView the_list = null;
     private PlaylistFetcher playlist_fetcher = null;
     private EditablePlaylist the_playlist = null;
+    public EditablePlaylist getThePlaylist() { return the_playlist; }
 
     private boolean album_mode = false;
     private boolean is_current = false;
-    private selectedHash selected;
+    private Selection selected;
     private int playlist_count_id = -1;
     private int playlist_content_count_id = -1;
 
@@ -74,6 +68,18 @@ public class aPlaylist extends Fragment implements
     // called immediately after construction
     {
         artisan = ma;
+    }
+
+
+
+    public void setAlbumMode(boolean album_mode)
+    {
+        if (this.album_mode != album_mode)
+        {
+            saveScroll(true);
+            this.album_mode = album_mode;
+            init(false);
+        }
     }
 
 
@@ -98,7 +104,7 @@ public class aPlaylist extends Fragment implements
         if (selected == null)
         {
             Utils.log(dbg_aplay,1,"aPlaylist.onCreateView() COLD_INIT");
-            selected = new selectedHash();
+            selected = new Selection();
             cold_init = true;
         }
 
@@ -144,6 +150,7 @@ public class aPlaylist extends Fragment implements
         // playlist_fetcher = null;
         super.onDestroy();
     }
+
 
 
     private void init(boolean cold_init)
@@ -284,7 +291,7 @@ public class aPlaylist extends Fragment implements
             // to show until I did this invalidate, even
             // though setItems does notifyDataSetChanged()
 
-            adapter.notifyDataSetInvalidated();
+            // adapter.notifyDataSetInvalidated();
 
             // and no matter what, I had a hard time
             // getting ny scroll thumb to show reliably
@@ -302,43 +309,199 @@ public class aPlaylist extends Fragment implements
         // finished ...
 
         updateTitleBar();
+        the_list.setOnItemClickListener(this);
+        the_list.setOnItemLongClickListener(this);
         Utils.log(dbg_aplay,0,"aPlaylist.init(" + cold_init + ") finished");
 
     }   // init()
 
 
     //------------------------------------------------
-    // Scrolling and Selection
+    // Selection
     //------------------------------------------------
 
-    @Override public ListItemAdapter getListItemAdapter()
+
+    private recordList getAllRecords(Record record)
+        // if the record is a folder
+        // then return the tracks below it
+        // otherwise, return null
     {
-        return (ListItemAdapter) the_list.getAdapter();
-    }
-
-
-
-    @Override public void setSelected(Record record, boolean selected)
-    {
-        this.selected.setSelected(record,selected);
-    }
-
-    @Override public boolean getSelected(boolean for_displa, Record record)
-    {
-        return selected.getSelected(record);
-    }
-
-
-    public void setAlbumMode(boolean album_mode)
-    {
-        if (this.album_mode != album_mode)
+        if (record instanceof Folder)
         {
-            saveScroll(true);
-            this.album_mode = album_mode;
-            init(false);
+            while (playlist_fetcher.getState() == Fetcher.fetcherState.FETCHER_RUNNING)
+            {
+                Utils.log(0,0,"waiting for fetcher");
+                Utils.sleep(400);
+            }
+
+            boolean done = false;
+            recordList tracks = new recordList();
+            recordList fetcher_list = playlist_fetcher.getRecordsRef();
+            int start_index = fetcher_list.indexOf(record) + 1;
+            while (start_index<fetcher_list.size() && !done)
+            {
+                Record rec = fetcher_list.get(start_index++);
+                if (rec instanceof Track)
+                    tracks.add(rec);
+                else
+                    done = true;
+            }
+            return tracks;
         }
+        return null;
     }
 
+
+
+    @Override public void setSelected(Record record, boolean sel)
+        // if they have selected an Album (folder)
+        // use the subsequent tracks
+    {
+        recordList tracks = getAllRecords(record);
+
+        if (tracks != null)
+        {
+            for (Record track:tracks)
+                selected.setSelected(track,((Track)track).getPosition(),sel);
+        }
+
+        // otherwise, it's a track
+
+        else
+        {
+            selected.setSelected(record,((Track)record).getPosition(),sel);
+        }
+
+        ((ListItemAdapter) the_list.getAdapter()).notifyDataSetChanged();
+        updateTitleBar();
+    }
+
+
+
+    @Override public boolean getSelected(boolean for_display, Record record)
+        // if talking about a folder header,
+        // it is "selected" !for_display if all the children are selected
+    {
+        recordList tracks = getAllRecords(record);
+        if (tracks != null)
+        {
+            if (for_display)
+                return false;
+
+            boolean b = true;
+            for (Record track : tracks)
+            {
+                if (!selected.getSelected(track))
+                {
+                    b = false;
+                    break;
+                }
+            }
+            return b;
+        }
+
+        return this.selected.getSelected(record);
+    }
+
+
+
+    @Override public void onItemClick(AdapterView<?> parent, View v, int position, long id)
+        // Single Clicks are always selection actions
+        // or deselect the item
+    {
+        ListItem list_item = (ListItem) v;
+        Record rec = list_item.getRecord();
+        boolean sel = getSelected(false,rec);
+        setSelected(rec,!sel);
+    }
+
+
+    @Override public boolean onItemLongClick(AdapterView<?> parent, View v, int position, long id)
+        // Regardless of selection, Long means to advance the
+        // playlist or show the folder metadata.
+    {
+        ListItem list_item = (ListItem) v;
+        Folder folder = list_item.getFolder();
+        Renderer renderer = artisan.getRenderer();
+
+        if (folder == null &&
+            renderer != null)
+        {
+            Track track = list_item.getTrack();
+            the_playlist.seekByIndex(track.getPosition());
+            renderer.incAndPlay(0);
+        }
+        else if (folder != null)
+        {
+            MetaDialog.showFolder(artisan,folder);
+        }
+        return true;
+    }
+
+
+    @Override public void onClick(View v)
+        // called on the "Selected" title to
+        // clear the selection
+    {
+        selected.clear();
+        updateTitleBar();
+        ((ListItemAdapter)the_list.getAdapter()).notifyDataSetChanged();
+
+    }
+
+
+
+    //--------------------------------------------------------------
+    // onMenuItemClick()
+    //--------------------------------------------------------------
+
+    @Override public boolean onMenuItemClick(MenuItem item)
+    {
+        int id = item.getItemId();
+
+        switch (id)
+        {
+            case R.string.context_menu_new:
+            {
+                if (!the_playlist.isDirty())
+                {
+                    do_setPlaylist("");
+                }
+                else
+                {
+                    playlistFileDialog dlg = new playlistFileDialog();
+                    dlg.setup(this,artisan,"new",null);
+                }
+                break;
+            }
+            case R.string.context_menu_saveas:
+            {
+                playlistFileDialog dlg = new playlistFileDialog();
+                dlg.setup(this,artisan,"save_as",null);
+                break;
+            }
+            case R.string.context_menu_save:
+            {
+                playlistFileDialog dlg = new playlistFileDialog();
+                dlg.setup(this,artisan,"save",null);
+                break;
+            }
+            case R.string.context_menu_delete:
+            {
+                playlistFileDialog dlg = new playlistFileDialog();
+                dlg.setup(this,artisan,"delete",null);
+                break;
+            }
+        }
+        return true;
+    }
+
+
+
+
+    //------------------------------------------------
+    // Scrolling
+    //------------------------------------------------
 
     public void saveScroll(boolean by_track)
         // by_track saves the current track for reloading
@@ -440,11 +603,14 @@ public class aPlaylist extends Fragment implements
         }
     }
 
-    private void updateTitleBar()
+
+    public void updateTitleBar()
     {
         if (is_current && page_title != null)
         {
             page_title.setText(getTitleBarText());
+            page_title.setOnClickListener(selected.size()>0?this:null);
+
             MainMenuToolbar toolbar = artisan.getToolbar();
             toolbar.initButtons();
             toolbar.showButton(album_mode ?
@@ -510,268 +676,37 @@ public class aPlaylist extends Fragment implements
 
     private String getTitleBarText()
     {
-        String msg = "Playlist: ";
-        String name = the_playlist.getName();
-        if (!name.isEmpty())
-            msg += name;
-        if (the_playlist.isDirty())
-            msg += "*";
-        if (the_playlist.getNumTracks() > 0)
+        String msg = "";
+        if (selected.size() > 0)
         {
-            msg += "(";
-            if (playlist_fetcher != null && playlist_fetcher.getNumRecords() < the_playlist.getNumTracks())
-                msg += playlist_fetcher.getNumRecords() + "/";
-            msg += the_playlist.getNumTracks();
-            msg += ")";
+            msg = "" + selected.size() + " " + selected.getType() + " selected";
+        }
+        else
+        {
+            msg = "Playlist: ";
+            String name = the_playlist.getName();
+            if (!name.isEmpty())
+                msg += name;
+            if (the_playlist.isDirty())
+                msg += "*";
+            if (the_playlist.getNumTracks() > 0)
+            {
+                msg += "(";
+                if (playlist_fetcher != null && playlist_fetcher.getNumRecords() < the_playlist.getNumTracks())
+                    msg += playlist_fetcher.getNumRecords() + "/";
+                msg += the_playlist.getNumTracks();
+                msg += ")";
+            }
         }
         return msg;
     }
 
 
-    //--------------------------------------
-    // playlistFileDialog
-    //--------------------------------------
-
-    private static enum dlgState
-    {
-        save,
-        saveas,
-        confirm_new,
-        confirm_delete,
-        confirm_overwrite,
-        confirm_save,
-        do_save,
-        set_playlist
-    };
 
 
-    private class playlistFileDialog extends DialogFragment
-        implements
-            TextWatcher,
-            View.OnClickListener,
-            PopupMenu.OnMenuItemClickListener
-    {
-        private Artisan artisan;
-        private aPlaylist parent;
-        private String name_for_inflate;
-        private dlgState state = dlgState.save;
-        private View my_view;
-        private TextView prompt;
-        private RelativeLayout combo;
-        private EditText value;
-        private Button ok_button;
-        String command;
-
-
-        public void setup(aPlaylist a_playlist, Artisan ma, String what, String param)
-        {
-            artisan = ma;
-            command = what;
-            parent = a_playlist;
-            name_for_inflate = a_playlist.the_playlist.getName();
-
-            if (what.equals("set_playlist") && param.isEmpty())
-                what = "new";
-
-            if (what.equals("save") || what.equals("save_as"))
-            {
-                if (what.equals("save_as") ||
-                    name_for_inflate.isEmpty())
-                    state = dlgState.saveas;
-            }
-            else if (what.equals("delete"))
-            {
-                if (name_for_inflate.isEmpty())
-                    return;     // bad call
-                state = dlgState.confirm_delete;
-            }
-            else if (what.equals("new"))
-            {
-                state = dlgState.confirm_new;
-            }
-
-            // otherwise what is a playlist name for set_playlist
-
-            else if (what.equals("set_playlist"))
-            {
-                Playlist exists = artisan.getPlaylistSource().getPlaylist(param);
-                if (exists == null)
-                {
-                    Utils.error("Could not find playlist: " + param);
-                    return;
-                }
-                if (!the_playlist.isDirty())
-                {
-                    parent.do_setPlaylist(param);
-                    return;
-                }
-                name_for_inflate = param;
-                state = dlgState.set_playlist;
-            }
-            show(artisan.getFragmentManager(),what);
-
-        }
-
-        @Override
-        public Dialog onCreateDialog(Bundle savedInstanceState)
-        {
-            LayoutInflater inflater = artisan.getLayoutInflater();
-            AlertDialog.Builder builder = new AlertDialog.Builder(artisan);
-            my_view = inflater.inflate(R.layout.save_as_layout,null);
-
-            my_view.findViewById(R.id.saveas_dialog_cancel).setOnClickListener(this);
-            my_view.findViewById(R.id.saveas_dialog_dropdown_button).setOnClickListener(this);
-
-            ok_button = (Button) my_view.findViewById(R.id.saveas_dialog_ok);
-            ok_button.setOnClickListener(this);
-
-            prompt = (TextView) my_view.findViewById(R.id.saveas_dialog_prompt);
-
-            combo = (RelativeLayout) my_view.findViewById(R.id.saveas_dialog_combo);
-            value = (EditText) my_view.findViewById(R.id.saveas_dialog_value);
-            value.setText(name_for_inflate);
-            value.addTextChangedListener(this);
-
-            builder.setView(my_view);
-            populate();
-            return builder.create();
-        }
-
-        private void populate()
-        {
-            boolean enable_ok = true;
-            combo.setVisibility(View.GONE);
-            String new_name = value.getText().toString();
-
-            if (state == dlgState.set_playlist ||
-                state == dlgState.confirm_new)
-            {
-                prompt.setText("Discard changed playlist '" + new_name + "' ?");
-            }
-            else if (state == dlgState.confirm_delete)
-            {
-                prompt.setText("Delete playlist '" + new_name + "' ?");
-            }
-            else if (state == dlgState.confirm_overwrite)
-            {
-                prompt.setText("Overwrite existing playlist '" + new_name + "' ?");
-            }
-            else if (state == dlgState.saveas)
-            {
-                prompt.setText("Save As");
-                combo.setVisibility(View.VISIBLE);
-                enable_ok = !value.getText().toString().isEmpty();
-            }
-            else  // state MUST be save
-            {
-                prompt.setText("Save playlist '" + new_name + "' ?");
-            }
-            ok_button.setEnabled(enable_ok);
-        }
-
-
-        // TextWatcher
-
-        @Override public void afterTextChanged(Editable s)
-        {
-            String name = s.toString();
-            ok_button.setEnabled(!name.isEmpty());
-        }
-        @Override public void beforeTextChanged(CharSequence s, int start, int count, int after)
-        {}
-        @Override public void onTextChanged(CharSequence s, int start, int before, int count)
-        {}
-
-
-        // View.OnClickListener
-
-        @Override public void onClick(View v)
-        {
-            PlaylistSource source = artisan.getPlaylistSource();
-            if (v.getId() == R.id.saveas_dialog_dropdown_button)
-            {
-                PopupMenu drop_down = new PopupMenu(artisan,v);
-                drop_down.setOnMenuItemClickListener(this);
-                stringList pl_names = source.getPlaylistNames();
-                Menu menu = drop_down.getMenu();
-                for (int i=0; i<pl_names.size(); i++)
-                {
-                    String name = pl_names.get(i);
-                    menu.add(0,i,0,name);
-                }
-                drop_down.show();
-            }
-            else if (v.getId() == R.id.saveas_dialog_ok)
-            {
-                String new_name = value.getText().toString();
-                if (state == dlgState.saveas && !new_name.isEmpty())
-                {
-                    if (source.getPlaylist(new_name) != null)
-                        state = dlgState.confirm_overwrite;
-                    else
-                        state = dlgState.do_save;
-                }
-                else if (state == dlgState.save ||
-                         state == dlgState.confirm_overwrite)
-                {
-                    state = dlgState.do_save;
-                }
-                if (state == dlgState.do_save)
-                {
-                    String name = value.getText().toString();
-                    if (artisan.getLocalPlaylistSource().saveAs(
-                        artisan.getCurrentPlaylist(),name))
-                        artisan.getCurrentPlaylist().setName(name);
-                    parent.updateTitleBar();
-                    this.dismiss();
-                }
-                else if (state == dlgState.confirm_new)
-                {
-                    parent.do_setPlaylist("");
-                    this.dismiss();
-                }
-                else if (state == dlgState.confirm_delete)
-                {
-                    //artisan.getCurrentPlaylist().setAssociatedPlaylist(null);
-                    source.deletePlaylist(new_name);
-                    parent.do_setPlaylist("");
-                    this.dismiss();
-                }
-                else if (state == dlgState.set_playlist)
-                {
-                    parent.do_setPlaylist(new_name);
-                    this.dismiss();
-                }
-                else
-                {
-                    populate();
-                }
-            }
-            else
-                this.dismiss();
-        }
-
-
-        // PopupMenu.OnMenuItemClickListener
-
-        @Override public boolean onMenuItemClick(MenuItem item)
-            // clicked on a button in the dropdown for saveas playlist name
-            // set the edit_text to the playlist name
-        {
-            int id = item.getItemId();
-            stringList names = artisan.getPlaylistSource().getPlaylistNames();
-            value.setText(names.get(id));
-            return true;
-        }
-
-
-    }   // class saveAsDialog
-
-
-
-    //-------------------------------
-    // DOERS
-    //-------------------------------
+    //---------------------------------------------
+    // DOERS (called by playlistFileDialog)
+    //---------------------------------------------
 
     public void setPlaylist(String name, boolean force)
     {
@@ -788,77 +723,6 @@ public class aPlaylist extends Fragment implements
         artisan.setPlaylist(name);
     }
 
-
-    //--------------------------------------------------------------
-    // onClick()
-    //--------------------------------------------------------------
-
-    @Override public boolean onMenuItemClick(MenuItem item)
-    {
-        int id = item.getItemId();
-
-        switch (id)
-        {
-            case R.string.context_menu_new:
-            {
-                if (!the_playlist.isDirty())
-                {
-                    do_setPlaylist("");
-                }
-                else
-                {
-                    playlistFileDialog dlg = new playlistFileDialog();
-                    dlg.setup(this,artisan,"new",null);
-                }
-                break;
-            }
-            case R.string.context_menu_saveas:
-            {
-                playlistFileDialog dlg = new playlistFileDialog();
-                dlg.setup(this,artisan,"save_as",null);
-                break;
-            }
-            case R.string.context_menu_save:
-            {
-                playlistFileDialog dlg = new playlistFileDialog();
-                dlg.setup(this,artisan,"save",null);
-                break;
-            }
-            case R.string.context_menu_delete:
-            {
-                playlistFileDialog dlg = new playlistFileDialog();
-                dlg.setup(this,artisan,"delete",null);
-                break;
-            }
-        }
-        return true;
-    }
-
-
-    @Override public void onClick(View v)
-        // Popup Metadata for Folder, or Play Track
-        // Contezt menu handled by item itself.
-        // This called by ListItem.onClick()
-    {
-        int id = v.getId();
-        switch (id)
-        {
-            case R.id.list_item_layout:
-                ListItem list_item = (ListItem) v;
-                Track track = list_item.getTrack();
-                if (track != null)
-                    artisan.handleArtisanEvent(COMMAND_EVENT_PLAY_TRACK,track);
-                break;
-        }
-    }
-
-
-    @Override public boolean onLongClick(View v)
-        // Currently does nothing in this class
-        // This called by ListItem.onLongClick()
-    {
-        return false;
-    }
 
 
     //------------------------------------------

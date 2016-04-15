@@ -21,51 +21,33 @@ package prh.artisan;
 // Usage: inflate, setFolder or Track, maybe setLargeView(),
 // and then call doLayout() before handing off to adapter.
 //
-// This class intercepts onLongClicks to handle the basics of
-// selected item highlighting, and calling back to the the
-// listener's onSetSelected() method, before also calling the
-// listener's onLongClick method.
-//
-// Otherwise, all onClicks
-// Caller (aLibrary or aPlaylist) must handle context menu
-// onClick ids R.id.list_item_right, and R.id.list_item_right_text
+// This class intercepts onClick on the metaData button.
+// onLongClick Selection is handled by the ListItemAdapter,
+// and aPlaylist and aLibrary handle onItemClick.
 
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import prh.base.EditablePlaylist;
+import prh.types.recordSelector;
 import prh.utils.Utils;
-import prh.utils.imageLoader;
+import prh.utils.ImageLoader;
 
 
 public class ListItem extends RelativeLayout implements
-    View.OnClickListener,
-    View.OnLongClickListener
+    View.OnClickListener
 {
-    // types
-
-    public interface ListItemListener extends
-        View.OnClickListener,
-        View.OnLongClickListener
-    {
-        public ListItemAdapter getListItemAdapter();
-        public void setSelected(Record record, boolean selected);
-        public boolean getSelected(boolean for_display, Record record);
-            // albums may be totally selected for onLongClick,
-            // but not for onDisplay
-    }
-
     // member variables
 
     Artisan artisan;
-    ListItemListener listener;
     private Track track = null;
     private Folder folder = null;
     private boolean is_album = false;
@@ -101,10 +83,6 @@ public class ListItem extends RelativeLayout implements
         large = true;
     }
 
-    private boolean isLargeView()
-    {
-        return large;
-    }
 
     public boolean setTrack(Track the_track)
     {
@@ -130,27 +108,17 @@ public class ListItem extends RelativeLayout implements
     //------------------------------------------
     // construction, onFinishInflate()
     //------------------------------------------
-    // Constructor called by inflate()
 
     public ListItem(Context context,AttributeSet attrs)
-        // called when inflated from the layout
     {
         super(context,attrs);
-
-        // the alternate attempt to style the scroll thumb
-        // that did not work:
-        //    super(new ContextThemeWrapper(context,
-        //       R.style.ListItemScrollBarStyle), attrs);
-
         artisan = (Artisan) context;
     }
 
 
     @Override public void onFinishInflate()
-        // called when the inflate is finished
     {
     }
-
 
 
     //---------------------------------------------
@@ -158,17 +126,12 @@ public class ListItem extends RelativeLayout implements
     //---------------------------------------------
 
     private static int SELECTED_COLOR = 0xFF332200;
+    private static int ALBUM_HEADER_COLOR = 0xFF002222;
 
 
-    public void doLayout(ListItemListener listener)
+    public void doLayout(recordSelector selector)
         // cannot assume that the layout is fresh from the xml
     {
-        // set the main item click listener
-        Utils.log(0,0,"doLayout(" + listener + ")" +  (track==null?"Folder("+folder.getTitle()+")":"Track(" + track.getTitle() + ")") );
-        this.listener = listener;
-        setOnClickListener(this);
-        setOnLongClickListener(this);
-
         // get sub views
 
         ImageView image = (ImageView) findViewById(R.id.list_item_icon);
@@ -184,8 +147,8 @@ public class ListItem extends RelativeLayout implements
         // set background color
 
         int color =
-            listener.getSelected(true,getRecord()) ? SELECTED_COLOR :
-            large && !is_track ? 0xFF002222 : 0;
+            selector.getSelected(true,getRecord()) ? SELECTED_COLOR :
+            large && !is_track ? ALBUM_HEADER_COLOR : 0;
         setBackgroundColor(color);
 
         // IMAGE
@@ -219,13 +182,13 @@ public class ListItem extends RelativeLayout implements
         if (image_size == 0)
             image.setImageBitmap(null);
         else if (!art_uri.isEmpty())
-            imageLoader.loadImage(artisan,image,art_uri);
+            ImageLoader.loadImage(artisan,image,art_uri);
         else if (is_track)
-            imageLoader.loadImage(artisan,image,R.drawable.icon_track);
+            ImageLoader.loadImage(artisan,image,R.drawable.icon_track);
         else if (is_album)
-            imageLoader.loadImage(artisan,image,R.drawable.icon_album);
+            ImageLoader.loadImage(artisan,image,R.drawable.icon_album);
         else
-            imageLoader.loadImage(artisan,image,R.drawable.icon_folder);
+            ImageLoader.loadImage(artisan,image,R.drawable.icon_folder);
 
 
         // TITLE (First Line)
@@ -358,6 +321,7 @@ public class ListItem extends RelativeLayout implements
             line2.setTextSize(TypedValue.COMPLEX_UNIT_DIP,12);
             item_right_text.setTextSize(TypedValue.COMPLEX_UNIT_DIP,12);
         }
+
     }   // listItem.doLayout()
 
 
@@ -406,39 +370,6 @@ public class ListItem extends RelativeLayout implements
                 }
                 break;
         }
-
-        // pass it off to the underlying Page
-
-        listener.onClick(v);
     }
-
-
-
-    @Override public boolean onLongClick(View v)
-        // Handles multiple selection
-        //
-        // Knows that clicking on a Large Folder view (album header)
-        // means that we are selecting the children tracks.
-    {
-        if (v.getId() == R.id.list_item_layout)
-        {
-            ListItem list_item = (ListItem) v;
-            Record record = list_item.getRecord();
-            boolean selected = !listener.getSelected(false,record);
-            listener.setSelected(record,selected);
-            /*
-            if (selected)
-                list_item.setBackgroundColor(SELECTED_COLOR);
-            else
-                list_item.setBackgroundColor(Color.BLACK);
-                */
-            listener.getListItemAdapter().notifyDataSetChanged();
-            return true;
-        }
-
-        return listener.onLongClick(v);
-    }
-
-
 
 }   // class ListItem

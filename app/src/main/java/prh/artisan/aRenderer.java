@@ -28,7 +28,7 @@ import prh.base.Renderer;
 import prh.types.intList;
 import prh.types.stringList;
 import prh.utils.Utils;
-import prh.utils.imageLoader;
+import prh.utils.ImageLoader;
 
 
 public class aRenderer extends Fragment implements
@@ -607,7 +607,7 @@ public class aRenderer extends Fragment implements
                 }
                 else
                 {
-                    imageLoader.loadImage(artisan,img,art_uri);
+                    ImageLoader.loadImage(artisan,img,art_uri);
                 }
             }
             catch(Exception e)

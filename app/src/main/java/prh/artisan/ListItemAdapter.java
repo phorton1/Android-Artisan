@@ -1,17 +1,22 @@
 package prh.artisan;
 
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AbsListView;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
 import java.lang.reflect.Field;
 
+import prh.types.recordSelector;
 import prh.utils.Utils;
 import prh.types.recordList;
+
 
 
 public class ListItemAdapter extends ArrayAdapter<Record>
@@ -32,22 +37,19 @@ public class ListItemAdapter extends ArrayAdapter<Record>
     private recordList records = new recordList();
     private boolean large_folders = false;
     private boolean large_tracks = false;
-    private ListItem.ListItemListener listener;
-
-    boolean fast_scroll_setup = false;
-        // boolean fast_scroll_enabled = false;
-        // boolean fast_scroll_visible = false;
+    private boolean fast_scroll_setup = false;
+    private recordSelector record_selector;
 
     public Folder getFolder() { return folder; }
-
     public void setLargeFolders(boolean lf) { large_folders = lf; }
     public void setLargeTracks(boolean lt)  { large_tracks = lt; }
+
 
     // ctor
 
     public ListItemAdapter(
         Artisan artisan,
-        ListItem.ListItemListener listener,
+        recordSelector selector,
         ListView list_view,
         Folder folder,
         recordList records,
@@ -56,7 +58,7 @@ public class ListItemAdapter extends ArrayAdapter<Record>
     {
         super(artisan,-1,records);
         this.artisan = artisan;
-        this.listener = listener;
+        this.record_selector = selector;
         this.list_view = list_view;
         this.folder = folder;
 
@@ -67,7 +69,6 @@ public class ListItemAdapter extends ArrayAdapter<Record>
         this.large_tracks = large_tracks;
 
         setScrollBar(false);
-
     }
 
 
@@ -98,7 +99,7 @@ public class ListItemAdapter extends ArrayAdapter<Record>
                 list_item.setLargeView();
         }
 
-        list_item.doLayout(listener);
+        list_item.doLayout(record_selector);
         return list_item;
     }
 
@@ -125,45 +126,9 @@ public class ListItemAdapter extends ArrayAdapter<Record>
         notifyDataSetChanged();
         num_items = records.size();
         setScrollBar(false);
-        // handlePendingScroll();
     }
 
 
-    //----------------------------------------------
-    // Pending Scroll Support
-    //----------------------------------------------
-    /***
-
-     int pending_scroll_index = -1;
-     int pending_scroll_offset;
-
-     private void handlePendingScroll
-        // called at end of setItems()
-     {
-        if (pending_scroll_index >= 0 && records.size() > pending_scroll_index)
-        {
-            Utils.log(0,0,"SET_DEFERRED_POSITION(" + pending_scroll_index + "," + pending_scroll_offset + ")");
-            list_view.setSelectionFromTop(pending_scroll_index,pending_scroll_offset);
-            pending_scroll_index = -1;
-        }
-     }
-
-     public void setScrollPosition(int index, int offset)
-        // Called by client
-     {
-         if (records.size() > index)
-         {
-             Utils.log(0,0,"SET_SCROLL_POSITION(" + index + "," + offset + ")");
-             list_view.setSelectionFromTop(index,offset);
-         }
-         else
-         {
-             Utils.log(0,0,"SET_SCROLL_POSITION_DEFERRED(" + index + "," + offset + ")");
-             pending_scroll_index = index;
-             pending_scroll_offset = offset;
-         }
-     }
-     ***/
 
     //----------------------------------
     // SCROLL BARS
@@ -207,11 +172,10 @@ public class ListItemAdapter extends ArrayAdapter<Record>
     private void setFastScrollThumb()
         // Set the fast scroll bar thumbe to my drawable.
         // Tried to set fade duration, but could not get it working.
-    {
         // this was the only way I could figure out how to set
         // the scrollbar thumb image or style it in any way.
         // it is not only klunky, but uses a deprecated api
-
+    {
         try
         {
             Field fs_field = AbsListView.class.getDeclaredField("mFastScroller");
@@ -222,37 +186,11 @@ public class ListItemAdapter extends ArrayAdapter<Record>
             thumb_field.setAccessible(true);
             Drawable drawable = artisan.getResources().getDrawable(R.drawable.my_scroll_thumb);
             thumb_field.set(fast_scroller,drawable);
-
-            // following attempt to set fade duration did not work
-            // although it appears to traverse the private member
-            // object hierarchy, and actually set the desired field value
-            /*
-            Field fader_field = fs_field.getType().getDeclaredField("mScrollFade");
-            fader_field.setAccessible(true);
-            Object fade_object = fader_field.get(fast_scroller);
-
-            Field fader_duration = fader_field.getType().getDeclaredField("mFadeDuration");
-            fader_duration.setAccessible(true);
-            Object fade_duration = fader_duration.get(fade_object);
-
-            fader_duration.set(fade_object,new Integer(200000));
-            Utils.log(dbg_la,0,"fade duration = " + fader_duration.get(fade_object));
-            */
-
         }
         catch (Exception e)
         {
             Utils.error("Could not set scroll thumb style" + e.toString());
         }
-
-        // these do not seem to work or do anything for me
-
-        // list_view.setScrollBarSize(400);
-        // list_view.setScrollBarFadeDuration(100000);
-        // list_view.setScrollBarDefaultDelayBeforeFade(2000000);
-        // list_view.setFastScrollStyle(R.style.ListItemScrollBarStyle);
-        // list_view.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
-
     }   // setFastScrollThumb()
 
 

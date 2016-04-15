@@ -16,7 +16,7 @@ import prh.base.Library;
 import prh.artisan.Track;
 import prh.artisan.Fetcher;
 import prh.types.objectHash;
-import prh.utils.imageLoader;
+import prh.utils.ImageLoader;
 import prh.utils.Utils;
 import prh.types.stringHash;
 
@@ -389,7 +389,7 @@ public class MediaServer extends Device
             // start pre-fetching the image
 
             if (!art_uri.isEmpty())
-                imageLoader.loadImage(artisan,null,art_uri);
+                ImageLoader.loadImage(artisan,null,art_uri);
 
             // next record
 

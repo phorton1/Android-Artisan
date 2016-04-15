@@ -31,27 +31,28 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.util.ArrayList;
 
 import prh.base.ArtisanEventHandler;
 import prh.base.ArtisanPage;
-import prh.base.EditablePlaylist;
 import prh.base.Library;
 import prh.types.intList;
 import prh.types.recordList;
-import prh.types.selectedHash;
+import prh.types.recordSelector;
+import prh.base.Selection;
 import prh.utils.Utils;
 
 
 public class aLibrary extends Fragment implements
     ArtisanPage,
     ArtisanEventHandler,
-    ListItem.ListItemListener
+    recordSelector,
+    View.OnClickListener
 {
     private static int dbg_alib = 0;
 
@@ -69,7 +70,7 @@ public class aLibrary extends Fragment implements
     private Library library = null;
     private boolean is_current = false;
     private ViewStack view_stack = null;
-    selectedHash selected = new selectedHash();
+    Selection selected = new Selection();
 
     Folder root_folder;
 
@@ -82,7 +83,6 @@ public class aLibrary extends Fragment implements
 
     private TextView page_title = null;
     private LinearLayout my_view = null;
-
 
     //----------------------------------------------
     // life cycle
@@ -197,7 +197,12 @@ public class aLibrary extends Fragment implements
     // viewStackElement
     //--------------------
 
-    private class viewStackElement implements Fetcher.FetcherClient
+    private class viewStackElement implements
+        Fetcher.FetcherClient,
+        ListView.OnItemClickListener,
+        ListView.OnItemLongClickListener,
+        View.OnClickListener,
+        View.OnLongClickListener
     {
         private View view = null;
         private int scroll_index = 0;
@@ -332,7 +337,12 @@ public class aLibrary extends Fragment implements
                 header_view.doLayout(aLibrary.this);
                 ((LinearLayout)view).addView(header_view);
                 ((LinearLayout)view).addView(list_view);
+                header_view.setOnClickListener(this);
+                header_view.setOnLongClickListener(this);
             }
+
+            list_view.setOnItemClickListener(this);
+            list_view.setOnItemLongClickListener(this);
         }
 
 
@@ -359,6 +369,66 @@ public class aLibrary extends Fragment implements
         }
 
 
+        //--------------------------------------------------------------
+        // onClick()
+        //--------------------------------------------------------------
+
+        @Override public void onClick(View v)
+            // A click on the Header of an Album selects
+            // or deselects all the children
+        {
+            ListItem list_item = (ListItem) v;
+            Record record = list_item.getRecord();
+            boolean selected = !aLibrary.this.getSelected(false,record);
+            aLibrary.this.setSelected(record,selected);
+        }
+
+
+        @Override public boolean onLongClick(View v)
+            // A long click on the header of an album shows the metadata
+        {
+            MetaDialog.showFolder(artisan,folder);
+            return true;
+        }
+
+
+        @Override public boolean onItemLongClick(AdapterView<?> parent, View v, int position, long id)
+            // A long click on a track plays it immediately,
+            // otherwise, it's a selection
+        {
+            ListItem list_item = (ListItem) v;
+            Track track = list_item.getTrack();
+            if (track != null)
+                artisan.handleArtisanEvent(COMMAND_EVENT_PLAY_TRACK,track);
+            else
+                onClick(v);
+            return true;
+        }
+
+
+
+        @Override public void onItemClick(AdapterView<?> parent, View v, int position, long id)
+            // Clicking on an item selects it if its a track
+            // or if theres already a selection in progress.
+            // Otherwise it's a pushViewStack of the folder
+        {
+            ListItem list_item = (ListItem) v;
+            Folder child_folder = list_item.getFolder();
+            Track track = list_item.getTrack();
+            Record rec = track==null ? child_folder : track;
+
+            if (track != null || selected.size() > 0)
+            {
+                boolean sel = getSelected(false,rec);
+                setSelected(rec,!sel);
+            }
+            else
+            {
+                if (child_folder != null)
+                    pushViewStack(child_folder.getId());
+            }
+        }
+
     }   // class viewStackElement
 
 
@@ -366,6 +436,16 @@ public class aLibrary extends Fragment implements
     //--------------------------------------------
     // utilities
     //--------------------------------------------
+
+    @Override public void onClick(View v)
+    // called on the "Selected" title to
+    // clear the selection
+    {
+        selected.clear();
+        updateTitleBar();
+        view_stack.get(view_stack.size()-1).getAdapter().notifyDataSetChanged();
+    }
+
 
     @Override public void onSetPageCurrent(boolean current)
     {
@@ -384,6 +464,7 @@ public class aLibrary extends Fragment implements
         if (is_current && page_title != null)
         {
             page_title.setText(getTitleBarText());
+            page_title.setOnClickListener(selected.size() > 0 ? this : null);
 
             MainMenuToolbar toolbar = artisan.getToolbar();
             toolbar.showButtons(new int[]{
@@ -426,19 +507,27 @@ public class aLibrary extends Fragment implements
 
     private String getTitleBarText()
     {
-        String msg = library == null ?
-            "Library" :
-            library.getLibraryName();
-
-        if (view_stack != null && view_stack.size() > 1)
+        String msg = "";
+        if (selected.size() > 0)
         {
-            for (int i=1; i<view_stack.size(); i++)
+            msg = "" + selected.size() + " " + selected.getType() + " selected";
+        }
+        else
+        {
+            msg = library == null ?
+                "Library" :
+                library.getLibraryName();
+
+            if (view_stack != null && view_stack.size() > 1)
             {
-                Folder folder = view_stack.get(i).getFolder();
-                if (!folder.getType().equals("album"))
+                for (int i = 1; i < view_stack.size(); i++)
                 {
-                    msg += "/";
-                    msg += folder.getTitle();
+                    Folder folder = view_stack.get(i).getFolder();
+                    if (!folder.getType().equals("album"))
+                    {
+                        msg += "/";
+                        msg += folder.getTitle();
+                    }
                 }
             }
         }
@@ -573,21 +662,27 @@ public class aLibrary extends Fragment implements
 
 
 
-
-
     @Override public void setSelected(Record record, boolean sel)
-        // The selection is always working on the TOS,
-        // so we can interpret a click on the tos folder
-        // as meaning to select/deselect all the tracks.
     {
         recordList tracks = getAllRecords(record);
+            // The selection is always working on the TOS,
+            // so we can interpret a click on the tos folder
+            // as meaning to select/deselect all the tracks.
+
+        viewStackElement tos = view_stack.get(view_stack.size() - 1);
+        Fetcher fetcher = tos.getFetcher();
+        recordList records = fetcher.getRecordsRef();
+            // Nonetheless we have to get the array of records
+            // so we can determine the position for sorting
+            // the selected records
+
         if (tracks != null)
         {
             for (Record track:tracks)
-                selected.setSelected(track,sel);
-
-            viewStackElement tos = view_stack.get(view_stack.size() - 1);
-            tos.getAdapter().notifyDataSetChanged();
+            {
+                int position = records.indexOf(track);
+                selected.setSelected(track,position,sel);
+            }
         }
 
         // otherwise, it's a child folder or track
@@ -595,16 +690,14 @@ public class aLibrary extends Fragment implements
 
         else
         {
-            selected.setSelected(record,sel);
+            int position = records.indexOf(record);
+            selected.setSelected(record,position,sel);
         }
+
+        tos.getAdapter().notifyDataSetChanged();
+        updateTitleBar();
     }
 
-
-    @Override public ListItemAdapter getListItemAdapter()
-    {
-        viewStackElement tos = view_stack.get(view_stack.size() - 1);
-        return tos == null ? null : tos.getAdapter();
-    }
 
 
     @Override public boolean getSelected(boolean for_display, Record record)
@@ -633,94 +726,7 @@ public class aLibrary extends Fragment implements
     }
 
 
-    //--------------------------------------------------------------
-    // onClick()
-    //--------------------------------------------------------------
 
-    @Override public void onClick(View v)
-        // Navigate to Folder, or Play Track
-        // Contezt menu handled by item itself.
-        // This called by ListItem.onClick()
-    {
-        int id = v.getId();
-        Utils.log(dbg_alib,0,"aLibrary.onClick( " + id + ")");
-
-        switch (id)
-        {
-            case R.id.list_item_layout:
-            {
-                ListItem list_item = (ListItem) v;
-
-                // one or the other ...
-                // check for click on album header (folder==tos.getFolder)
-                // and ignore it it
-
-                Folder folder = list_item.getFolder();
-                if (folder != null)
-                {
-                    viewStackElement tos = view_stack.get(view_stack.size() - 1);
-                    if (tos != null && tos.getFolder() != folder)
-                    {
-                        pushViewStack(folder.getId());
-                    }
-                }
-
-                Track track = list_item.getTrack();
-                if (track != null)
-                    artisan.handleArtisanEvent(COMMAND_EVENT_PLAY_TRACK,track);
-
-                break;
-            }
-            /*
-            case R.id.list_item_right:
-            case R.id.list_item_right_text:
-            {
-                String msg = "ListItem ContextMenu ";
-                View item = (View) v.getParent();
-                if (id == R.id.list_item_right_text)
-                    item = (View) item.getParent();
-                ListItem list_item = (ListItem) item;
-
-                // if there is no current selection, the current item
-                //    is implicitly selected for the command.
-                // if the item is outside of a current selection, the
-                //    context button goes directly to "Info", the only
-                //    thing allowed for a non-selected item
-                // if the item is inside of the current selection, the
-                //    context menu is basically the same as the system
-                //    context menu (i.e. it acts on the group of selected
-                //    items), with an additional "Info" command that pertains
-                //    only to the current item.
-
-                // For testing purposes, if the item is a track, and is
-                // selected, it will get add
-                if (list_item.getFolder() != null)
-                {
-                    msg += "Folder:" + list_item.getFolder().getTitle();
-                    Toast.makeText(artisan,msg,Toast.LENGTH_LONG).show();
-                }
-                else
-                {
-                    Track track = list_item.getTrack();
-                    EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
-                    Utils.log(0,0,"Inserting Track(" + track.getTitle() + " into playlist");
-                    current_playlist.insertTrack(current_playlist.getNumTracks() + 1,track);
-                }
-                break;
-            }
-        */
-        }
-    }
-
-
-
-    @Override public boolean onLongClick(View v)
-        // Currently does nothing in this class
-        // This called by ListItem.onLongClick()
-    {
-        Utils.log(dbg_alib,0,"aLibrary.onLongClick( " + v.getId() + ")");
-        return false;
-    }
 
 
     @Override public boolean onMenuItemClick(MenuItem item)

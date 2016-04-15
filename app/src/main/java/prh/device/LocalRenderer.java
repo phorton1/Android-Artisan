@@ -459,7 +459,7 @@ public class LocalRenderer extends Device implements
 
         if (immediate_from_remote)
         {
-            int seconds = Prefs.getInt(Prefs.id.RESUME_PLAYLIST_AFTER_REMOTE_TRACK_SECONDS);
+            int seconds = Prefs.getInteger(Prefs.id.RESUME_PLAYLIST_AFTER_REMOTE_TRACK_SECONDS);
             if (seconds > 0)
             {
                 Utils.log(dbg_ren,0,"onCompletion() starting delayed playlist advancer");
