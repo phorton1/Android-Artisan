@@ -279,15 +279,17 @@ public class Prefs
 
         if (id.equals(id.DEVICE_NAME))
         {
-            String device_name = Build.DEVICE;
-            if (device_name.equals("vbox86tp") ||
-                device_name.equals("vbox86p"))
-                device_name = "emulator";
-            if (device_name.equals("polaris-p1")) device_name = "tablet1";
-            if (device_name.equals("rk30sdk")) device_name = "car stereo";
-            if (device_name.equals("android_4x_wet_kk")) device_name = "phone";
+            String device_name = Build.ID;
+            if (device_name.equals("JDQ39")) device_name = "car stereo";
+            else if (device_name.equals("JDQ39E"))  device_name = "genymotion";
+            else if (device_name.equals("KOT49H")) device_name = "vbox-x86";
+            else if (device_name.equals("KVT49L")) device_name = "tablet1";
+            else if (device_name.equals("KOT49H")) device_name = "phone";
+            else device_name = Build.PRODUCT;
             return device_name;
         }
+
+        // should be an MP3s and DATA dir for other devices
 
         if (id.equals(id.MP3S_DIR))
         {
@@ -295,11 +297,12 @@ public class Prefs
             String device_name = getString(id.DEVICE_NAME);
             if (device_name.equals("car stereo")) mp3s_dir = "/mnt/usb_storage2/mp3s";
                 // car stereo uses an actual mount point.
-            if (device_name.equals("emulator")) mp3s_dir = "/mnt/shared/mp3s";
-                // on emulator, /mnt/shared/mp3s is set to
+            if (device_name.equals("genymotion")) mp3s_dir = "/mnt/shared/mp3s";
+                // On genymotion emulator, /mnt/shared/mp3s is set to
                 // c:\mp3_backups\mp3s_for_gennymotion in the
-                // virutalBox "Shared Folders" configuration.
-                // It is a copy of the actual Windows /mp3s directory.
+                // virutalBox "Shared Folders" configuration, which
+                // is a copy of the actual Windows /mp3s directory.
+
             return mp3s_dir;
         }
 

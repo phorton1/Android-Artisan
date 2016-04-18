@@ -157,7 +157,7 @@ public class aLibrary extends Fragment implements
     @Override
     public void onAttach(Activity activity)
     {
-        Utils.log(dbg_alib,0,"aLibrary.onAttach() called");
+        Utils.log(dbg_alib+1,0,"aLibrary.onAttach() called");
         super.onAttach(activity);
     }
 
@@ -165,7 +165,7 @@ public class aLibrary extends Fragment implements
     @Override
     public void onDetach()
     {
-        Utils.log(dbg_alib,0,"aLibrary.onDetach() called");
+        Utils.log(dbg_alib+1,0,"aLibrary.onDetach() called");
         super.onDetach();
     }
 
@@ -567,7 +567,7 @@ public class aLibrary extends Fragment implements
 
     private void pushViewStack(String id)
     {
-        Utils.log(dbg_alib,0,"aLibrary.pushViewStack(" + id + ") called");
+        Utils.log(dbg_alib+1,0,"aLibrary.pushViewStack(" + id + ") called");
 
         selected.clear();
         int stack_size = view_stack.size();
@@ -598,7 +598,7 @@ public class aLibrary extends Fragment implements
             Utils.error("No folder found in pushViewStack(" + id + ")");
         }
 
-        Utils.log(dbg_alib,0,"aLibrary.pushViewStack(" + id + ") finished");
+        Utils.log(dbg_alib+1,0,"aLibrary.pushViewStack(" + id + ") finished");
 
     }   // pushViewStack()
 

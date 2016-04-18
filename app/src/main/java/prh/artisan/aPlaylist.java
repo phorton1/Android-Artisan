@@ -117,7 +117,7 @@ public class aPlaylist extends Fragment implements
     @Override
     public void onPause()
     {
-        Utils.log(dbg_aplay,0,"aPlaylist.onPause() called");
+        Utils.log(dbg_aplay+1,0,"aPlaylist.onPause() called");
         saveScroll(false);
         super.onPause();
     }
@@ -126,7 +126,7 @@ public class aPlaylist extends Fragment implements
     @Override
     public void onAttach(Activity activity)
     {
-        Utils.log(dbg_aplay,0,"aPlaylist.onAttach() called");
+        Utils.log(dbg_aplay+1,0,"aPlaylist.onAttach() called");
         super.onAttach(activity);
         // artisan = (Artisan) activity;
     }
@@ -135,7 +135,7 @@ public class aPlaylist extends Fragment implements
     @Override
     public void onDetach()
     {
-        Utils.log(dbg_aplay,0,"aPlaylist.onDetach() called");
+        Utils.log(dbg_aplay+1,0,"aPlaylist.onDetach() called");
         super.onDetach();
         // artisan = null;
     }
@@ -531,15 +531,15 @@ public class aPlaylist extends Fragment implements
             }
         }
         scroll_offset = (list_item == null) ? 0 : (list_item.getTop());
-        Utils.log(0,0,"saveScroll(" + scroll_index + "," + scroll_offset + ") track=" + (scroll_track == null ? null : scroll_track.getTitle()));
+        Utils.log(dbg_aplay,0,"saveScroll(" + scroll_index + "," + scroll_offset + ") track=" + (scroll_track == null ? null : scroll_track.getTitle()));
         // - the_list.getPaddingTop());
     }
 
 
     public void restoreScroll(boolean content_changed)
     {
-        Utils.log(0,0,"restoreScroll(" + scroll_index + "," + scroll_offset + ") track=" + (scroll_track==null ? null : scroll_track.getTitle()));
-        Utils.log(0,3,"adapter count=" + the_list.getAdapter().getCount());
+        Utils.log(dbg_aplay,0,"restoreScroll(" + scroll_index + "," + scroll_offset + ") track=" + (scroll_track==null ? null : scroll_track.getTitle()));
+        Utils.log(dbg_aplay,3,"adapter count=" + the_list.getAdapter().getCount());
 
         if (playlist_fetcher != null && scroll_track != null)
         {
@@ -573,7 +573,7 @@ public class aPlaylist extends Fragment implements
                 scroll_index = new_index;
         }
 
-        Utils.log(0,1,"about to set the scroll_index(" + scroll_index + ") adapter has " + the_list.getAdapter().getCount() + " records");
+        Utils.log(dbg_aplay,1,"about to set the scroll_index(" + scroll_index + ") adapter has " + the_list.getAdapter().getCount() + " records");
         the_list.setSelectionFromTop(scroll_index,scroll_offset);
 
         // more attempts to get scrolling and thumb reliable

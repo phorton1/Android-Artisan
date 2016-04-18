@@ -82,7 +82,7 @@ public class Artisan extends Activity implements
     View.OnClickListener,
     ArtisanEventHandler
 {
-    private static int dbg_main = 0;
+    private static int dbg_main = 1;
 
     private static int NUM_PAGER_ACTIVITIES = 7;
     public final static int PAGE_PREFS = 0;
@@ -439,6 +439,8 @@ public class Artisan extends Activity implements
         }
 
         // Test MediaInfo
+        // MediaInfo.showCodecs();
+
         /*
             String test_filename = "file://" + Prefs.mp3s_dir() + "/albums/Blues/New/Blues By Nature - Blue To The Bone/01 - Cadillac Blues.mp3";
             MediaInfo info = new MediaInfo(this);
@@ -446,7 +448,6 @@ public class Artisan extends Activity implements
             info.testStreamSum(test_filename);
         */
 
-        MediaInfo.showCodecs();
 
         Utils.log(dbg_main-1,0,"------ Artisan.onCreate() finished ------");
         artisan_created = true;
@@ -1284,7 +1285,7 @@ public class Artisan extends Activity implements
             @Override
             public void run()
             {
-                int use_dbg = dbg_main;
+                int use_dbg = dbg_main-1;
                 if (// event_id.equals(DISPATCH_UPNP) ||
                     event_id.equals(EVENT_POSITION_CHANGED))
                     use_dbg++;

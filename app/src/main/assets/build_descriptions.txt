@@ -1,4 +1,25 @@
-BUILD emulator
+BUILD new_genymotion_emulator
+   BOARD 	          = unknown
+   BOOTLOADER 	      = unknown
+   BRAND 	          = generic
+   CPU_ABI 	          = x86
+   CPU_ABI2 	      = unknown
+   DEVICE 	          = vbox86p
+   DISPLAY 	          = vbox86p-userdebug 4.2.2 JDQ39E eng.buildbot.20151117.140513 test-keys
+   FINGERPRINT 	      = generic/vbox86tp/vbox86tp:4.2.2/JDQ39E/eng.buildbot.20140523.233244:userdebug/test-keys
+   HARDWARE 	      = vbox86
+   HOST               = buildbot.soft.genymobile.com
+   ID 	              = JDQ39E
+   MANUFACTURER 	  = Genymotion
+   MODEL 	          = Car Stereo based on Custom Phone - 4.2.2 - API 17 - 768x1280
+   PRODUCT 	          = vbox86p
+   RADIO 	          = unknown
+   SERIAL 	          = unknown
+   TAGS 	          = test-keys
+   TIME               = 1447765663000
+   TYPE 	          = userdebug
+   USER               = buildbot
+BUILD old_genymotion_emulator
    BOARD 	          = unknown
    BOOTLOADER 	      = unknown
    BRAND 	          = generic
@@ -84,3 +105,24 @@ BUILD phone
    TYPE 	          = user
    USER               = linux-server-build8
 
+BUILD Open Android-x86 iso image in VirtualBox
+   BOARD 	          = unknown
+   BOOTLOADER 	      = unknown
+   BRAND 	          = Android-x86
+   CPU_ABI 	          = x86
+   CPU_ABI2 	      = armeabi-v7a
+   DEVICE 	          = x86
+   DISPLAY 	          = android_x86-userdebug 4.4.4 KTU84Q eng.cwhuang.20160206.120252 test-keys
+   FINGERPRINT 	      = Android-x86/android_x86/x86:4.4.4/KTU84Q/eng.cwhuang.20160206.120252:userdebug/test-keys
+   HARDWARE 	      = android_x86
+   HOST               = fw.cwhuang.info
+   ID 	              = KTU84Q
+   MANUFACTURER 	  = innotek GmbH
+   MODEL 	          = VirtualBox
+   PRODUCT 	          = android_x86
+   RADIO 	          = unknown
+   SERIAL 	          = unknown
+   TAGS 	          = test-keys
+   TIME               = 1454731576000
+   TYPE 	          = userdebug
+   USER               = cwhuang

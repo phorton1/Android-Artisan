@@ -19,7 +19,7 @@ import prh.utils.Utils;
 
 public class aExplorer extends Fragment implements ArtisanPage
 {
-    private static int dbg_exp = 0;
+    private static int dbg_exp = 1;
     private Artisan artisan = null;
     private TextView page_title = null;
 
@@ -43,7 +43,7 @@ public class aExplorer extends Fragment implements ArtisanPage
         LinearLayout the_list = (LinearLayout) my_view.findViewById(R.id.explorer_list);
 
         Library library = artisan.getLibrary();
-        if (library != null)
+        if (false && library != null)
         {
             Folder root_folder = library.getRootFolder();
             FolderTreeItem root_item = (FolderTreeItem) inflater.inflate(R.layout.folder_tree_item,null);
@@ -57,7 +57,7 @@ public class aExplorer extends Fragment implements ArtisanPage
     @Override
     public void onAttach(Activity activity)
     {
-        Utils.log(dbg_exp,0,"aExplorer.onAttach() called");
+        Utils.log(dbg_exp+1,0,"aExplorer.onAttach() called");
         super.onAttach(activity);
     }
 
@@ -65,7 +65,7 @@ public class aExplorer extends Fragment implements ArtisanPage
     @Override
     public void onDetach()
     {
-        Utils.log(dbg_exp,0,"aExplorer.onDetach() called");
+        Utils.log(dbg_exp+1,0,"aExplorer.onDetach() called");
         super.onDetach();
     }
 

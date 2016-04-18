@@ -400,6 +400,8 @@ public class DeviceManager
         //
         // Makes sure to not create devices for our own http server.
     {
+        Utils.log(dbg_dm+1,0,"doDeviceCheck(" + location + "," + usn +")");
+
         // basic parameter validation
 
         if (usn != null && !usn.isEmpty() &&

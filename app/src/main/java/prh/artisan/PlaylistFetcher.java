@@ -16,7 +16,7 @@ public class PlaylistFetcher extends Fetcher implements Fetcher.FetcherSource
     // get the underlying records, and this class adds them and
     // to the fetcher record list, with virtual folders as needed.
 {
-    private static int dbg_plf = 0;
+    private static int dbg_plf = 1;
 
     // member vars
 

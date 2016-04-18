@@ -27,6 +27,8 @@ import android.media.MediaPlayer;
 import android.net.Uri;
 import android.widget.Toast;
 
+import java.io.File;
+
 import prh.artisan.Artisan;
 import prh.artisan.Prefs;
 import prh.base.ArtisanEventHandler;
@@ -35,10 +37,13 @@ import prh.base.Renderer;
 import prh.artisan.Track;
 import prh.base.Volume;
 import prh.artisan.VolumeControl;
+import prh.utils.complexTranscoder;
 import prh.utils.loopingRunnable;
 import prh.server.SSDPServer;
 import prh.utils.Utils;
 import prh.utils.httpUtils;
+import prh.utils.simpleTranscoder;
+
 
 public class LocalRenderer extends Device implements
     Renderer,
@@ -47,6 +52,11 @@ public class LocalRenderer extends Device implements
     MediaPlayer.OnCompletionListener
 {
     private static int dbg_ren = 0;
+
+    private static boolean USE_COMPLEX_TRANSCODER = false;
+        // which transcoder to use:
+        // simple == transcode whole stream to file and hand it to media_player
+        // complex == start a serverSocket and server it to media_player on http://local_host
 
     private static int STOP_RETRIES = 10;
     private static int REFRESH_INTERVAL = 200;
@@ -68,7 +78,6 @@ public class LocalRenderer extends Device implements
     // Clients should never use the media_player state,
     // though a string representation of it is available
     // for debugging or other display-only purposes.
-
 
     private static int MP_STATE_ERROR = -1;
     private static int MP_STATE_NONE = 0;          // mine, before media_player is constructed
@@ -174,6 +183,9 @@ public class LocalRenderer extends Device implements
         // parent is responsible for sending out RENDERER_CHANGED event
     {
         Utils.log(dbg_ren,1,"LocalRenderer.stopRenderer()");
+
+        if (USE_COMPLEX_TRANSCODER)
+            complexTranscoder.stopTranscoder();
 
         if (restart_playlist_delayer != null)
             restart_playlist_delayer.stop(false);
@@ -328,6 +340,10 @@ public class LocalRenderer extends Device implements
     @Override public void transport_stop()
     {
         Utils.log(dbg_ren,0,"stop() mp=" + getMediaPlayerState() + " rend=" + getRendererState());
+
+        if (USE_COMPLEX_TRANSCODER)
+            complexTranscoder.stopTranscoder();
+
         media_player.reset();
         mp_state = MP_STATE_IDLE;
         setRendererState(RENDERER_STATE_STOPPED);
@@ -352,10 +368,9 @@ public class LocalRenderer extends Device implements
     {
         Utils.log(dbg_ren,0,"play() mp=" + getMediaPlayerState() + " rend=" + getRendererState());
 
-        //Track track = current_track;
-        //EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
-        //if (current_track==null && current_playlist != null)
-        //    track = current_playlist.getCurrentTrack();
+        EditablePlaylist current_playlist = artisan.getCurrentPlaylist();
+        if (current_track==null && current_playlist != null)
+            current_track = current_playlist.getCurrentTrack();
 
         if (current_track == null)
         {
@@ -379,21 +394,27 @@ public class LocalRenderer extends Device implements
                 mp_state = MP_STATE_IDLE;
                 String uri = current_track.getLocalUri();
 
-                // ANDROID EMULATOR CANT PLAY WMA FILES !!!
+                boolean transcoding = false;
+                if (Utils.needsTranscoding(current_track.getType()))
+                {
+                    transcoding = true;
+                    if (USE_COMPLEX_TRANSCODER)
+                        uri = complexTranscoder.startTranscoder(uri);
+                    else
+                        uri = simpleTranscoder.transcode(uri);
+                    if (uri.isEmpty()) return;
+                }
 
-                if (uri.startsWith("file://"))
-                {
-                    uri = uri.replace("file://","");
-                    media_player.setDataSource(uri);
-                }
-                else // play a remote datafile by url
-                {
-                    Uri android_uri = Uri.parse(uri);
-                    media_player.setDataSource(artisan,android_uri);
-                }
+                media_player.setDataSource(uri);
                 mp_state = MP_STATE_INITIALIZED;
                 media_player.prepare();
                 mp_state = MP_STATE_PREPARED;
+
+                if (transcoding)
+                {
+                    File file = new File(uri);
+                    file.delete();
+                }
             }
 
             media_player.start();
@@ -449,41 +470,48 @@ public class LocalRenderer extends Device implements
 
 
     // mediaPlayer handlers
-    // have to be public, but they're not called by me
 
     @Override
     public void onCompletion(MediaPlayer mp)
+        // if transcoding, we have to let the transcoder call complete
     {
-        Utils.log(dbg_ren,0,"onCompletion()");
-        mp_state = MP_STATE_COMPLETED;
+        Utils.log(dbg_ren,0,"onCompletion()"); // complexTranscoder.running()=" + complexTranscoder.running());
 
-        if (immediate_from_remote)
+        if (!USE_COMPLEX_TRANSCODER || !complexTranscoder.running())
         {
-            int seconds = Prefs.getInteger(Prefs.id.RESUME_PLAYLIST_AFTER_REMOTE_TRACK_SECONDS);
-            if (seconds > 0)
+            mp_state = MP_STATE_COMPLETED;
+
+            if (immediate_from_remote)
             {
-                Utils.log(dbg_ren,0,"onCompletion() starting delayed playlist advancer");
-                transport_stop();
-
-                if (restart_playlist_delayer != null)
-                    restart_playlist_delayer.stop(false);
-
-                Runnable run_it = new Runnable() { public void run()
+                int seconds = Prefs.getInteger(Prefs.id.RESUME_PLAYLIST_AFTER_REMOTE_TRACK_SECONDS);
+                if (seconds > 0)
                 {
-                    current_track = null;
-                    incAndPlay(1);
-                }};
+                    Utils.log(dbg_ren,0,"onCompletion() starting delayed playlist advancer");
+                    transport_stop();
 
-                restart_playlist_delayer = new loopingRunnable(
-                    "restart_playlist_delayer",run_it,seconds*1000);
-                restart_playlist_delayer.start();
+                    if (restart_playlist_delayer != null)
+                        restart_playlist_delayer.stop(false);
+
+                    Runnable run_it = new Runnable()
+                    {
+                        public void run()
+                        {
+                            current_track = null;
+                            incAndPlay(1);
+                        }
+                    };
+
+                    restart_playlist_delayer = new loopingRunnable(
+                        "restart_playlist_delayer",run_it,seconds * 1000);
+                    restart_playlist_delayer.start();
+                }
             }
-        }
-        else
-        {
-            song_position = 0;
-            current_track = null;
-            incAndPlay(1);
+            else
+            {
+                song_position = 0;
+                current_track = null;
+                incAndPlay(1);
+            }
         }
     }
 
@@ -493,6 +521,9 @@ public class LocalRenderer extends Device implements
     public boolean onError(MediaPlayer mp,int what,int extra)
     {
         String msg = "";
+
+        if (USE_COMPLEX_TRANSCODER)
+            complexTranscoder.stopTranscoder();
 
         switch (what)
         {

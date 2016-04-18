@@ -26,7 +26,7 @@ public class aPrefs extends PreferenceFragment implements
     ArtisanEventHandler
     // SharedPreferences.OnSharedPreferenceChangeListener
 {
-    private static int dbg_aprefs = 0;
+    private static int dbg_aprefs = 1;
 
     private Artisan artisan = null;
     private TextView page_title = null;

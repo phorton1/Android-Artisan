@@ -16,7 +16,7 @@ import prh.utils.Utils;
 
 public class aSystemManager extends Fragment implements ArtisanPage
 {
-    private static int dbg_sm = 0;
+    private static int dbg_sm = 1;
     private Artisan artisan = null;
     private TextView page_title = null;
 

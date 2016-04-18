@@ -481,12 +481,17 @@ public class MediaRenderer extends Device implements
                 Utils.error("nothing to play");
                 return;
             }
+
+            // The remote renderer decides if it can play a track, not us.
+            /*
             if (!Utils.supportedType(track.getType()))
             {
                 Utils.error("Unsupported song type(" + track.getType() + ") " + track.getTitle());
                 // transport_stop();
                 return;
             }
+            */
+
             if (!renderer_state.equals(RENDERER_STATE_PAUSED))
             {
                 stringHash args = new stringHash();

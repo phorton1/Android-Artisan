@@ -15,7 +15,7 @@ import prh.utils.Utils;
 
 public class aPlaylistManager extends Fragment implements ArtisanPage
 {
-    private static int dbg_plm = 0;
+    private static int dbg_plm = 1;
     private Artisan artisan = null;
     private TextView page_title = null;
 

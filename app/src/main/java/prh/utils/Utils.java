@@ -13,6 +13,7 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.apache.http.conn.util.InetAddressUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
@@ -27,9 +28,12 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Scanner;
@@ -135,10 +139,68 @@ public class Utils {
             else
             {
                 error("No Wifi IP address found");
+
+                // 2015-04-15 Support for OpenSource Android-x86 iso image
+                // running under VirtualBox on my machine. Does not get a
+                // wifi address, so we get the eth0 address ..
+
+                if (false)
+                {
+                    getDeviceIPAddress(true);
+                    server_ip = "192.168.0.108";
+                    server_uri = "http://" + server_ip + ":" + server_port;
+                    deviceIconUrl = server_uri + "/icons/artisan.png";
+                    deviceWebUrl = server_uri + "/webui";
+                }
             }
         }
     }
 
+
+    public static String getDeviceIPAddress(boolean useIPv4)
+    {
+        Utils.log(0,0,"getDeviceIPAddress() started");
+        try
+        {
+            List<NetworkInterface> networkInterfaces =
+                Collections.list(NetworkInterface.getNetworkInterfaces());
+
+            for (NetworkInterface networkInterface : networkInterfaces)
+            {
+                Utils.log(0,1,"NetworkInterface " + networkInterface.getName());
+
+                List<InetAddress> inetAddresses =
+                    Collections.list(networkInterface.getInetAddresses());
+                for (InetAddress inetAddress : inetAddresses)
+                {
+                    String sAddr = inetAddress.getHostAddress().toUpperCase();
+                    Utils.log(0,2,"ADDR=" + sAddr);
+                    if (!inetAddress.isLoopbackAddress())
+                    {
+                        boolean isIPv4 = InetAddressUtils.isIPv4Address(sAddr);
+                        if (useIPv4 && isIPv4)
+                        {
+                            Utils.log(0,3,"ip4=" + sAddr);
+                            //return sAddr;
+                        }
+                        else if (!useIPv4 && !isIPv4)
+                        {
+                            // get rid of ip6 port prefix
+                            int delim = sAddr.indexOf('%');
+                            sAddr = delim < 0 ? sAddr : sAddr.substring(0, delim);
+                            Utils.log(0,3,"ip6=" + sAddr);
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Utils.error("getDeviceIPAddress(): " + e);
+        }
+        Utils.log(0,0,"getDeviceIPAddress() finished");
+        return "";
+    }
 
     //-------------------------------------
     // output routines
@@ -235,6 +297,17 @@ public class Utils {
     //-------------------------------------
     // Utility Routines
     //-------------------------------------
+
+    public static boolean needsTranscoding(String type)
+        // jury rigged implementation just does transcoding
+        // on the gennymotion emulator.  Should check for
+        // and allow actual mime types from available Codecs.
+    {
+        if (type.equalsIgnoreCase("WMA") &&
+            Build.ID.equals("JDQ39E")) return true;
+        return false;
+    }
+
 
     public static boolean supportedType(String type)
     // the emulator cannot play WMA files!
