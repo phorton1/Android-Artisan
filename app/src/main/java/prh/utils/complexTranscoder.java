@@ -1,5 +1,31 @@
 package prh.utils;
 
+// Currently exploring how to add OMX StageFright? codecs
+// to the Genymotion emulator.  Best I've found a page that
+// says I have to add a line to /etc/media_codecs.xml, and
+// a /system/lib/libstagefrighthw.so that exposes a
+// createOMXPlugin entry point
+//
+// Genymotion HAS STAGEFRIGHT .. it looks like the following
+// additional files are on the Android-x86
+//
+//       libavcodec.so
+//       libavformat.so
+//       libavutil.so
+//       libswresample.so
+//       libswscale.so
+//
+//       libFFmpegExtracor.so
+//
+//       libstagefright_httplive.so
+//
+//       libstagefright_soft_ffmpegadec.so
+//       libstagefright_soft_ffmpegvdec.so
+//
+//       libstagefright_soft_gsmdec.so
+//       libstagefright_soft_vpxenc.so
+
+
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.File;

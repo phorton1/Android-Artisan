@@ -303,8 +303,8 @@ public class Utils {
         // on the gennymotion emulator.  Should check for
         // and allow actual mime types from available Codecs.
     {
-        if (type.equalsIgnoreCase("WMA") &&
-            Build.ID.equals("JDQ39E")) return true;
+        //if (type.equalsIgnoreCase("WMA") &&
+        //    Build.ID.equals("JDQ39E")) return true;
         return false;
     }
 

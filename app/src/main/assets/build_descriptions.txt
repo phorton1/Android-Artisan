@@ -1,4 +1,25 @@
-BUILD new_genymotion_emulator
+BUILD new_genymotion_emulator4.4.4
+   BOARD 	          = unknown
+   BOOTLOADER 	      = unknown
+   BRAND 	          = generic
+   CPU_ABI 	          = x86
+   CPU_ABI2 	      = unknown
+   DEVICE 	          = vbox86p
+   DISPLAY 	          = vbox86p-userdebug 4.4.4 KTU84P eng.buildbot.20151118.000452 test-keys
+   FINGERPRINT 	      = generic/vbox86p/vbox86p:4.4.4/KTU84P/eng.buildbot.20151118.000452:userdebug/test-keys
+   HARDWARE 	      = vbox86
+   HOST               = buildbot.soft.genymobile.com
+   ID 	              = KTU84P
+   MANUFACTURER 	  = Genymotion
+   MODEL 	          = Car Stereo based on Custom Phone - 4.4.4 - API 19 - 768x1280
+   PRODUCT 	          = vbox86p
+   RADIO 	          = unknown
+   SERIAL 	          = unknown
+   TAGS 	          = test-keys
+   TIME               = 1447801717000
+   TYPE 	          = userdebug
+   USER               = buildbot
+BUILD new_genymotion_emulator4.2.2
    BOARD 	          = unknown
    BOOTLOADER 	      = unknown
    BRAND 	          = generic
@@ -19,7 +40,7 @@ BUILD new_genymotion_emulator
    TIME               = 1447765663000
    TYPE 	          = userdebug
    USER               = buildbot
-BUILD old_genymotion_emulator
+BUILD old_genymotion_emulator.4.2.2
    BOARD 	          = unknown
    BOOTLOADER 	      = unknown
    BRAND 	          = generic

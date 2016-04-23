@@ -281,7 +281,8 @@ public class Prefs
         {
             String device_name = Build.ID;
             if (device_name.equals("JDQ39")) device_name = "car stereo";
-            else if (device_name.equals("JDQ39E"))  device_name = "genymotion";
+            else if (device_name.equals("JDQ39E"))  device_name = "genymotion4.2.2";
+            else if (device_name.equals("KTU84P"))  device_name = "genymotion4.4.4";
             else if (device_name.equals("KOT49H")) device_name = "vbox-x86";
             else if (device_name.equals("KVT49L")) device_name = "tablet1";
             else if (device_name.equals("KOT49H")) device_name = "phone";
@@ -297,7 +298,7 @@ public class Prefs
             String device_name = getString(id.DEVICE_NAME);
             if (device_name.equals("car stereo")) mp3s_dir = "/mnt/usb_storage2/mp3s";
                 // car stereo uses an actual mount point.
-            if (device_name.equals("genymotion")) mp3s_dir = "/mnt/shared/mp3s";
+            if (device_name.startsWith("genymotion")) mp3s_dir = "/mnt/shared/mp3s";
                 // On genymotion emulator, /mnt/shared/mp3s is set to
                 // c:\mp3_backups\mp3s_for_gennymotion in the
                 // virutalBox "Shared Folders" configuration, which
