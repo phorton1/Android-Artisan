@@ -90,6 +90,9 @@ public class MetaDialog extends AlertDialog implements
         }
         else
         {
+            MediaInfo info = new MediaInfo(artisan);
+            info.testMetaData(track.getLocalUri());
+
             addItem(the_list,inflater,"Track Title" ,track.getTitle());
             addItem(the_list,inflater,"Local"       ,track.isLocal()?"true":"false");
             addItem(the_list,inflater,"file_md5"    ,track.getFileMd5());

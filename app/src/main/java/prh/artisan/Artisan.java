@@ -45,6 +45,7 @@ import android.os.Bundle;
 
 import android.support.v13.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.View;
@@ -56,6 +57,11 @@ import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 import prh.device.Device;
 import prh.device.DeviceManager;
@@ -76,7 +82,6 @@ import prh.base.Renderer;
 import prh.types.intList;
 import prh.utils.Utils;
 import prh.utils.loopingRunnable;
-
 
 public class Artisan extends Activity implements
     View.OnClickListener,
