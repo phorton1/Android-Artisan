@@ -13,7 +13,9 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import org.apache.http.conn.util.InetAddressUtils;
+// unused:
+// import org.apache.http.conn.util.InetAddressUtils;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
@@ -124,7 +126,7 @@ public class Utils {
         {
             cache_dir = artisan.getCacheDir();
 
-            WifiManager wifiMan = (WifiManager) artisan.getSystemService(Context.WIFI_SERVICE);
+            WifiManager wifiMan = (WifiManager) artisan.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
             WifiInfo wifiInf = wifiMan.getConnectionInfo();
             int ipAddress = wifiInf.getIpAddress();
             if (ipAddress != 0)
@@ -146,7 +148,7 @@ public class Utils {
 
                 if (false)
                 {
-                    getDeviceIPAddress(true);
+                    unused_getDeviceIPAddress(true);
                     server_ip = "192.168.0.108";
                     server_uri = "http://" + server_ip + ":" + server_port;
                     deviceIconUrl = server_uri + "/icons/artisan.png";
@@ -157,7 +159,7 @@ public class Utils {
     }
 
 
-    public static String getDeviceIPAddress(boolean useIPv4)
+    public static String unused_getDeviceIPAddress(boolean useIPv4)
     {
         Utils.log(0,0,"getDeviceIPAddress() started");
         try
@@ -177,7 +179,7 @@ public class Utils {
                     Utils.log(0,2,"ADDR=" + sAddr);
                     if (!inetAddress.isLoopbackAddress())
                     {
-                        boolean isIPv4 = InetAddressUtils.isIPv4Address(sAddr);
+                        boolean isIPv4 = false; // InetAddressUtils.isIPv4Address(sAddr);
                         if (useIPv4 && isIPv4)
                         {
                             Utils.log(0,3,"ip4=" + sAddr);
