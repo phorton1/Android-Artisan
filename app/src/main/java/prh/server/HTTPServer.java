@@ -48,7 +48,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
 
     // specific debug settings for different request types
 
-    private static int dbg_requests = 1;
+    private static int dbg_requests = 0;
     private static int dbg_favicon_requests = 1;
     private static int dbg_icon_requests = 1;
     private static int dbg_service_requests = 0;
@@ -57,7 +57,7 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
     private static int dbg_event_requests = 0;
     private static int dbg_other_requests = 1;
 
-    private static int dbg_looping_control_requests = 1;
+    private static int dbg_looping_control_requests = 0;
         // show GetTransportInfo, GetPosition, and Time actions
 
     private Artisan artisan;
@@ -410,9 +410,12 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
                     String parts[] = uri.split("\\/");
                     String service = parts[0];              // SERVICE
 
+                    Utils.log(dbg_requests,1,dbg_from + " mathes / " + service + "/" + uri);
+
                     if (checkService(service))
                     {
                         uri = uri.replace(service + "/","");
+                        Utils.log(dbg_requests,2,"found service  uri="+uri);
 
                         //----------------------------------------------------------------------
                         // event_subscription_requests are handed off to the event manager
@@ -439,6 +442,8 @@ public class HTTPServer extends fi.iki.elonen.NanoHTTPD
                                 // get the action
 
                                 action = session.getHeaders().get("soapaction");
+                                Utils.log(dbg_requests,3,"action=" + action);
+
                                 if (action == null)
                                 {
                                     Utils.error("Null action in " + service + "/control request");

@@ -27,7 +27,7 @@ public class SSDPSearch implements Runnable
     // and a factory that creates derived Services
     // and notifies Artisan about them.
 {
-    private static int dbg_ssdp_search = 1;
+    private static int dbg_ssdp_search = 0;
     private static int LISTEN_PORT = 8070;
     private static int SEARCH_TIME = 4;
 

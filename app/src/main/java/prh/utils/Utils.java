@@ -493,13 +493,6 @@ public class Utils {
     }
 
 
-    public static boolean isBubbleUp(String user_agent)
-    {
-        // "user-agent" -> "Android/4.4.2 UPnP/1.0 BubbleUPnP/2.3.5"
-        return user_agent.contains("BubbleUPnP");
-    }
-
-
     //-------------------------------------
     // Duration Routines
     //-------------------------------------

@@ -172,7 +172,8 @@ public class AVTransport implements
             // implementation of BubbleUPnP kludge
 
             String user_agent = session.getHeaders().get("user-agent");
-            if (Utils.isBubbleUp(user_agent))
+            // "user-agent" -> "Android/4.4.2 UPnP/1.0 BubbleUPnP/2.3.5"
+            if (user_agent!=null && user_agent.contains("BubbleUPnP"))
             {
                 String uri = track == null ? "" : track.getPublicUri();
                 String remote_ip = session.getHeaders().get("remote-addr");

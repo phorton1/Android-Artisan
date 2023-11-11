@@ -90,7 +90,7 @@ public class DeviceManager
     // when changing selections, and or shutting down.
 {
 
-    private static int dbg_dm = 1;
+    private static int dbg_dm = 0;
     private static int dbg_cache = 1;
     private static String cache_file_name = "device_cache.txt";
     public static boolean USE_DEVICE_CACHE = true;
@@ -149,15 +149,17 @@ public class DeviceManager
 
     public void addDevice(Device d)
     {
-        Device.deviceGroup group = d.getDeviceGroup();
-        DeviceHash hash = devices_by_group.get(group);
-        if (hash == null)
+        if (d != null)
         {
-            hash = new DeviceHash();
-            devices_by_group.put(group,hash);
+            Device.deviceGroup group = d.getDeviceGroup();
+            DeviceHash hash = devices_by_group.get(group);
+            if (hash == null) {
+                hash = new DeviceHash();
+                devices_by_group.put(group, hash);
+            }
+            hash.put(d.getFriendlyName(), d);
+            devices.put(d.getDeviceUUID(), d);
         }
-        hash.put(d.getFriendlyName(),d);
-        devices.put(d.getDeviceUUID(),d);
     }
 
 
@@ -324,7 +326,7 @@ public class DeviceManager
             int RETRIES = 8;
             while (busy_count>0 && count++ < RETRIES)
             {
-                Utils.log(0,0,"waiting for ssdp search on deviceManager.stop() busy="  + busy_count);
+                Utils.log(dbg_dm,0,"waiting for ssdp search on deviceManager.stop() busy="  + busy_count);
                 Utils.sleep(1000);
             }
             busy_count = 0;
@@ -411,16 +413,22 @@ public class DeviceManager
             // parse the usn, with more basic validation
             // and see if the device already exists
 
-            String uuid = Utils.extract_re("uuid:(.*?):",usn);
-            String urn = Utils.extract_re("urn:(.*?):",usn);
-            String device_type_string = Utils.extract_re("device:(.*?):",usn);
+            String uuid = Utils.extract_re("uuid:(.*+)(:|$)",usn);
+            String urn = Utils.extract_re("urn:(.*+)(:|$)",usn);
+            String device_type_string = Utils.extract_re("device:(.*+):",usn);
+
 
             if (uuid.isEmpty())
+            {
+                Utils.warning(dbg_dm,0,"missing uuid(" + location + ") usn(" + usn + ")");
                 return;
-            if (urn.isEmpty())
+            }
+
+            if (urn.isEmpty() || device_type_string.isEmpty())
+            {
+                Utils.log(dbg_dm+1,0,"skipping(" + location + ") usn(" + usn + ") without urn:: or device:");
                 return;
-            if (device_type_string.isEmpty())
-                return;
+            }
 
             // map "Source" device to our "OpenHomeRenderer"
 
@@ -456,13 +464,13 @@ public class DeviceManager
 
                 if (device_type == null)
                 {
-                    Utils.warning(dbg_dm,0,"un-interesting device type: " + device_type_string);
+                    Utils.log(dbg_dm,1,"un-interesting device type: " + device_type_string);
                     return;
                 }
 
                 if (!urn.equals(expected_urn))
                 {
-                    Utils.warning(0,0,"mismatched urn " + urn + " for " + device_type_string);
+                    Utils.warning(dbg_dm,1,"mismatched(" + location + ") urn(" + urn + ") for " + device_type_string);
                     return;
                 }
 
@@ -470,7 +478,8 @@ public class DeviceManager
                 // Fire off the thread to check it out in more detail, which
                 // will create it if so.
 
-                Utils.log(dbg_dm,0,"firing off SSDPSearchDevice(" + device_type + ") at " + location);
+                Utils.log(dbg_dm,1,"--> getting(" + location + ")  for " + device_type);
+
                 SSDPSearchDevice device = new SSDPSearchDevice(
                     this,
                     location,
@@ -483,7 +492,7 @@ public class DeviceManager
             }
             else
             {
-                Utils.log(dbg_dm + 1,0,"Device Already Exists " + device_type_string + "::" + exists.getFriendlyName());
+                Utils.log(dbg_dm,1,"doDeviceCheck() found existing " + device_type_string + " " + exists.getFriendlyName() + " at " + location);
             }
         }
         else
@@ -515,7 +524,7 @@ public class DeviceManager
         String icon_path = ssdp_device.getIconPath();
 
         String dbg_msg = "(" + device_group + (device_type.equals(device_group)?"":"("+device_type+")") + " " + friendlyName + ") at " + device_url;
-        Utils.log(0,0,"CREATE_DEVICE" + dbg_msg);
+        Utils.log(dbg_dm,0,"CREATE_DEVICE" + dbg_msg);
 
         // See if the device already exists.
         // Should not happen, but just in case ...
@@ -591,15 +600,18 @@ public class DeviceManager
         // If the device does not exist, we call doCheckDevice() to possibly
         // create it and notify artisan via a NEW_DEVICE message.
     {
-        Utils.log(dbg_dm,1,"processing M_NOTIFY(" + action + ") from " + location + " usn=" + usn);
+
         String device_uuid = Utils.extract_re("uuid:(.*?):",usn);
         Device device = getDevice(device_uuid);
+
+        Utils.log(dbg_dm,0,"processing NOTIFY(" + action + ") from " + location + " usn=" + usn);
 
         // Send EVENT_DEVICE_STATUS_CHANGED if device exists and
         // it came online, or went offline
 
         if (device != null)
         {
+            Utils.log(dbg_dm,2,"notify from existing device(" + device.getFriendlyName() + ") at " + device.getDeviceUrl());
             Device.deviceStatus status = device.getDeviceStatus();
             Device.deviceStatus new_status =
                 action.equals("alive") ? Device.deviceStatus.ONLINE :
