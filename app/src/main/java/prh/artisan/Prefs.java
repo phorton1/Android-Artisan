@@ -131,7 +131,7 @@ public class Prefs
 
     public static String friendlyName()
     {
-        return Utils.programName + " (" + getString(id.DEVICE_NAME) + ")";
+        return Utils.programName + " " + getString(id.DEVICE_NAME);
     }
 
 
@@ -280,13 +280,13 @@ public class Prefs
         if (id.equals(id.DEVICE_NAME))
         {
             String device_name = Build.ID;
-            if (device_name.equals("JDQ39")) device_name = "car stereo";
+            if (device_name.equals("JDQ39")) device_name = "Car Stereo";
             else if (device_name.equals("JDQ39E"))  device_name = "genymotion4.2.2";
             else if (device_name.equals("KTU84P"))  device_name = "genymotion4.4.4";
             else if (device_name.equals("KOT49H")) device_name = "vbox-x86";
             else if (device_name.equals("KVT49L")) device_name = "tablet1";
             else if (device_name.equals("KOT49H")) device_name = "phone";
-            else device_name = Build.PRODUCT;
+            else device_name = "Android";    // Build.PRODUCT;
             return device_name;
         }
 

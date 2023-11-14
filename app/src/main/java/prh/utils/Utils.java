@@ -78,12 +78,12 @@ public class Utils {
     public static String deviceIconUrl      = "";       // server_uri + "/icons/artisan.png";
     public static String deviceWebUrl       = "";       // server_uri + "/webui";
     public static String programName        = "Artisan";
-    public static String modelUrl           = "http://www.phorton.com";
+    public static String modelUrl           = "https://github.com/phorton1/Android-Artisan";
     public static String modelNumber        = "123456";
     public static String modelInfo          = "an Android DLNA Server, Renderer, and Library";
     public static String serial_number      = "123456";
     public static String manufacturerName   = "Patrick Horton";
-    public static String manufacturerUrl    = modelUrl;
+    public static String manufacturerUrl    = "https://github.com/phorton1";
 
     // run-time variables
     // inited in context of a MainActivity
